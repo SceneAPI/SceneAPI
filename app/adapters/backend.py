@@ -86,6 +86,27 @@ class SfmBackend(Protocol):
 
     # ---- inspector helpers (for the export sidecars) -------------------
 
+    def read_keypoints(
+        self,
+        *,
+        database_path: Path,
+        image_id: int,
+    ) -> tuple[list[list[float]], bytes, int]:
+        """Read keypoints + descriptors for one image out of the SfM
+        database. Returns
+        ``(keypoints, descriptors_bytes, descriptor_dim)`` where:
+
+        - ``keypoints`` is a list of ``[x, y, scale, angle]`` rows.
+        - ``descriptors_bytes`` is the row-major float32 descriptor
+          matrix as raw bytes (caller base64-encodes if it needs to
+          ship it on the wire).
+        - ``descriptor_dim`` is the number of columns in the
+          descriptor matrix (128 for SIFT).
+
+        Used by the oneshot streaming path (``POST /v1/oneshot/...``)
+        to read back what ``extract_features`` just wrote to the
+        per-request tempdb."""
+
     def iter_two_view_geometries(self, *, database_path: Path) -> Iterator[tuple[int, int, Any]]:
         """Walk every image pair in the database that has a verified
         two-view geometry. Yields ``(image_id1, image_id2, geometry)``

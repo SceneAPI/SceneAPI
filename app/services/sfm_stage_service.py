@@ -248,7 +248,9 @@ async def submit_matches(
     inline: bool = False,
 ) -> tuple[str, list]:
     d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=dataset_id)
-    pairs = spec.get("pairs") if isinstance(spec.get("pairs"), dict) else spec
+    pairs = spec.get("pairs", {})
+    if not isinstance(pairs, dict):
+        raise ValidationError("spec.pairs must be a dict")
     if pairs.get("strategy") == "vocabtree" and not pairs.get("vocab_tree_path"):
         raise ValidationError("pairs.vocab_tree_path is required for pairs.strategy=vocabtree")
     r, db_path = await _resolve_database_path(session, tenant_id=tenant_id, dataset=d, spec=spec)
@@ -379,8 +381,6 @@ async def submit_merge_recons(
 
     All sources MUST belong to the same project as the target."""
     require_capability("recon.merge")
-    from app.services import reconstruction_service
-
     target = await reconstruction_service.get_reconstruction(
         session, tenant_id=tenant_id, recon_id=target_recon_id
     )

@@ -56,6 +56,9 @@ class StubBackend:
     def verify_matches(self, *, database_path: Path, options: dict) -> dict:
         raise CapabilityUnavailableError(capability="matches.verify")
 
+    def read_keypoints(self, **_: Any) -> tuple[list[list[float]], bytes, int]:
+        raise CapabilityUnavailableError(capability="features.extract")
+
     def iter_two_view_geometries(self, *, database_path: Path) -> Iterator:
         return iter([])
 

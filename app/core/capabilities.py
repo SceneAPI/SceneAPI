@@ -183,13 +183,33 @@ def empty_capabilities(backend: BackendInfo) -> Capabilities:
     return Capabilities(backend=backend, features=feats)
 
 
+_CACHED_CAPABILITIES: Capabilities | None = None
+
+
+def reset_capabilities_cache() -> None:
+    """Drop the cached :func:`detect_capabilities` result. Tests +
+    backend swaps call this so the next ``detect_capabilities`` /
+    ``require`` invocation re-probes the registered backend."""
+    global _CACHED_CAPABILITIES
+    _CACHED_CAPABILITIES = None
+
+
 def detect_capabilities() -> Capabilities:
     """Probe the current deployment and report what it can do.
 
     Asks the active :class:`~app.adapters.backend.SfmBackend` for its
     canonical capability set, then layers on the small set of
     capabilities sfmapi provides itself (``similarity.dhash``,
-    ``pose_priors.read_write``) regardless of the backend choice."""
+    ``pose_priors.read_write``) regardless of the backend choice.
+
+    Result is cached for the lifetime of the process — backend
+    capability sets do not change between requests. Tests + backend
+    swaps call :func:`reset_capabilities_cache` to invalidate.
+    """
+    global _CACHED_CAPABILITIES
+    if _CACHED_CAPABILITIES is not None:
+        return _CACHED_CAPABILITIES
+
     from app.adapters.registry import get_backend
     from app.core.config import get_settings
 
@@ -223,6 +243,7 @@ def detect_capabilities() -> Capabilities:
     settings = get_settings()
     if getattr(settings, "sam_available", False):
         caps.features["segment.sam"] = True
+    _CACHED_CAPABILITIES = caps
     return caps
 
 
@@ -245,4 +266,5 @@ __all__ = [
     "detect_capabilities",
     "empty_capabilities",
     "require",
+    "reset_capabilities_cache",
 ]

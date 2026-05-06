@@ -39,6 +39,7 @@ def _isolate_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Itera
     from app.adapters.registry import _REGISTRY, register_backend
     from app.adapters.stub_backend import StubBackend
     from app.core import config as config_mod
+    from app.core.capabilities import reset_capabilities_cache
     from app.db import session as session_mod
 
     config_mod._settings = None
@@ -46,9 +47,11 @@ def _isolate_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Itera
     session_mod._session_factory = None
     saved_registry = dict(_REGISTRY)
     register_backend("stub", StubBackend)
+    reset_capabilities_cache()
     yield ws
     _REGISTRY.clear()
     _REGISTRY.update(saved_registry)
+    reset_capabilities_cache()
 
 
 @pytest_asyncio.fixture()

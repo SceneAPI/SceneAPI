@@ -6,8 +6,6 @@ validation, content-type sniffing, spec-to-options translation).
 
 from __future__ import annotations
 
-import struct
-
 import pytest
 
 from app.core.errors import ValidationError
@@ -78,13 +76,3 @@ def test_sift_options_from_spec_passes_extractor_options_through() -> None:
     )
     assert out["edge_threshold"] == 5.0
     assert out["peak_threshold"] == 0.01
-
-
-def test_struct_module_referenced() -> None:
-    """``struct`` is imported in oneshot_service for future binary
-    re-encoding work; until then ``_struct_unused`` keeps the import
-    alive without an ``F401``."""
-    oneshot_service._struct_unused()
-    # Sanity-check that struct is the real stdlib module.
-    packed = struct.pack("<I", 42)
-    assert len(packed) == 4

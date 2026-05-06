@@ -6,7 +6,6 @@ persistence, no Job row, no cache. See
 from __future__ import annotations
 
 import base64
-import struct
 import tempfile
 import time
 from pathlib import Path
@@ -187,43 +186,29 @@ def _sift_options_from_spec(spec: FeaturesSpec) -> dict[str, Any]:
 
 
 def _read_back_keypoints(db_path: Path, image_name: str) -> tuple[list[list[float]], str, int]:
-    """Read keypoints + descriptors back out of the COLMAP database
-    for one image. Returns:
+    """Read keypoints + descriptors back via the registered backend.
+    Returns:
 
-      - ``keypoints``: list of [x, y, scale, angle] (4-element rows).
+      - ``keypoints``: list of [x, y, scale, angle] rows.
       - ``descriptors_b64``: base64-encoded float32 row-major.
       - ``descriptor_dim``: 128 for SIFT.
 
-    pycolmap stores keypoints as float32 (N, 6) [x, y, a11, a12, a21,
-    a22] when the affine extractor is used; for SIFT the layout is
-    (N, 4) [x, y, scale, angle]. We read the 4-column variant; if the
-    column count differs, we keep only the first 4 columns.
+    The oneshot path writes one image into ``db_path``; image_id is 1.
+    Heavy-import isolation: this routes through the
+    :class:`SfmBackend.read_keypoints` Protocol method so service
+    code never touches an engine library directly.
     """
+    backend = get_backend()
     try:
-        import pycolmap as pc  # type: ignore[import-not-found]
-    except ImportError as e:
-        raise PycolmapUnavailableError(
-            "oneshot/features requires pycolmap to read keypoints back from the temp database"
-        ) from e
-
-    keypoints: list[list[float]] = []
-    descriptors_b64 = ""
-    descriptor_dim = 128
-    with pc.Database(str(db_path)) as db:
-        # pycolmap exposes images by id; one image, id == 1.
-        for image_id in db.read_all_images():
-            kp = db.read_keypoints(image_id.image_id)  # numpy (N, K)
-            desc = db.read_descriptors(image_id.image_id)  # numpy (N, D) uint8
-            if kp.size:
-                arr = kp.tolist()
-                keypoints = [list(row[:4]) for row in arr]
-            if desc.size:
-                # Encode as float32 to match the OneShotFeaturesPayload
-                # contract (descriptors_b64 is float32 row-major).
-                desc_f = desc.astype("float32", copy=False)
-                descriptor_dim = int(desc_f.shape[1])
-                descriptors_b64 = base64.b64encode(desc_f.tobytes()).decode("ascii")
-            break  # one image only
+        keypoints, descriptors_bytes, descriptor_dim = backend.read_keypoints(
+            database_path=db_path,
+            image_id=1,
+        )
+    except PycolmapUnavailableError:
+        raise
+    descriptors_b64 = (
+        base64.b64encode(descriptors_bytes).decode("ascii") if descriptors_bytes else ""
+    )
     return keypoints, descriptors_b64, descriptor_dim
 
 
@@ -294,10 +279,3 @@ def localize_oneshot(
         runtime=OneShotRuntimeInfo(backend=backend.name, ms=runtime_ms),
         spec=spec.model_dump(mode="json"),
     )
-
-
-# Defensive type-check helper used by the ``_read_back_keypoints``
-# tests; not part of the public surface.
-def _struct_unused() -> None:
-    _ = struct.pack  # silence "unused import" — struct is here for future
-    _ = struct  # binary re-encoding work documented in P4 phase a.
