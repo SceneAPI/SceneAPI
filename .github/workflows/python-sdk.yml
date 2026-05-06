@@ -42,7 +42,7 @@ jobs:
           uv pip install build
           uv run python -m build --sdist --wheel
       - name: Upload dist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sfmapi-client-py-dist
           path: clients/python/dist
