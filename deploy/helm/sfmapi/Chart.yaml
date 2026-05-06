@@ -23,9 +23,14 @@ maintainers:
 dependencies:
   - name: postgresql
     version: ">=16.0.0 <17.0.0"
-    repository: "https://charts.bitnami.com/bitnami"
+    # Bitnami charts moved to OCI distribution; the legacy HTTPS URL
+    # still serves index.yaml but Helm 3.16+ doesn't drop the
+    # resulting tarballs into charts/ when fetched via the implicit
+    # OCI redirect — addressing the OCI registry directly works
+    # cleanly under both `helm dependency update` and `build`.
+    repository: "oci://registry-1.docker.io/bitnamicharts"
     condition: postgresql.enabled
   - name: redis
     version: ">=20.0.0 <22.0.0"
-    repository: "https://charts.bitnami.com/bitnami"
+    repository: "oci://registry-1.docker.io/bitnamicharts"
     condition: redis.enabled
