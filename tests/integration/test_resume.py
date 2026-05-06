@@ -12,11 +12,7 @@ pytestmark = pytest.mark.integration
 async def test_resume_resets_failed_tasks_only(session) -> None:
     rv = RuntimeVersion(
         rv_id=new_id(),
-        colmap_sha="x",
-        baxx_sha="x",
-        cudss_ver="x",
-        cuda_arch="x",
-        sam_model_sha="x",
+        runtime_version_id="test-rv",
         seed="0",
     )
     p = Project(tenant_id="default", name="resume-p")

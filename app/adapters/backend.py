@@ -17,10 +17,11 @@ A new backend is added by:
    of canonical capability names the backend exposes (subset of
    :data:`app.core.capabilities.ALL_KNOWN`).
 
-The colmap_mod backend lives in :mod:`app.adapters.colmap_backend`
-and is the default. Adding e.g. an OpenMVG backend is purely an
-additive change — no protocol method gets renamed when a new engine
-joins.
+No reference backend ships in this repository — sfmapi is the wire
+contract + orchestration shell, and engine-specific implementations
+(pycolmap, OpenSfM, hloc, custom forks) live in separate packages.
+Adding a new backend is purely additive — no protocol method gets
+renamed when a new engine joins.
 
 Method return shapes are documented as plain dicts; clients that need
 strict typing should validate against the corresponding schema in

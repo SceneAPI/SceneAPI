@@ -13,11 +13,7 @@ pytestmark = pytest.mark.e2e
 async def _seed_recon(session, tmp_workspace) -> tuple[str, str, str]:
     rv = RuntimeVersion(
         rv_id=new_id(),
-        colmap_sha="x",
-        baxx_sha="x",
-        cudss_ver="x",
-        cuda_arch="x",
-        sam_model_sha="x",
+        runtime_version_id="test-rv",
         seed="0",
     )
     session.add(rv)

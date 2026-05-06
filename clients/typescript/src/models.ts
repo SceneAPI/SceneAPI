@@ -236,14 +236,16 @@ export interface HealthResponse {
   status: string;
 }
 
+export interface BackendVersion {
+  name: string;
+  version: string;
+  vendor?: string | null;
+  runtime_versions?: Record<string, string>;
+}
+
 export interface VersionResponse {
   sfmapi: string;
-  pycolmap_available: boolean;
-  colmap_sha: string;
-  baxx_sha: string;
-  cudss_ver: string;
-  cuda_arch: string;
-  sam_model_sha: string;
+  backend?: BackendVersion | null;
 }
 
 // ----- Pipeline + stage specs ------------------------------------------------

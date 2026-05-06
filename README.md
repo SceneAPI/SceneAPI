@@ -5,12 +5,11 @@ agnostic by design: any SfM engine that conforms to the spec can serve
 it (pycolmap, OpenSfM, hloc, custom forks). Sealed-snapshot progress,
 content-addressed storage, multi-tenant from day 1.
 
-The reference implementation in this repo wires `app.adapters.colmap_backend.ColmapModBackend`
-to a pycolmap fork — but the wire surface (REST routes, request/response
-schemas, error envelope, capability discovery) is engine-independent.
-A different backend swaps in via a single
-`register_backend("name", Backend)` call; nothing else in the codebase
-needs to change.
+This repository ships the **wire spec + orchestration shell only** —
+no concrete SfM engine. Backend implementations live in their own
+repositories, satisfy `app.adapters.backend.SfmBackend`, and register
+at startup via `register_backend("name", Backend)`. A no-op
+`StubBackend` is bundled for tests and `SFMAPI_EPHEMERAL=true` demos.
 
 See [docs/](https://sfmapi.github.io/) for the user-facing site,
 [SFMAPI-SPEC.md](./SFMAPI-SPEC.md) for the wire spec, and
@@ -40,8 +39,8 @@ app/
   orchestrator/  in-house Job→Task DAG, lease/janitor, cache lookup
   services/      tenant-scoped CRUD, transactions, DAG construction
   workers/       supervisor + per-task ARQ jobs (subprocess fork)
-  adapters/      ONLY heavy-dep importers (pycolmap / torch / cv2);
-                 backend-agnostic SfmBackend Protocol lives in backend.py
+  adapters/      backend Protocol (backend.py), registry, and the
+                 no-op stub. Real engine adapters live in separate repos.
 tests/
   unit/          fast, no IO
   integration/   db + filesystem

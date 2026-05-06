@@ -22,6 +22,6 @@ async def test_ensure_runtime_version_idempotent(session) -> None:
 async def test_ensure_runtime_version_distinct_on_change(session, monkeypatch) -> None:
     s = get_settings()
     a = await ensure_runtime_version(session, s)
-    monkeypatch.setattr(s, "colmap_sha", "deadbeef")
+    monkeypatch.setattr(s, "runtime_version_id", "deadbeef")
     b = await ensure_runtime_version(session, s)
     assert a.rv_id != b.rv_id

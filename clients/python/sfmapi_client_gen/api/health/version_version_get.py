@@ -50,13 +50,13 @@ def sync_detailed(
 ) -> Response[VersionResponse]:
     """Version
 
-     Return sfmapi + backend version pins.
+     Return sfmapi + the registered backend's identity / runtime
+    version map. ``backend`` is ``None`` when no backend is registered
+    — useful for headless / wire-only deployments.
 
-    Pulls together every signature that contributes to
-    ``runtime_version_id`` (cache-key salt): sfmapi version,
-    pycolmap availability, colmap_sha, baxx_sha, cudss_ver, cuda_arch,
-    sam_model_sha. Useful for confirming a worker upgrade rolled
-    through.
+    The contents of ``backend.runtime_versions`` are backend-defined;
+    typical fields include engine commit shas, CUDA arch, and
+    auxiliary library versions that influence the cache-key salt.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -81,13 +81,13 @@ def sync(
 ) -> VersionResponse | None:
     """Version
 
-     Return sfmapi + backend version pins.
+     Return sfmapi + the registered backend's identity / runtime
+    version map. ``backend`` is ``None`` when no backend is registered
+    — useful for headless / wire-only deployments.
 
-    Pulls together every signature that contributes to
-    ``runtime_version_id`` (cache-key salt): sfmapi version,
-    pycolmap availability, colmap_sha, baxx_sha, cudss_ver, cuda_arch,
-    sam_model_sha. Useful for confirming a worker upgrade rolled
-    through.
+    The contents of ``backend.runtime_versions`` are backend-defined;
+    typical fields include engine commit shas, CUDA arch, and
+    auxiliary library versions that influence the cache-key salt.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -108,13 +108,13 @@ async def asyncio_detailed(
 ) -> Response[VersionResponse]:
     """Version
 
-     Return sfmapi + backend version pins.
+     Return sfmapi + the registered backend's identity / runtime
+    version map. ``backend`` is ``None`` when no backend is registered
+    — useful for headless / wire-only deployments.
 
-    Pulls together every signature that contributes to
-    ``runtime_version_id`` (cache-key salt): sfmapi version,
-    pycolmap availability, colmap_sha, baxx_sha, cudss_ver, cuda_arch,
-    sam_model_sha. Useful for confirming a worker upgrade rolled
-    through.
+    The contents of ``backend.runtime_versions`` are backend-defined;
+    typical fields include engine commit shas, CUDA arch, and
+    auxiliary library versions that influence the cache-key salt.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -137,13 +137,13 @@ async def asyncio(
 ) -> VersionResponse | None:
     """Version
 
-     Return sfmapi + backend version pins.
+     Return sfmapi + the registered backend's identity / runtime
+    version map. ``backend`` is ``None`` when no backend is registered
+    — useful for headless / wire-only deployments.
 
-    Pulls together every signature that contributes to
-    ``runtime_version_id`` (cache-key salt): sfmapi version,
-    pycolmap availability, colmap_sha, baxx_sha, cudss_ver, cuda_arch,
-    sam_model_sha. Useful for confirming a worker upgrade rolled
-    through.
+    The contents of ``backend.runtime_versions`` are backend-defined;
+    typical fields include engine commit shas, CUDA arch, and
+    auxiliary library versions that influence the cache-key salt.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

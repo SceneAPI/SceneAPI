@@ -441,22 +441,17 @@ class RuntimeVersion(Base):
     __tablename__ = "runtime_version"
     __table_args__ = (
         UniqueConstraint(
-            "colmap_sha",
-            "baxx_sha",
-            "cudss_ver",
-            "cuda_arch",
-            "sam_model_sha",
+            "runtime_version_id",
             "seed",
             name="uq_runtime_version_tuple",
         ),
     )
 
     rv_id: Mapped[str] = mapped_column(ULIDType, primary_key=True, default=new_id)
-    colmap_sha: Mapped[str] = mapped_column(String(64), nullable=False)
-    baxx_sha: Mapped[str] = mapped_column(String(64), nullable=False)
-    cudss_ver: Mapped[str] = mapped_column(String(64), nullable=False)
-    cuda_arch: Mapped[str] = mapped_column(String(32), nullable=False)
-    sam_model_sha: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Backend-defined freeform fingerprint string (hash of all
+    # engine-specific runtime knobs). sfmapi treats it as opaque —
+    # the registered backend computes it.
+    runtime_version_id: Mapped[str] = mapped_column(String(128), nullable=False)
     seed: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False

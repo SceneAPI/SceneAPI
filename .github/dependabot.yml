@@ -30,13 +30,6 @@ updates:
       include: "scope"
     labels: ["dependencies", "python"]
     versioning-strategy: "increase-if-necessary"
-    ignore:
-      # Native CUDA-bound deps live on the worker host and are pinned by
-      # the colmap_mod build, not by sfmapi's pyproject. Don't try to
-      # bump them across PRs in this repo.
-      - dependency-name: "torch"
-      - dependency-name: "pycolmap"
-      - dependency-name: "segment-anything"
     groups:
       runtime-minor-and-patch:
         dependency-type: "production"

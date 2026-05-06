@@ -2,6 +2,8 @@
 
 from .api_key_out import ApiKeyOut
 from .backend_info_out import BackendInfoOut
+from .backend_version import BackendVersion
+from .backend_version_runtime_versions import BackendVersionRuntimeVersions
 from .batch_create_images_request import BatchCreateImagesRequest
 from .batch_create_images_response import BatchCreateImagesResponse
 from .bulk_set_pose_priors_v1_datasets_dataset_id_pose_priors_put_body import (
@@ -136,6 +138,8 @@ from .video_frames_request import VideoFramesRequest
 __all__ = (
     "ApiKeyOut",
     "BackendInfoOut",
+    "BackendVersion",
+    "BackendVersionRuntimeVersions",
     "BatchCreateImagesRequest",
     "BatchCreateImagesResponse",
     "BulkSetPosePriorsV1DatasetsDatasetIdPosePriorsPutBody",

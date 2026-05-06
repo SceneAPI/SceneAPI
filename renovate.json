@@ -9,25 +9,7 @@
   "labels": ["dependencies"],
   "rangeStrategy": "bump",
 
-  "enabledManagers": ["regex", "pip_requirements", "github-actions", "dockerfile"],
-
-  "regexManagers": [
-    {
-      "description": "Track the colmap_mod git ref pinned for the worker-tests workflow.",
-      "fileMatch": ["^\\.github/workflows/worker-tests\\.yml$"],
-      "matchStrings": [
-        "#\\s*renovate:\\s*datasource=github-tags\\s+depName=(?<depName>[^\\s]+)\\s+gitref=(?<currentValue>[^\\s]+)"
-      ],
-      "datasourceTemplate": "github-tags"
-    },
-    {
-      "description": "Track the COLMAP_MOD_REF default in the workflow input.",
-      "fileMatch": ["^\\.github/workflows/worker-tests\\.yml$"],
-      "matchStrings": [
-        "default:\\s*\"(?<currentValue>[a-f0-9]{40}|main|v[0-9]+\\.[0-9]+\\.[0-9]+)\"\\s*#\\s*renovate:\\s*depName=(?<depName>[^\\s]+)\\s+datasource=(?<datasource>[^\\s]+)"
-      ]
-    }
-  ],
+  "enabledManagers": ["pip_requirements", "github-actions", "dockerfile"],
 
   "packageRules": [
     {
@@ -35,25 +17,6 @@
       "matchManagers": ["github-actions"],
       "groupName": "gha-minor-patch",
       "matchUpdateTypes": ["minor", "patch"]
-    },
-    {
-      "description": "colmap_mod ref bumps: open one PR at a time; run the worker-tests workflow before merging.",
-      "matchPackageNames": ["opsiclear/colmap_mod"],
-      "groupName": "colmap_mod",
-      "prConcurrentLimit": 1,
-      "labels": ["dependencies", "colmap_mod", "needs-gpu-ci"],
-      "schedule": ["at any time"],
-      "rebaseWhen": "behind-base-branch",
-      "automerge": false,
-      "commitMessageTopic": "colmap_mod ref",
-      "prBodyNotes": [
-        "Triggers the worker-tests workflow against this ref. Do NOT merge until that run is green on the self-hosted GPU runner."
-      ]
-    },
-    {
-      "description": "Pin native CUDA deps; sfmapi's pyproject only carries them as optional extras.",
-      "matchPackageNames": ["torch", "pycolmap", "segment-anything"],
-      "enabled": false
     }
   ],
 

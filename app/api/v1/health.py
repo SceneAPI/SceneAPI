@@ -72,24 +72,31 @@ async def readyz(session: AsyncSession = Depends(get_db)) -> JSONResponse:
 
 @router.get("/version", response_model=VersionResponse)
 async def version() -> VersionResponse:
-    """Return sfmapi + backend version pins.
+    """Return sfmapi + the registered backend's identity / runtime
+    version map. ``backend`` is ``None`` when no backend is registered
+    — useful for headless / wire-only deployments.
 
-    Pulls together every signature that contributes to
-    ``runtime_version_id`` (cache-key salt): sfmapi version,
-    pycolmap availability, colmap_sha, baxx_sha, cudss_ver, cuda_arch,
-    sam_model_sha. Useful for confirming a worker upgrade rolled
-    through.
+    The contents of ``backend.runtime_versions`` are backend-defined;
+    typical fields include engine commit shas, CUDA arch, and
+    auxiliary library versions that influence the cache-key salt.
     """
-    s = get_settings()
-    return VersionResponse(
-        sfmapi=__version__,
-        pycolmap_available=s.pycolmap_available,
-        colmap_sha=s.colmap_sha,
-        baxx_sha=s.baxx_sha,
-        cudss_ver=s.cudss_ver,
-        cuda_arch=s.cuda_arch,
-        sam_model_sha=s.sam_model_sha,
-    )
+    from app.adapters.backend import SfmBackend
+    from app.adapters.registry import get_backend
+    from app.schemas.api.common import BackendVersion
+
+    backend_info: BackendVersion | None = None
+    try:
+        backend: SfmBackend = get_backend()
+    except KeyError:
+        backend = None  # type: ignore[assignment]
+    if backend is not None:
+        backend_info = BackendVersion(
+            name=backend.name,
+            version=backend.version,
+            vendor=getattr(backend, "vendor", None),
+            runtime_versions=dict(backend.runtime_versions()),
+        )
+    return VersionResponse(sfmapi=__version__, backend=backend_info)
 
 
 @router.get("/spec", response_model=SpecResponse)

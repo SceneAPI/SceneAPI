@@ -1,8 +1,8 @@
 {
   "backend": {
-    "name": "colmap_mod",
-    "vendor": "ETH3D / sfmapi",
-    "version": "unknown"
+    "name": "stub",
+    "vendor": "test",
+    "version": "0.0.1"
   },
   "features": {
     "ba.featuremetric": false,

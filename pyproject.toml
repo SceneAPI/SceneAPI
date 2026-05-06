@@ -34,16 +34,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-sfm = [
-    # Optional: install a backend implementation that satisfies
-    # `app.adapters.backend.SfmBackend`. The reference impl uses
-    # pycolmap (e.g. installed from a sibling colmap_mod checkout
-    # in editable mode for dev).
-]
-seg = [
-    "torch>=2.5",
-    "segment-anything>=1.0",
-]
+# sfmapi ships no concrete SfM backend; install a third-party
+# package implementing `app.adapters.backend.SfmBackend` and
+# register it at app startup. This `pyproject.toml` does not
+# declare any backend or segmentation dependency on purpose —
+# they all belong in separate packages.
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
@@ -73,7 +68,7 @@ markers = [
     "e2e: full app, may hit redis",
     "conformance: tests/conformance — verifies SFMAPI-SPEC.md against any server",
     "contract: tests/contract — replays recorded fixtures through the SDK types",
-    "needs_pycolmap: requires the reference pycolmap backend installed",
+    "needs_backend: requires a concrete SfmBackend implementation registered (sfmapi ships only a stub)",
     "needs_postgres: requires SFMAPI_DB_URL pointing at postgres",
 ]
 
@@ -95,6 +90,6 @@ disallow_untyped_defs = true
 no_implicit_optional = true
 plugins = ["pydantic.mypy"]
 
-[[tool.mypy.overrides]]
-module = ["pycolmap.*", "segment_anything.*"]
-ignore_missing_imports = true
+# sfmapi proper imports no engine library, so no mypy overrides
+# for them are needed. Backend packages handle their own type
+# stubs.

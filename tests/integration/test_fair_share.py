@@ -16,11 +16,7 @@ async def _seed_project_jobs_for(session, *, tenant_id: str, n: int) -> tuple[st
     if rv is None:
         rv = RuntimeVersion(
             rv_id=new_id(),
-            colmap_sha="x",
-            baxx_sha="x",
-            cudss_ver="x",
-            cuda_arch="x",
-            sam_model_sha="x",
+            runtime_version_id="test-rv",
             seed="0",
         )
         session.add(rv)

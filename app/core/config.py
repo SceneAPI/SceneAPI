@@ -51,12 +51,11 @@ class Settings(BaseSettings):
     default_tenant: str = "default"
     auth_mode: Literal["none", "api_key"] = "none"
 
-    pycolmap_available: bool = False
-    colmap_sha: str = "unknown"
-    baxx_sha: str = "unknown"
-    cudss_ver: str = "unknown"
-    cuda_arch: str = "unknown"
-    sam_model_sha: str = "unknown"
+    # Cache-key salt freeform string. Production deployments set this
+    # from the registered backend's runtime_versions() so cache hits
+    # invalidate when the engine changes (commit sha, CUDA arch,
+    # auxiliary libraries, ...). sfmapi itself doesn't interpret it.
+    runtime_version_id: str = "unknown"
     seed: int = 0
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
@@ -147,11 +146,4 @@ def reset_settings_for_tests(**overrides: object) -> Settings:
 
 def runtime_version_tuple(s: Settings | None = None) -> tuple[str, ...]:
     s = s or get_settings()
-    return (
-        s.colmap_sha,
-        s.baxx_sha,
-        s.cudss_ver,
-        s.cuda_arch,
-        s.sam_model_sha,
-        str(s.seed),
-    )
+    return (s.runtime_version_id, str(s.seed))

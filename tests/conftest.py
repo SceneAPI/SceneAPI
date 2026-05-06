@@ -32,14 +32,23 @@ def _isolate_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Itera
     monkeypatch.setenv("SFMAPI_LEASE_TTL_SECONDS", "5")
     # Avoid touching Redis in tests; route every task through inline runner.
     monkeypatch.setenv("SFMAPI_INLINE_TASKS", "true")
+    # sfmapi ships no concrete backend; register a test stub so
+    # `get_backend()` resolves.
+    monkeypatch.setenv("SFMAPI_BACKEND", "stub")
 
+    from app.adapters.registry import _REGISTRY, register_backend
+    from app.adapters.stub_backend import StubBackend
     from app.core import config as config_mod
     from app.db import session as session_mod
 
     config_mod._settings = None
     session_mod._engine = None
     session_mod._session_factory = None
-    return ws
+    saved_registry = dict(_REGISTRY)
+    register_backend("stub", StubBackend)
+    yield ws
+    _REGISTRY.clear()
+    _REGISTRY.update(saved_registry)
 
 
 @pytest_asyncio.fixture()

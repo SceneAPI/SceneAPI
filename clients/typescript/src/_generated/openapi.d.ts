@@ -57,13 +57,13 @@ export interface paths {
         };
         /**
          * Version
-         * @description Return sfmapi + backend version pins.
+         * @description Return sfmapi + the registered backend's identity / runtime
+         *     version map. ``backend`` is ``None`` when no backend is registered
+         *     — useful for headless / wire-only deployments.
          *
-         *     Pulls together every signature that contributes to
-         *     ``runtime_version_id`` (cache-key salt): sfmapi version,
-         *     pycolmap availability, colmap_sha, baxx_sha, cudss_ver, cuda_arch,
-         *     sam_model_sha. Useful for confirming a worker upgrade rolled
-         *     through.
+         *     The contents of ``backend.runtime_versions`` are backend-defined;
+         *     typical fields include engine commit shas, CUDA arch, and
+         *     auxiliary library versions that influence the cache-key salt.
          */
         get: operations["version_version_get"];
         put?: never;
@@ -1623,6 +1623,27 @@ export interface components {
              * @default
              */
             vendor: string;
+        };
+        /**
+         * BackendVersion
+         * @description Backend identity + freeform engine version map.
+         *
+         *     sfmapi has no concrete backend; whatever real backend is
+         *     registered fills in its own ``runtime_versions`` keys (e.g.
+         *     ``{"colmap_sha": "...", "cuda_arch": "120"}``). ``None`` when
+         *     no backend is registered.
+         */
+        BackendVersion: {
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+            /** Vendor */
+            vendor?: string | null;
+            /** Runtime Versions */
+            runtime_versions?: {
+                [key: string]: string;
+            };
         };
         /**
          * BatchCreateImagesRequest
@@ -3189,18 +3210,7 @@ export interface components {
         VersionResponse: {
             /** Sfmapi */
             sfmapi: string;
-            /** Pycolmap Available */
-            pycolmap_available: boolean;
-            /** Colmap Sha */
-            colmap_sha: string;
-            /** Baxx Sha */
-            baxx_sha: string;
-            /** Cudss Ver */
-            cudss_ver: string;
-            /** Cuda Arch */
-            cuda_arch: string;
-            /** Sam Model Sha */
-            sam_model_sha: string;
+            backend?: components["schemas"]["BackendVersion"] | null;
         };
         /**
          * VideoFramesRequest

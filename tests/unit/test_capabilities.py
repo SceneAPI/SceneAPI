@@ -63,10 +63,11 @@ def test_detect_capabilities_includes_schema_version() -> None:
 
 
 def test_detect_capabilities_returns_known_backend() -> None:
-    """Without pycolmap available, we still get the backend identity
-    + the core flags + the always-on optional flags."""
+    """The conftest registers a stub backend; capability detection
+    returns its identity along with the always-on sfmapi-internal
+    optional flags."""
     caps = detect_capabilities()
-    assert caps.backend.name == "colmap_mod"
+    assert caps.backend.name == "stub"
     for name in CORE_CAPABILITIES:
         assert caps.supports(name)
     # dhash is always available regardless of pycolmap; vlad is not.

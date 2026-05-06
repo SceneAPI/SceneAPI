@@ -77,6 +77,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         engine = get_engine(settings)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+        # Ephemeral mode is for demos / embedded use / smoke tests
+        # — register the no-op stub backend so workers can produce
+        # terminal task statuses (most ops raise
+        # CapabilityUnavailableError, which is fine for the
+        # protocol-shape coverage these modes care about).
+        import os
+
+        from app.adapters.registry import register_backend
+        from app.adapters.stub_backend import StubBackend
+
+        register_backend("stub", StubBackend)
+        os.environ.setdefault("SFMAPI_BACKEND", "stub")
         log.info("sfmapi.ephemeral_bootstrapped", workspace=str(settings.workspace_root))
     try:
         yield

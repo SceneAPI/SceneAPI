@@ -420,14 +420,16 @@ class HealthResponse(_Base):
     status: str = "ok"
 
 
+class BackendVersion(_Base):
+    name: str
+    version: str
+    vendor: str | None = None
+    runtime_versions: dict[str, str] = Field(default_factory=dict)
+
+
 class VersionResponse(_Base):
     sfmapi: str
-    pycolmap_available: bool
-    colmap_sha: str
-    baxx_sha: str
-    cudss_ver: str
-    cuda_arch: str
-    sam_model_sha: str
+    backend: BackendVersion | None = None
 
 
 # -- Capabilities (mirror of app/core/capabilities.py) ---------------------

@@ -1,7 +1,7 @@
 """PipelineSpec — discriminated union of mapping pipelines.
 
-Web layer accepts these. Workers translate them to pycolmap option
-classes inside the colmap_adapter — never out here.
+Web layer accepts these. Workers translate them to engine-specific
+option classes inside the backend implementation — never out here.
 
 .. rubric:: PipelineSpec kinds
 

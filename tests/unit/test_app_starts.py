@@ -32,5 +32,9 @@ async def test_version_shape(client) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert "sfmapi" in body
-    assert "pycolmap_available" in body
-    assert "colmap_sha" in body
+    # `backend` is the BackendVersion envelope; either populated
+    # (when a backend is registered) or null. Conftest registers
+    # the StubBackend so we expect populated.
+    assert "backend" in body
+    assert body["backend"] is not None
+    assert body["backend"]["name"] == "stub"

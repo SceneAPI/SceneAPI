@@ -1,11 +1,17 @@
 """Backend registry + ``get_backend()`` resolver.
 
-Worker code never imports a specific backend module. It calls
-:func:`get_backend` and uses the returned :class:`SfmBackend`. The
-backend chosen is controlled by the ``SFMAPI_BACKEND`` environment
-variable (default ``"colmap_mod"``).
+sfmapi ships **no concrete SfM backend**. The wire surface
+(REST routes, request/response schemas, error envelope, capability
+discovery) is engine-independent; backend implementations live in
+separate repositories. To run a real workload, install one such
+implementation and register it.
 
-To add a new backend:
+Worker code never imports a specific backend module — it calls
+:func:`get_backend` and uses the returned :class:`SfmBackend`. Which
+backend is returned is controlled by the ``SFMAPI_BACKEND``
+environment variable (or the explicit ``name`` arg).
+
+Adding a backend (separate package or app-startup hook):
 
 .. code-block:: python
 
@@ -32,7 +38,6 @@ if TYPE_CHECKING:
 
 
 _REGISTRY: dict[str, Callable[[], SfmBackend]] = {}
-_DEFAULT = "colmap_mod"
 
 
 def register_backend(name: str, factory: Callable[[], SfmBackend]) -> None:
@@ -48,18 +53,23 @@ def list_backends() -> list[str]:
 def get_backend(name: str | None = None) -> SfmBackend:
     """Resolve and instantiate the configured backend.
 
-    ``name`` overrides the env var when set (mostly for tests). If no
-    factory is registered for the resolved name and the name is the
-    default, lazily register the colmap_mod backend so the worker
-    boots without an explicit registration call somewhere."""
-    chosen = name or os.environ.get("SFMAPI_BACKEND", _DEFAULT)
+    ``name`` overrides the env var when set (mostly for tests).
+    Raises :class:`KeyError` if no backend is registered under the
+    resolved name — sfmapi ships no default implementation, so the
+    caller (or test fixture, or app-startup hook) must register one
+    before workers can run.
+    """
+    chosen = name or os.environ.get("SFMAPI_BACKEND")
+    if not chosen:
+        raise KeyError(
+            "no SfmBackend selected: set SFMAPI_BACKEND or pass `name=` "
+            f"explicitly. Registered backends: {list_backends()}"
+        )
     if chosen not in _REGISTRY:
-        if chosen == _DEFAULT:
-            from app.adapters.colmap_backend import ColmapModBackend
-
-            register_backend(_DEFAULT, ColmapModBackend)
-        else:
-            raise KeyError(f"unknown SfmBackend {chosen!r}; registered: {list_backends()}")
+        raise KeyError(
+            f"unknown SfmBackend {chosen!r}; registered: {list_backends()}. "
+            "Install + register a backend implementation in app startup."
+        )
     return _REGISTRY[chosen]()
 
 

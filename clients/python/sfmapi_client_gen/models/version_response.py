@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.backend_version import BackendVersion
+
 
 T = TypeVar("T", bound="VersionResponse")
 
@@ -14,79 +20,65 @@ class VersionResponse:
     """
     Attributes:
         sfmapi (str):
-        pycolmap_available (bool):
-        colmap_sha (str):
-        baxx_sha (str):
-        cudss_ver (str):
-        cuda_arch (str):
-        sam_model_sha (str):
+        backend (BackendVersion | None | Unset):
     """
 
     sfmapi: str
-    pycolmap_available: bool
-    colmap_sha: str
-    baxx_sha: str
-    cudss_ver: str
-    cuda_arch: str
-    sam_model_sha: str
+    backend: BackendVersion | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.backend_version import BackendVersion
+
         sfmapi = self.sfmapi
 
-        pycolmap_available = self.pycolmap_available
-
-        colmap_sha = self.colmap_sha
-
-        baxx_sha = self.baxx_sha
-
-        cudss_ver = self.cudss_ver
-
-        cuda_arch = self.cuda_arch
-
-        sam_model_sha = self.sam_model_sha
+        backend: dict[str, Any] | None | Unset
+        if isinstance(self.backend, Unset):
+            backend = UNSET
+        elif isinstance(self.backend, BackendVersion):
+            backend = self.backend.to_dict()
+        else:
+            backend = self.backend
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "sfmapi": sfmapi,
-                "pycolmap_available": pycolmap_available,
-                "colmap_sha": colmap_sha,
-                "baxx_sha": baxx_sha,
-                "cudss_ver": cudss_ver,
-                "cuda_arch": cuda_arch,
-                "sam_model_sha": sam_model_sha,
             }
         )
+        if backend is not UNSET:
+            field_dict["backend"] = backend
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.backend_version import BackendVersion
+
         d = dict(src_dict)
         sfmapi = d.pop("sfmapi")
 
-        pycolmap_available = d.pop("pycolmap_available")
+        def _parse_backend(data: object) -> BackendVersion | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                backend_type_0 = BackendVersion.from_dict(data)
 
-        colmap_sha = d.pop("colmap_sha")
+                return backend_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(BackendVersion | None | Unset, data)
 
-        baxx_sha = d.pop("baxx_sha")
-
-        cudss_ver = d.pop("cudss_ver")
-
-        cuda_arch = d.pop("cuda_arch")
-
-        sam_model_sha = d.pop("sam_model_sha")
+        backend = _parse_backend(d.pop("backend", UNSET))
 
         version_response = cls(
             sfmapi=sfmapi,
-            pycolmap_available=pycolmap_available,
-            colmap_sha=colmap_sha,
-            baxx_sha=baxx_sha,
-            cudss_ver=cudss_ver,
-            cuda_arch=cuda_arch,
-            sam_model_sha=sam_model_sha,
+            backend=backend,
         )
 
         version_response.additional_properties = d

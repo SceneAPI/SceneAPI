@@ -28,14 +28,24 @@ class HealthResponse(BaseModel):
     status: str = "ok"
 
 
+class BackendVersion(BaseModel):
+    """Backend identity + freeform engine version map.
+
+    sfmapi has no concrete backend; whatever real backend is
+    registered fills in its own ``runtime_versions`` keys (e.g.
+    ``{"colmap_sha": "...", "cuda_arch": "120"}``). ``None`` when
+    no backend is registered.
+    """
+
+    name: str
+    version: str
+    vendor: str | None = None
+    runtime_versions: dict[str, str] = Field(default_factory=dict)
+
+
 class VersionResponse(BaseModel):
     sfmapi: str
-    pycolmap_available: bool
-    colmap_sha: str
-    baxx_sha: str
-    cudss_ver: str
-    cuda_arch: str
-    sam_model_sha: str
+    backend: BackendVersion | None = None
 
 
 class ReadyzResponse(BaseModel):
