@@ -25,14 +25,26 @@ jobs:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v5
         with:
-          # Pinned to 3.14.x — Helm 3.16+ resolves Bitnami subcharts
-          # via OCI auto-redirect but doesn't always materialize the
-          # .tgz files in the local `charts/` directory, breaking
-          # the subsequent `helm template` step. 3.14.x writes them
-          # reliably.
-          version: "v3.14.4"
-      - name: helm dependency update
-        run: helm dependency update deploy/helm/sfmapi
+          version: "v3.16.0"
+      - name: Resolve subcharts (helm pull)
+        # Bitnami's HTTPS chart repo redirects to OCI at registry-1
+        # .docker.io/bitnamicharts; `helm dependency update` pulls
+        # but doesn't always drop the .tgz into the local `charts/`
+        # dir on 3.14+. Pulling the OCI charts explicitly into
+        # `charts/` is the reliable workaround.
+        run: |
+          set -e
+          mkdir -p deploy/helm/sfmapi/charts
+          # Versions tracked here — bump alongside Chart.yaml's
+          # version range. Renovate's helm datasource keeps these
+          # honest.
+          helm pull oci://registry-1.docker.io/bitnamicharts/postgresql \
+              --version 16.7.27 \
+              -d deploy/helm/sfmapi/charts
+          helm pull oci://registry-1.docker.io/bitnamicharts/redis \
+              --version 21.2.14 \
+              -d deploy/helm/sfmapi/charts
+          ls -la deploy/helm/sfmapi/charts
       - name: helm lint
         run: helm lint deploy/helm/sfmapi
       - name: helm template (defaults)
