@@ -18,6 +18,7 @@ Revises: 0006
 Create Date: 2026-05-05
 
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union

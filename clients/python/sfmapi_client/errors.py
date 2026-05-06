@@ -67,8 +67,9 @@ def raise_for_response(resp: httpx.Response) -> None:
     if resp.is_success:
         return
     problem: dict[str, Any] = {}
-    if "application/problem+json" in resp.headers.get("content-type", "") or \
-       "application/json" in resp.headers.get("content-type", ""):
+    if "application/problem+json" in resp.headers.get(
+        "content-type", ""
+    ) or "application/json" in resp.headers.get("content-type", ""):
         try:
             problem = resp.json()
         except Exception:

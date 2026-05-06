@@ -444,15 +444,12 @@ def submit_and_stream(
         job_id = getattr(accepted, "job_id", None)
     if not job_id:
         raise ValueError(
-            "submit_and_stream: submit_fn returned no job_id "
-            f"(got {type(accepted).__name__!s})"
+            f"submit_and_stream: submit_fn returned no job_id (got {type(accepted).__name__!s})"
         )
     yield from stream_events(base_url, job_id, api_key=api_key, timeout=timeout)
     # The SSE stream closes when the server side finishes flushing.
     # Pick up the terminal JobDetail via a single wait_for_job poll.
-    return wait_for_job(
-        base_url, job_id, api_key=api_key, poll_interval=0.05, timeout=timeout
-    )
+    return wait_for_job(base_url, job_id, api_key=api_key, poll_interval=0.05, timeout=timeout)
 
 
 # ---------------------------------------------------------------------
@@ -492,8 +489,7 @@ def submit_and_wait(
         job_id = getattr(accepted, "job_id", None)
     if not job_id:
         raise ValueError(
-            "submit_and_wait: submit_fn returned no job_id "
-            f"(got {type(accepted).__name__!s})"
+            f"submit_and_wait: submit_fn returned no job_id (got {type(accepted).__name__!s})"
         )
     return wait_for_job(
         base_url,
@@ -559,15 +555,11 @@ def parse_points_binary(data: bytes) -> PointsBinary:
     bbox_max = struct.unpack_from("<fff", data, 32)
     expected = POINTS_HEADER_SIZE + count * POINTS_RECORD_SIZE
     if len(data) < expected:
-        raise WireFormatError(
-            f"points-binary: body short - got {len(data)}, expected {expected}"
-        )
+        raise WireFormatError(f"points-binary: body short - got {len(data)}, expected {expected}")
     records: list[Point3DRecord] = []
     for i in range(count):
         off = POINTS_HEADER_SIZE + i * POINTS_RECORD_SIZE
-        x, y, z, r, g, b, _pad, tl, pid = struct.unpack_from(
-            "<fffBBBBHQ", data, off
-        )
+        x, y, z, r, g, b, _pad, tl, pid = struct.unpack_from("<fffBBBBHQ", data, off)
         records.append(
             Point3DRecord(
                 point3d_id=pid,
@@ -576,9 +568,7 @@ def parse_points_binary(data: bytes) -> PointsBinary:
                 track_len=tl,
             )
         )
-    return PointsBinary(
-        count=count, bbox_min=bbox_min, bbox_max=bbox_max, records=records
-    )
+    return PointsBinary(count=count, bbox_min=bbox_min, bbox_max=bbox_max, records=records)
 
 
 @dataclass
@@ -608,9 +598,7 @@ def parse_depth_map(data: bytes) -> DepthMap:
     dmin, dmax = struct.unpack_from("<ff", data, 20)
     expected = MAP_HEADER_SIZE + w * h * 4
     if len(data) < expected:
-        raise WireFormatError(
-            f"depth-binary: body short - got {len(data)}, expected {expected}"
-        )
+        raise WireFormatError(f"depth-binary: body short - got {len(data)}, expected {expected}")
     pixels = bytes(data[MAP_HEADER_SIZE : MAP_HEADER_SIZE + w * h * 4])
     return DepthMap(width=w, height=h, depth_min=dmin, depth_max=dmax, pixels=pixels)
 
@@ -634,9 +622,7 @@ def parse_normal_map(data: bytes) -> NormalMap:
     w, h = struct.unpack_from("<II", data, 12)
     expected = MAP_HEADER_SIZE + w * h * 3 * 4
     if len(data) < expected:
-        raise WireFormatError(
-            f"normal-binary: body short - got {len(data)}, expected {expected}"
-        )
+        raise WireFormatError(f"normal-binary: body short - got {len(data)}, expected {expected}")
     pixels = bytes(data[MAP_HEADER_SIZE : MAP_HEADER_SIZE + w * h * 3 * 4])
     return NormalMap(width=w, height=h, pixels=pixels)
 

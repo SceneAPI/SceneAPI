@@ -70,7 +70,9 @@ def upload_dir(ctx: click.Context, directory: Path, ext: tuple[str, ...]) -> Non
     suffixes = {f".{e.lower().lstrip('.')}" for e in ext}
     files = sorted(p for p in directory.rglob("*") if p.suffix.lower() in suffixes and p.is_file())
     if not files:
-        click.secho(f"no files matching {sorted(suffixes)} under {directory}", fg="yellow", err=True)
+        click.secho(
+            f"no files matching {sorted(suffixes)} under {directory}", fg="yellow", err=True
+        )
         sys.exit(1)
     client = ctx.obj["client"]
     for p in files:

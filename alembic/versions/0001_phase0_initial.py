@@ -5,6 +5,7 @@ Revises:
 Create Date: 2026-05-01
 
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
@@ -77,7 +78,9 @@ def upgrade() -> None:
         sa.Column("intrinsics_mode", sa.String(32), nullable=False, server_default="single_camera"),
         sa.Column("is_spherical", sa.Boolean, nullable=False, server_default=sa.false()),
         sa.Column("rig_config_json", sa.JSON, nullable=True),
-        sa.Column("respect_exif_orientation", sa.Boolean, nullable=False, server_default=sa.false()),
+        sa.Column(
+            "respect_exif_orientation", sa.Boolean, nullable=False, server_default=sa.false()
+        ),
         sa.Column("active_maskset_id", sa.String(ID_LEN), nullable=True),
         sa.Column("manifest_hash", sa.String(64), nullable=False, server_default=""),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -85,12 +88,16 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("dataset_id", name="pk_dataset"),
         sa.UniqueConstraint("project_id", "name", name="uq_dataset_project_id_name"),
         sa.ForeignKeyConstraint(
-            ["project_id"], ["project.project_id"],
-            ondelete="CASCADE", name="fk_dataset_project_id_project",
+            ["project_id"],
+            ["project.project_id"],
+            ondelete="CASCADE",
+            name="fk_dataset_project_id_project",
         ),
         sa.ForeignKeyConstraint(
-            ["source_id"], ["image_source.source_id"],
-            ondelete="RESTRICT", name="fk_dataset_source_id_image_source",
+            ["source_id"],
+            ["image_source.source_id"],
+            ondelete="RESTRICT",
+            name="fk_dataset_source_id_image_source",
         ),
     )
     op.create_index("ix_dataset_tenant_id", "dataset", ["tenant_id"])
@@ -112,8 +119,10 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("image_id", name="pk_image"),
         sa.UniqueConstraint("dataset_id", "name", name="uq_image_dataset_id_name"),
         sa.ForeignKeyConstraint(
-            ["dataset_id"], ["dataset.dataset_id"],
-            ondelete="CASCADE", name="fk_image_dataset_id_dataset",
+            ["dataset_id"],
+            ["dataset.dataset_id"],
+            ondelete="CASCADE",
+            name="fk_image_dataset_id_dataset",
         ),
     )
     op.create_index("ix_image_tenant_id", "image", ["tenant_id"])
@@ -135,7 +144,8 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("upload_id", name="pk_upload"),
         sa.UniqueConstraint(
-            "tenant_id", "idempotency_key",
+            "tenant_id",
+            "idempotency_key",
             name="uq_upload_tenant_id_idempotency_key",
         ),
     )
@@ -154,7 +164,12 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("rv_id", name="pk_runtime_version"),
         sa.UniqueConstraint(
-            "colmap_sha", "baxx_sha", "cudss_ver", "cuda_arch", "sam_model_sha", "seed",
+            "colmap_sha",
+            "baxx_sha",
+            "cudss_ver",
+            "cuda_arch",
+            "sam_model_sha",
+            "seed",
             name="uq_runtime_version_tuple",
         ),
     )

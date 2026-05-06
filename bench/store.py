@@ -132,9 +132,7 @@ def lint(
             cur_val = cur.metrics.get(metric)
             if cur_val is None:
                 continue
-            samples = [
-                r.metrics[metric] for r in prior if metric in r.metrics
-            ]
+            samples = [r.metrics[metric] for r in prior if metric in r.metrics]
             if len(samples) < 3:
                 continue
             base = statistics.median(samples)

@@ -57,15 +57,11 @@ def parse_points_binary(data: bytes) -> PointsBinary:
     bbox_max = struct.unpack_from("<fff", data, 32)
     expected = POINTS_HEADER_SIZE + count * POINTS_RECORD_SIZE
     if len(data) < expected:
-        raise WireFormatError(
-            f"points-binary: body short — got {len(data)}, expected {expected}"
-        )
+        raise WireFormatError(f"points-binary: body short — got {len(data)}, expected {expected}")
     records: list[Point3DRecord] = []
     for i in range(count):
         off = POINTS_HEADER_SIZE + i * POINTS_RECORD_SIZE
-        x, y, z, r, g, b, _pad, tl, pid = struct.unpack_from(
-            "<fffBBBBHQ", data, off
-        )
+        x, y, z, r, g, b, _pad, tl, pid = struct.unpack_from("<fffBBBBHQ", data, off)
         records.append(
             Point3DRecord(
                 point3d_id=pid,
@@ -104,10 +100,8 @@ def parse_depth_map(data: bytes) -> DepthMap:
     dmin, dmax = struct.unpack_from("<ff", data, 20)
     expected = MAP_HEADER_SIZE + w * h * 4
     if len(data) < expected:
-        raise WireFormatError(
-            f"depth-binary: body short — got {len(data)}, expected {expected}"
-        )
-    pixels = bytes(data[MAP_HEADER_SIZE:MAP_HEADER_SIZE + w * h * 4])
+        raise WireFormatError(f"depth-binary: body short — got {len(data)}, expected {expected}")
+    pixels = bytes(data[MAP_HEADER_SIZE : MAP_HEADER_SIZE + w * h * 4])
     return DepthMap(width=w, height=h, depth_min=dmin, depth_max=dmax, pixels=pixels)
 
 
@@ -130,10 +124,8 @@ def parse_normal_map(data: bytes) -> NormalMap:
     w, h = struct.unpack_from("<II", data, 12)
     expected = MAP_HEADER_SIZE + w * h * 3 * 4
     if len(data) < expected:
-        raise WireFormatError(
-            f"normal-binary: body short — got {len(data)}, expected {expected}"
-        )
-    pixels = bytes(data[MAP_HEADER_SIZE:MAP_HEADER_SIZE + w * h * 3 * 4])
+        raise WireFormatError(f"normal-binary: body short — got {len(data)}, expected {expected}")
+    pixels = bytes(data[MAP_HEADER_SIZE : MAP_HEADER_SIZE + w * h * 3 * 4])
     return NormalMap(width=w, height=h, pixels=pixels)
 
 

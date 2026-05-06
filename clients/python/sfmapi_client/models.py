@@ -308,9 +308,7 @@ FeatureType = Literal["sift", "superpoint", "aliked", "disk", "r2d2", "d2net"]
 PairStrategy = Literal[
     "exhaustive", "sequential", "spatial", "vocabtree", "retrieval", "from_poses"
 ]
-MatcherType = Literal[
-    "nn-mutual", "nn-ratio", "superglue", "lightglue", "loftr", "mast3r"
-]
+MatcherType = Literal["nn-mutual", "nn-ratio", "superglue", "lightglue", "loftr", "mast3r"]
 
 
 class FeaturesSpec(_Base):

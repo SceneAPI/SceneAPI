@@ -23,9 +23,7 @@ from sfmapi_client.cli import commands
 
 
 def _print_error(err: SfmApiError) -> None:
-    click.secho(
-        f"sfmapi error ({err.status_code}): {err}", fg="red", err=True
-    )
+    click.secho(f"sfmapi error ({err.status_code}): {err}", fg="red", err=True)
     if err.problem:
         click.secho(f"  problem: {err.problem}", fg="red", err=True)
 
@@ -59,7 +57,9 @@ def _print_error(err: SfmApiError) -> None:
     help="Emit raw JSON instead of Rich-rendered tables.",
 )
 @click.pass_context
-def cli(ctx: click.Context, base_url: str, api_key: str | None, timeout: float, emit_json: bool) -> None:
+def cli(
+    ctx: click.Context, base_url: str, api_key: str | None, timeout: float, emit_json: bool
+) -> None:
     """sfmapi command-line interface."""
     ctx.ensure_object(dict)
     ctx.obj["client"] = SfmApiClient(base_url, api_key=api_key, timeout=timeout)

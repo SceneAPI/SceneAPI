@@ -67,9 +67,7 @@ def create(
     if source_kind == "upload":
         src: dict = {
             "kind": "upload",
-            "entries": [
-                _parse_entry(e) for e in entries
-            ],
+            "entries": [_parse_entry(e) for e in entries],
         }
     elif source_kind == "local":
         if not root:

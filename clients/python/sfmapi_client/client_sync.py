@@ -119,15 +119,11 @@ class SfmApiClient:
     def get_project(self, project_id: str) -> Project:
         return Project.model_validate(self._req("GET", f"/v1/projects/{project_id}").json())
 
-    def list_projects(
-        self, *, page_size: int = 50, page_token: str | None = None
-    ) -> Page[Project]:
+    def list_projects(self, *, page_size: int = 50, page_token: str | None = None) -> Page[Project]:
         params: dict[str, Any] = {"page_size": page_size}
         if page_token:
             params["page_token"] = page_token
-        return Page[Project].model_validate(
-            self._req("GET", "/v1/projects", params=params).json()
-        )
+        return Page[Project].model_validate(self._req("GET", "/v1/projects", params=params).json())
 
     def delete_project(self, project_id: str) -> None:
         self._req("DELETE", f"/v1/projects/{project_id}")
@@ -281,9 +277,7 @@ class SfmApiClient:
         spec: FeaturesSpec | dict | None = None,
     ) -> JobSubmitResponse:
         body = {
-            "spec": (
-                spec.model_dump(mode="json") if hasattr(spec, "model_dump") else (spec or {})
-            ),
+            "spec": (spec.model_dump(mode="json") if hasattr(spec, "model_dump") else (spec or {})),
         }
         return JobSubmitResponse.model_validate(
             self._req("POST", f"/v1/datasets/{dataset_id}/features", json=body).json()
@@ -298,6 +292,7 @@ class SfmApiClient:
     ) -> JobSubmitResponse:
         def _dump(x: Any) -> Any:
             return x.model_dump(mode="json") if hasattr(x, "model_dump") else x
+
         body: dict[str, Any] = {}
         if pairs is not None:
             body["pairs"] = _dump(pairs)
@@ -311,9 +306,7 @@ class SfmApiClient:
         self, dataset_id: str, *, spec: VerifySpec | dict | None = None
     ) -> JobSubmitResponse:
         body = {
-            "spec": (
-                spec.model_dump(mode="json") if hasattr(spec, "model_dump") else (spec or {})
-            ),
+            "spec": (spec.model_dump(mode="json") if hasattr(spec, "model_dump") else (spec or {})),
         }
         return JobSubmitResponse.model_validate(
             self._req("POST", f"/v1/datasets/{dataset_id}/verify", json=body).json()
@@ -332,6 +325,7 @@ class SfmApiClient:
     ) -> JobSubmitResponse:
         def _dump(x: Any) -> Any:
             return x.model_dump(mode="json") if hasattr(x, "model_dump") else x
+
         body: dict[str, Any] = {
             "dataset_id": dataset_id,
             "spec": _dump(spec),
@@ -346,9 +340,7 @@ class SfmApiClient:
             body["verify"] = _dump(verify)
         kind = body["spec"]["kind"] if isinstance(body["spec"], dict) else body["spec"].kind
         return JobSubmitResponse.model_validate(
-            self._req(
-                "POST", f"/v1/projects/{project_id}/pipelines/{kind}", json=body
-            ).json()
+            self._req("POST", f"/v1/projects/{project_id}/pipelines/{kind}", json=body).json()
         )
 
     # ---- jobs ----
@@ -400,9 +392,7 @@ class SfmApiClient:
         return list(body.get("seqs", []))
 
     def read_snapshot_file(self, recon_id: str, seq: int, name: str) -> bytes:
-        return self._req(
-            "GET", f"/v1/reconstructions/{recon_id}/snapshots/{seq}/{name}"
-        ).content
+        return self._req("GET", f"/v1/reconstructions/{recon_id}/snapshots/{seq}/{name}").content
 
     # ---- capabilities ----
 
@@ -443,9 +433,7 @@ class SfmApiClient:
             "strategy": strategy,
             "include_self": str(include_self).lower(),
         }
-        return self._req(
-            "GET", f"/v1/datasets/{dataset_id}/similarity", params=params
-        ).json()
+        return self._req("GET", f"/v1/datasets/{dataset_id}/similarity", params=params).json()
 
     def build_similarity_index(
         self, dataset_id: str, *, strategy: str = "dhash", force: bool = True
@@ -463,22 +451,18 @@ class SfmApiClient:
 
     def put_pose_prior(self, image_id: str, prior: PosePrior | dict) -> PosePrior:
         return PosePrior.model_validate(
-            self._req(
-                "PUT", f"/v1/images/{image_id}/pose_prior", json=_spec_dict(prior)
-            ).json()
+            self._req("PUT", f"/v1/images/{image_id}/pose_prior", json=_spec_dict(prior)).json()
         )
 
     def delete_pose_prior(self, image_id: str) -> None:
         self._req("DELETE", f"/v1/images/{image_id}/pose_prior")
 
     def list_pose_priors(self, dataset_id: str) -> dict[str, dict]:
-        return self._req("GET", f"/v1/datasets/{dataset_id}/pose_priors").json().get(
-            "pose_priors", {}
+        return (
+            self._req("GET", f"/v1/datasets/{dataset_id}/pose_priors").json().get("pose_priors", {})
         )
 
-    def bulk_set_pose_priors(
-        self, dataset_id: str, priors: dict[str, PosePrior | dict]
-    ) -> int:
+    def bulk_set_pose_priors(self, dataset_id: str, priors: dict[str, PosePrior | dict]) -> int:
         body = {k: _spec_dict(v) for k, v in priors.items()}
         return int(
             self._req("PUT", f"/v1/datasets/{dataset_id}/pose_priors", json=body)
@@ -495,9 +479,7 @@ class SfmApiClient:
         if sift is not None:
             body["sift"] = sift
         return JobSubmitResponse.model_validate(
-            self._req(
-                "POST", f"/v1/reconstructions/{recon_id}/localize", json=body
-            ).json()
+            self._req("POST", f"/v1/reconstructions/{recon_id}/localize", json=body).json()
         )
 
     def submit_georegister(self, recon_id: str, *, sim3: Sim3 | dict) -> JobSubmitResponse:
@@ -519,9 +501,7 @@ class SfmApiClient:
     ) -> JobSubmitResponse:
         params = {"face_size": face_size} if face_size else {}
         return JobSubmitResponse.model_validate(
-            self._req(
-                "POST", f"/v1/datasets/{dataset_id}:render_cubemap", params=params
-            ).json()
+            self._req("POST", f"/v1/datasets/{dataset_id}:render_cubemap", params=params).json()
         )
 
     def submit_dense(self, recon_id: str) -> JobSubmitResponse:
@@ -569,9 +549,7 @@ class SfmApiClient:
     ) -> JobSubmitResponse:
         body = {"video_path": video_path, "fps": fps, "max_frames": max_frames}
         return JobSubmitResponse.model_validate(
-            self._req(
-                "POST", f"/v1/projects/{project_id}/datasets:from_video", json=body
-            ).json()
+            self._req("POST", f"/v1/projects/{project_id}/datasets:from_video", json=body).json()
         )
 
     def submit_kapture_import(self, project_id: str, *, archive_path: str) -> JobSubmitResponse:
@@ -588,16 +566,12 @@ class SfmApiClient:
 
     def read_two_view_geometries(self, recon_id: str) -> TwoViewGeometriesFile:
         return TwoViewGeometriesFile.model_validate(
-            self._req(
-                "GET", f"/v1/reconstructions/{recon_id}/two_view_geometries.json"
-            ).json()
+            self._req("GET", f"/v1/reconstructions/{recon_id}/two_view_geometries.json").json()
         )
 
     def read_correspondence_graph(self, recon_id: str) -> CorrespondenceGraphFile:
         return CorrespondenceGraphFile.model_validate(
-            self._req(
-                "GET", f"/v1/reconstructions/{recon_id}/correspondence_graph.json"
-            ).json()
+            self._req("GET", f"/v1/reconstructions/{recon_id}/correspondence_graph.json").json()
         )
 
     def read_dense_index(self, recon_id: str, seq: int) -> DenseManifestFile:
@@ -627,15 +601,11 @@ class SfmApiClient:
 
     def read_mesh_manifest(self, recon_id: str, seq: int) -> MeshFile:
         return MeshFile.model_validate(
-            self._req(
-                "GET", f"/v1/reconstructions/{recon_id}/snapshots/{seq}/mesh.json"
-            ).json()
+            self._req("GET", f"/v1/reconstructions/{recon_id}/snapshots/{seq}/mesh.json").json()
         )
 
     def read_mesh_ply(self, recon_id: str, seq: int) -> bytes:
-        return self._req(
-            "GET", f"/v1/reconstructions/{recon_id}/snapshots/{seq}/mesh.ply"
-        ).content
+        return self._req("GET", f"/v1/reconstructions/{recon_id}/snapshots/{seq}/mesh.ply").content
 
     def get_localization_result(self, job_id: str) -> LocalizationResult:
         job = self.get_job(job_id)
@@ -711,17 +681,13 @@ class SfmApiClient:
 
     def get_image_bytes(self, image_id: str, *, download: bool = False) -> bytes:
         params = {"download": "true"} if download else {}
-        return self._req(
-            "GET", f"/v1/images/{image_id}/bytes", params=params
-        ).content
+        return self._req("GET", f"/v1/images/{image_id}/bytes", params=params).content
 
     def get_image_thumbnail(self, image_id: str, *, size: int | None = None) -> bytes:
         params: dict[str, Any] = {}
         if size is not None:
             params["size"] = size
-        return self._req(
-            "GET", f"/v1/images/{image_id}/thumbnail", params=params
-        ).content
+        return self._req("GET", f"/v1/images/{image_id}/thumbnail", params=params).content
 
     def get_image_exif(self, image_id: str) -> dict:
         return self._req("GET", f"/v1/images/{image_id}/exif").json()
@@ -734,9 +700,7 @@ class SfmApiClient:
     # ---- reconstructions / submodels (extended) ----
 
     def get_submodel(self, submodel_id: str) -> SubModel:
-        return SubModel.model_validate(
-            self._req("GET", f"/v1/submodels/{submodel_id}").json()
-        )
+        return SubModel.model_validate(self._req("GET", f"/v1/submodels/{submodel_id}").json())
 
     # ---- snapshot inspection ----
 
@@ -772,9 +736,7 @@ class SfmApiClient:
             ).json()
         )
 
-    def read_tile(
-        self, recon_id: str, seq: int, level: int, x: int, y: int, z: int
-    ) -> bytes:
+    def read_tile(self, recon_id: str, seq: int, level: int, x: int, y: int, z: int) -> bytes:
         return self._req(
             "GET",
             f"/v1/reconstructions/{recon_id}/snapshots/{seq}/tiles/{level}/{x}/{y}/{z}.bin",
@@ -783,10 +745,7 @@ class SfmApiClient:
     # ---- admin: api keys ----
 
     def list_api_keys(self) -> list[ApiKey]:
-        return [
-            ApiKey.model_validate(k)
-            for k in self._req("GET", "/v1/admin/api-keys").json()
-        ]
+        return [ApiKey.model_validate(k) for k in self._req("GET", "/v1/admin/api-keys").json()]
 
     def create_api_key(self, *, label: str | None = None) -> ApiKeyCreated:
         body = {"label": label} if label is not None else {}

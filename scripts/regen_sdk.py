@@ -100,13 +100,9 @@ def main() -> int:
     # 4. Summary (Python).
     n_models = len(list((OUT_DIR / "models").glob("*.py"))) - 1  # exclude __init__
     n_apis = sum(
-        1
-        for p in (OUT_DIR / "api").rglob("*.py")
-        if p.name not in {"__init__.py", "__pycache__"}
+        1 for p in (OUT_DIR / "api").rglob("*.py") if p.name not in {"__init__.py", "__pycache__"}
     )
-    print(
-        f"OK Python SDK: {n_models} model files, {n_apis} endpoint methods"
-    )
+    print(f"OK Python SDK: {n_models} model files, {n_apis} endpoint methods")
 
     # 4. TypeScript types.
     npx = shutil.which("npx") or shutil.which("npx.cmd")

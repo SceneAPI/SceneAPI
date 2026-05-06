@@ -40,9 +40,7 @@ def metrics_from_snapshot_summary(summary: dict) -> ReconstructionMetrics:
     )
 
 
-def collect_metrics(
-    client: SfmApiClient, *, recon_id: str
-) -> ReconstructionMetrics:
+def collect_metrics(client: SfmApiClient, *, recon_id: str) -> ReconstructionMetrics:
     """Fetch the latest sealed snapshot's summary and convert to metrics."""
     seqs = client.list_snapshots(recon_id)
     if not seqs:
@@ -61,11 +59,7 @@ def metrics_from_job_outputs(detail: JobDetail) -> dict[str, float]:
         if t.kind != "map" or not t.outputs_ref:
             continue
         models = t.outputs_ref.get("models") or []
-        out["num_reg_images"] = float(
-            sum(int(m.get("num_reg_images", 0) or 0) for m in models)
-        )
-        out["num_points3D"] = float(
-            sum(int(m.get("num_points3D", 0) or 0) for m in models)
-        )
+        out["num_reg_images"] = float(sum(int(m.get("num_reg_images", 0) or 0) for m in models))
+        out["num_points3D"] = float(sum(int(m.get("num_points3D", 0) or 0) for m in models))
         out["num_submodels"] = float(len(models))
     return out

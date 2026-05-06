@@ -27,9 +27,7 @@ def add(
 ) -> None:
     if not blob_sha and not rel_path:
         raise click.UsageError("--blob-sha or --rel-path required")
-    img = ctx.obj["client"].add_image(
-        dataset_id, name=name, blob_sha=blob_sha, rel_path=rel_path
-    )
+    img = ctx.obj["client"].add_image(dataset_id, name=name, blob_sha=blob_sha, rel_path=rel_path)
     render(ctx, img)
 
 
@@ -38,12 +36,8 @@ def add(
 @click.option("--page-size", type=int, default=100)
 @click.option("--page-token", default=None)
 @click.pass_context
-def list_(
-    ctx: click.Context, dataset_id: str, page_size: int, page_token: str | None
-) -> None:
-    page = ctx.obj["client"].list_images(
-        dataset_id, page_size=page_size, page_token=page_token
-    )
+def list_(ctx: click.Context, dataset_id: str, page_size: int, page_token: str | None) -> None:
+    page = ctx.obj["client"].list_images(dataset_id, page_size=page_size, page_token=page_token)
     if ctx.obj.get("json"):
         render(ctx, page)
         return

@@ -28,15 +28,23 @@ def list_() -> None:
     """List the dataset specs available."""
     for p in _list_dataset_files():
         spec = harness.load_dataset(p)
-        click.echo(f"{spec.name:<20} recipe={spec.recipe:<14} {spec.description.splitlines()[0] if spec.description else ''}")
+        click.echo(
+            f"{spec.name:<20} recipe={spec.recipe:<14} {spec.description.splitlines()[0] if spec.description else ''}"
+        )
 
 
 @cli.command("run")
-@click.option("--dataset", "datasets", multiple=True, help="Dataset name (no .yaml). Repeat for several.")
+@click.option(
+    "--dataset", "datasets", multiple=True, help="Dataset name (no .yaml). Repeat for several."
+)
 @click.option("--all", "run_all", is_flag=True, help="Run every dataset under bench/datasets/.")
-@click.option("--base-url", envvar="SFMAPI_BASE_URL", default="http://localhost:8080", show_default=True)
+@click.option(
+    "--base-url", envvar="SFMAPI_BASE_URL", default="http://localhost:8080", show_default=True
+)
 @click.option("--api-key", envvar="SFMAPI_KEY", default=None)
-@click.option("--timeout", type=float, default=3600.0, show_default=True, help="Per-bench timeout in seconds.")
+@click.option(
+    "--timeout", type=float, default=3600.0, show_default=True, help="Per-bench timeout in seconds."
+)
 @click.option("--poll-interval", type=float, default=2.0, show_default=True)
 def run(
     datasets: tuple[str, ...],
@@ -87,8 +95,12 @@ def run(
 
 
 @cli.command("lint")
-@click.option("--tolerance", type=float, default=None, help="Override per-metric tolerance (e.g. 0.05 = 5%).")
-@click.option("--latest-from", default=None, help="Specific git_sha to lint (defaults to most-recent .jsonl).")
+@click.option(
+    "--tolerance", type=float, default=None, help="Override per-metric tolerance (e.g. 0.05 = 5%)."
+)
+@click.option(
+    "--latest-from", default=None, help="Specific git_sha to lint (defaults to most-recent .jsonl)."
+)
 @click.option("--exit-zero", is_flag=True, help="Always exit 0 (just print findings).")
 def lint(tolerance: float | None, latest_from: str | None, exit_zero: bool) -> None:
     """Compare the latest results against the rolling median of history."""
@@ -117,7 +129,9 @@ def lint(tolerance: float | None, latest_from: str | None, exit_zero: bool) -> N
         sys.exit(0)
 
     regressions = store.lint(latest_results, tolerance_override=tolerance)
-    click.echo(f"linting {len(latest_results)} result(s) for sha={latest_sha} against rolling median...")
+    click.echo(
+        f"linting {len(latest_results)} result(s) for sha={latest_sha} against rolling median..."
+    )
     for reg in regressions:
         click.secho("  REGRESSION " + reg.as_text(), fg="red")
     if not regressions:

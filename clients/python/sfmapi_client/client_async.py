@@ -99,9 +99,7 @@ class AsyncSfmApiClient:
     # projects ---------------------------------------------------------
 
     async def create_project(self, name: str, *, description: str | None = None) -> Project:
-        r = await self._req(
-            "POST", "/v1/projects", json={"name": name, "description": description}
-        )
+        r = await self._req("POST", "/v1/projects", json={"name": name, "description": description})
         return Project.model_validate(r.json())
 
     async def get_project(self, project_id: str) -> Project:
@@ -142,16 +140,12 @@ class AsyncSfmApiClient:
     async def patch_chunk(self, upload_id: str, *, offset: int, data: bytes) -> Upload:
         end = offset + len(data) - 1
         headers = {"Content-Range": f"bytes {offset}-{end}/{offset + len(data)}"}
-        r = await self._req(
-            "PATCH", f"/v1/uploads/{upload_id}", content=data, headers=headers
-        )
+        r = await self._req("PATCH", f"/v1/uploads/{upload_id}", content=data, headers=headers)
         return Upload.model_validate(r.json())
 
     async def finalize_upload(self, upload_id: str, *, client_sha: str | None = None) -> Upload:
         headers = {"X-Content-SHA256": client_sha} if client_sha else {}
-        r = await self._req(
-            "POST", f"/v1/uploads/{upload_id}:finalize", json={}, headers=headers
-        )
+        r = await self._req("POST", f"/v1/uploads/{upload_id}:finalize", json={}, headers=headers)
         return Upload.model_validate(r.json())
 
     async def upload_bytes(
@@ -254,9 +248,7 @@ class AsyncSfmApiClient:
         spec: FeaturesSpec | dict | None = None,
     ) -> JobSubmitResponse:
         body = {
-            "spec": (
-                spec.model_dump(mode="json") if hasattr(spec, "model_dump") else (spec or {})
-            ),
+            "spec": (spec.model_dump(mode="json") if hasattr(spec, "model_dump") else (spec or {})),
         }
         r = await self._req("POST", f"/v1/datasets/{dataset_id}/features", json=body)
         return JobSubmitResponse.model_validate(r.json())
@@ -270,6 +262,7 @@ class AsyncSfmApiClient:
     ) -> JobSubmitResponse:
         def _dump(x: Any) -> Any:
             return x.model_dump(mode="json") if hasattr(x, "model_dump") else x
+
         body: dict[str, Any] = {}
         if pairs is not None:
             body["pairs"] = _dump(pairs)
@@ -285,9 +278,7 @@ class AsyncSfmApiClient:
         spec: VerifySpec | dict | None = None,
     ) -> JobSubmitResponse:
         body = {
-            "spec": (
-                spec.model_dump(mode="json") if hasattr(spec, "model_dump") else (spec or {})
-            ),
+            "spec": (spec.model_dump(mode="json") if hasattr(spec, "model_dump") else (spec or {})),
         }
         r = await self._req("POST", f"/v1/datasets/{dataset_id}/verify", json=body)
         return JobSubmitResponse.model_validate(r.json())
@@ -305,6 +296,7 @@ class AsyncSfmApiClient:
     ) -> JobSubmitResponse:
         def _dump(x: Any) -> Any:
             return x.model_dump(mode="json") if hasattr(x, "model_dump") else x
+
         body: dict[str, Any] = {
             "dataset_id": dataset_id,
             "spec": _dump(spec),
@@ -318,9 +310,7 @@ class AsyncSfmApiClient:
         if verify is not None:
             body["verify"] = _dump(verify)
         kind = body["spec"]["kind"] if isinstance(body["spec"], dict) else body["spec"].kind
-        r = await self._req(
-            "POST", f"/v1/projects/{project_id}/pipelines/{kind}", json=body
-        )
+        r = await self._req("POST", f"/v1/projects/{project_id}/pipelines/{kind}", json=body)
         return JobSubmitResponse.model_validate(r.json())
 
     # jobs -------------------------------------------------------------
@@ -412,18 +402,14 @@ class AsyncSfmApiClient:
             "strategy": strategy,
             "include_self": str(include_self).lower(),
         }
-        r = await self._req(
-            "GET", f"/v1/datasets/{dataset_id}/similarity", params=params
-        )
+        r = await self._req("GET", f"/v1/datasets/{dataset_id}/similarity", params=params)
         return r.json()
 
     async def build_similarity_index(
         self, dataset_id: str, *, strategy: str = "dhash", force: bool = True
     ) -> dict:
         params = {"strategy": strategy, "force": str(force).lower()}
-        r = await self._req(
-            "POST", f"/v1/datasets/{dataset_id}/similarity:build", params=params
-        )
+        r = await self._req("POST", f"/v1/datasets/{dataset_id}/similarity:build", params=params)
         return r.json()
 
     # pose priors ------------------------------------------------------
@@ -434,9 +420,7 @@ class AsyncSfmApiClient:
         return PosePrior.model_validate(body) if body is not None else None
 
     async def put_pose_prior(self, image_id: str, prior: PosePrior | dict) -> PosePrior:
-        r = await self._req(
-            "PUT", f"/v1/images/{image_id}/pose_prior", json=_spec_dict(prior)
-        )
+        r = await self._req("PUT", f"/v1/images/{image_id}/pose_prior", json=_spec_dict(prior))
         return PosePrior.model_validate(r.json())
 
     async def delete_pose_prior(self, image_id: str) -> None:
@@ -450,9 +434,7 @@ class AsyncSfmApiClient:
         self, dataset_id: str, priors: dict[str, PosePrior | dict]
     ) -> int:
         body = {k: _spec_dict(v) for k, v in priors.items()}
-        r = await self._req(
-            "PUT", f"/v1/datasets/{dataset_id}/pose_priors", json=body
-        )
+        r = await self._req("PUT", f"/v1/datasets/{dataset_id}/pose_priors", json=body)
         return int(r.json().get("written", 0))
 
     # localize / georegister / cubemap / dense / mesh ------------------
@@ -463,14 +445,10 @@ class AsyncSfmApiClient:
         body: dict[str, Any] = {"blob_sha": blob_sha}
         if sift is not None:
             body["sift"] = sift
-        r = await self._req(
-            "POST", f"/v1/reconstructions/{recon_id}/localize", json=body
-        )
+        r = await self._req("POST", f"/v1/reconstructions/{recon_id}/localize", json=body)
         return JobSubmitResponse.model_validate(r.json())
 
-    async def submit_georegister(
-        self, recon_id: str, *, sim3: Sim3 | dict
-    ) -> JobSubmitResponse:
+    async def submit_georegister(self, recon_id: str, *, sim3: Sim3 | dict) -> JobSubmitResponse:
         r = await self._req(
             "POST",
             f"/v1/reconstructions/{recon_id}/georegister",
@@ -486,9 +464,7 @@ class AsyncSfmApiClient:
         self, dataset_id: str, *, face_size: int | None = None
     ) -> JobSubmitResponse:
         params = {"face_size": face_size} if face_size else {}
-        r = await self._req(
-            "POST", f"/v1/datasets/{dataset_id}:render_cubemap", params=params
-        )
+        r = await self._req("POST", f"/v1/datasets/{dataset_id}:render_cubemap", params=params)
         return JobSubmitResponse.model_validate(r.json())
 
     async def submit_dense(self, recon_id: str) -> JobSubmitResponse:
@@ -503,9 +479,7 @@ class AsyncSfmApiClient:
         options: dict | None = None,
     ) -> JobSubmitResponse:
         body = {"method": method, "options": options or {}}
-        r = await self._req(
-            "POST", f"/v1/reconstructions/{recon_id}/mesh", json=body
-        )
+        r = await self._req("POST", f"/v1/reconstructions/{recon_id}/mesh", json=body)
         return JobSubmitResponse.model_validate(r.json())
 
     async def submit_merge_recons(
@@ -534,32 +508,24 @@ class AsyncSfmApiClient:
         max_frames: int = 1000,
     ) -> JobSubmitResponse:
         body = {"video_path": video_path, "fps": fps, "max_frames": max_frames}
-        r = await self._req(
-            "POST", f"/v1/projects/{project_id}/datasets:from_video", json=body
-        )
+        r = await self._req("POST", f"/v1/projects/{project_id}/datasets:from_video", json=body)
         return JobSubmitResponse.model_validate(r.json())
 
     async def submit_kapture_import(
         self, project_id: str, *, archive_path: str
     ) -> JobSubmitResponse:
         body = {"archive_path": archive_path}
-        r = await self._req(
-            "POST", f"/v1/projects/{project_id}/datasets:import_kapture", json=body
-        )
+        r = await self._req("POST", f"/v1/projects/{project_id}/datasets:import_kapture", json=body)
         return JobSubmitResponse.model_validate(r.json())
 
     # reconstruction-level reads ---------------------------------------
 
     async def read_two_view_geometries(self, recon_id: str) -> TwoViewGeometriesFile:
-        r = await self._req(
-            "GET", f"/v1/reconstructions/{recon_id}/two_view_geometries.json"
-        )
+        r = await self._req("GET", f"/v1/reconstructions/{recon_id}/two_view_geometries.json")
         return TwoViewGeometriesFile.model_validate(r.json())
 
     async def read_correspondence_graph(self, recon_id: str) -> CorrespondenceGraphFile:
-        r = await self._req(
-            "GET", f"/v1/reconstructions/{recon_id}/correspondence_graph.json"
-        )
+        r = await self._req("GET", f"/v1/reconstructions/{recon_id}/correspondence_graph.json")
         return CorrespondenceGraphFile.model_validate(r.json())
 
     # snapshot-level dense / mesh reads --------------------------------
@@ -592,15 +558,11 @@ class AsyncSfmApiClient:
         return r.content
 
     async def read_mesh_manifest(self, recon_id: str, seq: int) -> MeshFile:
-        r = await self._req(
-            "GET", f"/v1/reconstructions/{recon_id}/snapshots/{seq}/mesh.json"
-        )
+        r = await self._req("GET", f"/v1/reconstructions/{recon_id}/snapshots/{seq}/mesh.json")
         return MeshFile.model_validate(r.json())
 
     async def read_mesh_ply(self, recon_id: str, seq: int) -> bytes:
-        r = await self._req(
-            "GET", f"/v1/reconstructions/{recon_id}/snapshots/{seq}/mesh.ply"
-        )
+        r = await self._req("GET", f"/v1/reconstructions/{recon_id}/snapshots/{seq}/mesh.ply")
         return r.content
 
     async def get_localization_result(self, job_id: str) -> LocalizationResult:
@@ -613,9 +575,7 @@ class AsyncSfmApiClient:
         raise ValueError(f"job {job_id} has no completed localize task")
 
     async def read_snapshot_file(self, recon_id: str, seq: int, name: str) -> bytes:
-        r = await self._req(
-            "GET", f"/v1/reconstructions/{recon_id}/snapshots/{seq}/{name}"
-        )
+        r = await self._req("GET", f"/v1/reconstructions/{recon_id}/snapshots/{seq}/{name}")
         return r.content
 
     # ---- meta (extended) ----
@@ -638,9 +598,7 @@ class AsyncSfmApiClient:
 
     # ---- projects (extended) ----
 
-    async def patch_project(
-        self, project_id: str, patch: ProjectPatch | dict
-    ) -> Project:
+    async def patch_project(self, project_id: str, patch: ProjectPatch | dict) -> Project:
         body = (
             patch.model_dump(mode="json", exclude_unset=True)
             if hasattr(patch, "model_dump")
@@ -687,24 +645,16 @@ class AsyncSfmApiClient:
         r = await self._req("GET", f"/v1/images/{image_id}")
         return Image.model_validate(r.json())
 
-    async def get_image_bytes(
-        self, image_id: str, *, download: bool = False
-    ) -> bytes:
+    async def get_image_bytes(self, image_id: str, *, download: bool = False) -> bytes:
         params = {"download": "true"} if download else {}
-        r = await self._req(
-            "GET", f"/v1/images/{image_id}/bytes", params=params
-        )
+        r = await self._req("GET", f"/v1/images/{image_id}/bytes", params=params)
         return r.content
 
-    async def get_image_thumbnail(
-        self, image_id: str, *, size: int | None = None
-    ) -> bytes:
+    async def get_image_thumbnail(self, image_id: str, *, size: int | None = None) -> bytes:
         params: dict[str, Any] = {}
         if size is not None:
             params["size"] = size
-        r = await self._req(
-            "GET", f"/v1/images/{image_id}/thumbnail", params=params
-        )
+        r = await self._req("GET", f"/v1/images/{image_id}/thumbnail", params=params)
         return r.content
 
     async def get_image_exif(self, image_id: str) -> dict:
@@ -758,9 +708,7 @@ class AsyncSfmApiClient:
         )
         return TilesIndex.model_validate(r.json())
 
-    async def read_tile(
-        self, recon_id: str, seq: int, level: int, x: int, y: int, z: int
-    ) -> bytes:
+    async def read_tile(self, recon_id: str, seq: int, level: int, x: int, y: int, z: int) -> bytes:
         r = await self._req(
             "GET",
             f"/v1/reconstructions/{recon_id}/snapshots/{seq}/tiles/{level}/{x}/{y}/{z}.bin",

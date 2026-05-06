@@ -5,6 +5,7 @@ Revises: 0002
 Create Date: 2026-05-01
 
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
@@ -32,8 +33,10 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("maskset_id", name="pk_maskset"),
         sa.UniqueConstraint("dataset_id", "name", name="uq_maskset_dataset_id_name"),
         sa.ForeignKeyConstraint(
-            ["dataset_id"], ["dataset.dataset_id"],
-            ondelete="CASCADE", name="fk_maskset_dataset_id_dataset",
+            ["dataset_id"],
+            ["dataset.dataset_id"],
+            ondelete="CASCADE",
+            name="fk_maskset_dataset_id_dataset",
         ),
     )
     op.create_index("ix_maskset_tenant_id", "maskset", ["tenant_id"])
@@ -50,12 +53,16 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("mask_id", name="pk_mask"),
         sa.UniqueConstraint("maskset_id", "image_id", name="uq_mask_maskset_id_image_id"),
         sa.ForeignKeyConstraint(
-            ["maskset_id"], ["maskset.maskset_id"],
-            ondelete="CASCADE", name="fk_mask_maskset_id_maskset",
+            ["maskset_id"],
+            ["maskset.maskset_id"],
+            ondelete="CASCADE",
+            name="fk_mask_maskset_id_maskset",
         ),
         sa.ForeignKeyConstraint(
-            ["image_id"], ["image.image_id"],
-            ondelete="CASCADE", name="fk_mask_image_id_image",
+            ["image_id"],
+            ["image.image_id"],
+            ondelete="CASCADE",
+            name="fk_mask_image_id_image",
         ),
     )
     op.create_index("ix_mask_tenant_id", "mask", ["tenant_id"])
@@ -73,7 +80,9 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("artifact_id", name="pk_model_artifact"),
         sa.UniqueConstraint(
-            "family", "name", "version",
+            "family",
+            "name",
+            "version",
             name="uq_model_artifact_family_name_version",
         ),
     )

@@ -78,7 +78,7 @@ def events(ctx: click.Context, job_id: str, last_event_id: int | None, follow: b
             elif kind == "snapshot_available":
                 extra = f" seq={ev.get('snapshot_seq')}"
             elif kind in ("warning", "error", "log_line"):
-                extra = f" {ev.get('message','')}"
+                extra = f" {ev.get('message', '')}"
             click.echo(f"[{ev.get('seq', '?'):>5}] {kind:<22} {phase:<22}{extra}")
             if not follow and kind == "phase_completed" and phase in ("export",):
                 break
@@ -98,7 +98,9 @@ def watch(ctx: click.Context, job_id: str, interval: float) -> None:
     while True:
         j = client.get_job(job_id)
         if j.status != last_status:
-            click.echo(f"{j.status}: {sum(1 for t in j.tasks if t.status == 'succeeded')}/{len(j.tasks)} tasks succeeded")
+            click.echo(
+                f"{j.status}: {sum(1 for t in j.tasks if t.status == 'succeeded')}/{len(j.tasks)} tasks succeeded"
+            )
             last_status = j.status
         if j.status in terminal:
             return

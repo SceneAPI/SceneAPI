@@ -5,6 +5,7 @@ Revises: 0004
 Create Date: 2026-05-02
 
 """
+
 from __future__ import annotations
 
 from typing import Sequence, Union
@@ -20,9 +21,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     with op.batch_alter_table("job") as batch:
-        batch.add_column(
-            sa.Column("pinned", sa.Boolean, nullable=False, server_default=sa.false())
-        )
+        batch.add_column(sa.Column("pinned", sa.Boolean, nullable=False, server_default=sa.false()))
 
 
 def downgrade() -> None:

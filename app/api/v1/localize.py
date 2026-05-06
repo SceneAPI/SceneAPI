@@ -107,5 +107,3 @@ async def to_cubemap(
         session, tenant_id=tenant_id, recon_id=recon_id
     )
     return accepted_response(JobAcceptedResponse(job_id=job_id, recon_id=recon_id))
-
-

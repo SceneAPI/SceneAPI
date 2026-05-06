@@ -108,9 +108,7 @@ def _resolve_git_sha() -> str:
     import subprocess
 
     try:
-        return (
-            subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-        )
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     except (FileNotFoundError, subprocess.CalledProcessError):
         return "local"
 
@@ -128,13 +126,9 @@ def run_one(
     sha = _resolve_git_sha()
 
     rv = client.version()
-    runtime_version_id = (
-        f"{rv.colmap_sha}:{rv.baxx_sha}:{rv.cudss_ver}:{rv.cuda_arch}"
-    )
+    runtime_version_id = f"{rv.colmap_sha}:{rv.baxx_sha}:{rv.cudss_ver}:{rv.cuda_arch}"
 
-    proj = client.create_project(
-        f"{project_prefix}-{dataset.name}-{int(time.time())}"
-    )
+    proj = client.create_project(f"{project_prefix}-{dataset.name}-{int(time.time())}")
 
     if dataset.source["kind"] != "local":
         raise NotImplementedError(
@@ -143,9 +137,7 @@ def run_one(
         )
     image_root = Path(dataset.source["image_root"])
     if not image_root.is_dir():
-        raise FileNotFoundError(
-            f"image_root not found: {image_root}. Set $BENCH_DATA_ROOT."
-        )
+        raise FileNotFoundError(f"image_root not found: {image_root}. Set $BENCH_DATA_ROOT.")
     image_list = _collect_image_list(image_root, dataset.source.get("image_glob", "*"))
     if not image_list:
         raise RuntimeError(f"no images matched in {image_root}")
@@ -184,7 +176,7 @@ def run_one(
     wall = time.time() - t0
     metrics: dict[str, float] = {"wall_seconds": wall}
 
-    recon_id = (job.recon_id or "")
+    recon_id = job.recon_id or ""
     if recon_id:
         try:
             m = bench_metrics.collect_metrics(client, recon_id=recon_id)
