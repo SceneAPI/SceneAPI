@@ -1,19 +1,21 @@
 apiVersion: v2
 name: sfmapi
 description: |
-  sfmapi: a FastAPI service that wraps colmap_mod for SfM, plus image
-  segmentation. This chart deploys the web tier + an optional in-cluster
-  worker DaemonSet that lands on GPU-capable nodes. Postgres and Redis
-  are pulled in as subcharts; both can be disabled if you front the
-  install with managed services.
+  sfmapi: a generic HTTP/REST API for Structure-from-Motion tasks,
+  plus image segmentation. This chart deploys the web tier + an
+  optional in-cluster worker DaemonSet that lands on GPU-capable
+  nodes (the worker image bundles the SfM backend of the operator's
+  choice). Postgres and Redis are pulled in as subcharts; both can
+  be disabled if you front the install with managed services.
 type: application
 version: 0.0.1
 appVersion: "0.0.1"
 keywords:
   - sfm
-  - colmap
+  - structure-from-motion
   - photogrammetry
-home: https://sfmapi.dev
+  - rest-api
+home: https://sfmapi.github.io
 sources:
   - https://github.com/sfmapi/sfmapi
 maintainers:
