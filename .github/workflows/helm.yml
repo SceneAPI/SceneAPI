@@ -32,12 +32,12 @@ jobs:
           version: "v3.18.4"
       - name: Resolve subcharts (helm dependency update + expand)
         # `helm dependency update` lands the bitnami subcharts as
-        # `.tgz` files. Helm 3.18's chart loader has stopped
-        # recognizing `.tgz` subcharts in some cases (`helm template`
-        # reports "missing in charts/ directory"). Expanding each
-        # archive into a directory sidesteps that — directory-form
-        # subcharts have always been recognized by every helm
-        # version we care about.
+        # `.tgz` files and writes a Chart.lock referencing them.
+        # Helm 3.18's chart loader cross-checks Chart.lock against
+        # what's in `charts/`, so after we expand the .tgz files
+        # to directory form we also drop Chart.lock — letting helm
+        # walk `charts/` directly. (Chart.lock is regeneratable
+        # and not committed.)
         run: |
           set -e
           helm dependency update deploy/helm/sfmapi
@@ -47,6 +47,8 @@ jobs:
             rm "$f"
           done
           ls -la
+          rm -f ../Chart.lock
+          ls -la ../
       - name: helm lint
         run: helm lint deploy/helm/sfmapi
       - name: helm template (defaults)
