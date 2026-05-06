@@ -124,7 +124,9 @@ class LinkedModel(ORMModel):
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
 
-def to_out[M: BaseModel](model_cls: type[M], obj: Any, *, links: dict[str, Link] | None = None) -> M:
+def to_out[M: BaseModel](
+    model_cls: type[M], obj: Any, *, links: dict[str, Link] | None = None
+) -> M:
     """Validate `obj` (typically an ORM row) into `model_cls` and attach
     a `_links` HAL block in one step. Centralizes the 'load row, decorate
     with hypermedia links' pattern shared by every collection endpoint."""

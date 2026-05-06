@@ -59,9 +59,7 @@ def get_backend(name: str | None = None) -> SfmBackend:
 
             register_backend(_DEFAULT, ColmapModBackend)
         else:
-            raise KeyError(
-                f"unknown SfmBackend {chosen!r}; registered: {list_backends()}"
-            )
+            raise KeyError(f"unknown SfmBackend {chosen!r}; registered: {list_backends()}")
     return _REGISTRY[chosen]()
 
 

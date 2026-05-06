@@ -25,7 +25,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v5
         with:
-          version: "v3.16.0"
+          # Pinned to 3.14.x — Helm 3.16+ resolves Bitnami subcharts
+          # via OCI auto-redirect but doesn't always materialize the
+          # .tgz files in the local `charts/` directory, breaking
+          # the subsequent `helm template` step. 3.14.x writes them
+          # reliably.
+          version: "v3.14.4"
       - name: helm dependency update
         run: helm dependency update deploy/helm/sfmapi
       - name: helm lint

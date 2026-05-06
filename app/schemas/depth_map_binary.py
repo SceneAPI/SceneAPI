@@ -50,16 +50,10 @@ def write_depth_header(
     depth_min: float,
     depth_max: float,
 ) -> None:
-    fh.write(
-        struct.pack(
-            HEADER_FMT, DEPTH_MAGIC, 1, width, height, depth_min, depth_max, 0
-        )
-    )
+    fh.write(struct.pack(HEADER_FMT, DEPTH_MAGIC, 1, width, height, depth_min, depth_max, 0))
 
 
-def write_normal_header(
-    fh: BinaryIO, *, width: int, height: int
-) -> None:
+def write_normal_header(fh: BinaryIO, *, width: int, height: int) -> None:
     fh.write(struct.pack(HEADER_FMT, NORMAL_MAGIC, 1, width, height, 0.0, 0.0, 0))
 
 
@@ -75,7 +69,9 @@ def read_header(fh: BinaryIO) -> tuple[bytes, int, int, int, float, float]:
     return magic, version, w, h, dmin, dmax
 
 
-def encode_depth(width: int, height: int, depth_min: float, depth_max: float, pixels: bytes) -> bytes:
+def encode_depth(
+    width: int, height: int, depth_min: float, depth_max: float, pixels: bytes
+) -> bytes:
     """Build a depth-map blob. ``pixels`` is ``width*height*4`` bytes
     (float32 row-major). The function does not parse it — callers are
     expected to pass already-encoded float32 bytes (e.g.
@@ -93,8 +89,7 @@ def encode_normal(width: int, height: int, pixels: bytes) -> bytes:
     bytes (3-channel float32 row-major)."""
     if len(pixels) != width * height * 3 * 4:
         raise ValueError(
-            f"normal pixel buffer is {len(pixels)} bytes; "
-            f"expected {width * height * 3 * 4}"
+            f"normal pixel buffer is {len(pixels)} bytes; expected {width * height * 3 * 4}"
         )
     header = struct.pack(HEADER_FMT, NORMAL_MAGIC, 1, width, height, 0.0, 0.0, 0)
     return header + pixels

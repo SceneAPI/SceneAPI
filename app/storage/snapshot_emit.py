@@ -116,7 +116,9 @@ def _frame_to_schema(frame: Any) -> Frame:
 # ---- emitter --------------------------------------------------------------
 
 
-def _bbox(records: list[Point3DRecord]) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+def _bbox(
+    records: list[Point3DRecord],
+) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
     if not records:
         z = (0.0, 0.0, 0.0)
         return z, z
@@ -126,9 +128,7 @@ def _bbox(records: list[Point3DRecord]) -> tuple[tuple[float, float, float], tup
     return (min(xs), min(ys), min(zs)), (max(xs), max(ys), max(zs))
 
 
-def emit_snapshot_files(
-    reconstruction: Any, out_dir: Path, *, preview_max: int = 10000
-) -> dict:
+def emit_snapshot_files(reconstruction: Any, out_dir: Path, *, preview_max: int = 10000) -> dict:
     """Write all advertised snapshot files for one Reconstruction into
     ``out_dir``. Returns a manifest of written paths and counts.
 
@@ -239,7 +239,9 @@ def emit_snapshot_files(
             summary_path,
             json.dumps(
                 {
-                    "num_reg_images": getattr(reconstruction, "num_reg_images", lambda: len(images))()
+                    "num_reg_images": getattr(
+                        reconstruction, "num_reg_images", lambda: len(images)
+                    )()
                     if callable(getattr(reconstruction, "num_reg_images", None))
                     else len(images),
                     "num_points3D": len(records),

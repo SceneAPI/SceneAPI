@@ -20,12 +20,7 @@ from tests.contract.conftest import load_fixture
 
 pytestmark = pytest.mark.contract
 
-GEN_ROOT = (
-    Path(__file__).resolve().parents[2]
-    / "clients"
-    / "python"
-    / "sfmapi_client_gen"
-)
+GEN_ROOT = Path(__file__).resolve().parents[2] / "clients" / "python" / "sfmapi_client_gen"
 
 
 def _load_gen_module(rel: str) -> Any:

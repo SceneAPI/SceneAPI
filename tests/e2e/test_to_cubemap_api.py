@@ -10,8 +10,6 @@ pytestmark = pytest.mark.e2e
 async def test_to_cubemap_returns_501_without_capability(client) -> None:
     """Without pycolmap the backend doesn't advertise
     spherical.to_cubemap, so POST returns 501."""
-    resp = await client.post(
-        "/v1/reconstructions/01HGHOST00000000000000000A:to_cubemap"
-    )
+    resp = await client.post("/v1/reconstructions/01HGHOST00000000000000000A:to_cubemap")
     assert resp.status_code == 501
     assert resp.json()["capability"] == "spherical.to_cubemap"

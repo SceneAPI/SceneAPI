@@ -87,7 +87,7 @@ Content-Type: application/json
     "keypoints": [[x, y, scale, angle], ...],   // or binary
     "descriptors_b64": "..."                    // base64-encoded float32
   },
-  "runtime": {"backend": "colmap_mod", "ms": 312}
+  "runtime": {"backend": "<backend-name>", "ms": 312}
 }
 ```
 
@@ -139,7 +139,7 @@ Content-Type: application/json
     },
     "inlier_matches": [[query_kp_idx, point3d_id], ...]
   },
-  "runtime": {"backend": "colmap_mod", "ms": 287}
+  "runtime": {"backend": "<backend-name>", "ms": 287}
 }
 ```
 

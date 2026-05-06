@@ -27,6 +27,7 @@ one service per GPU with distinct names; `-GpuUuid` sets
 
 ## `deploy/bootstrap-worker.ps1`
 
-One-shot installer: clones / updates `sfmapi` + `colmap_mod`, builds
-pycolmap, registers the worker service. Ships in
-`worker-installer-vX.Y.Z.zip`.
+One-shot installer: clones / updates `sfmapi` and the configured
+SfM backend repo (set via `COLMAP_MOD_REPO_URL` env var; defaults
+to a public pycolmap fork), builds pycolmap, registers the worker
+service. Ships in `worker-installer-vX.Y.Z.zip`.

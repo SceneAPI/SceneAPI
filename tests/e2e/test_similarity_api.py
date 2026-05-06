@@ -83,9 +83,7 @@ async def test_identical_images_produce_distance_zero(client) -> None:
     sha = await _upload(client, payload)
     sha2 = hashlib.sha256(payload).hexdigest()
     assert sha == sha2  # sanity
-    img = await client.post(
-        f"/v1/datasets/{did}/images", json={"name": "dup.jpg", "blob_sha": sha}
-    )
+    img = await client.post(f"/v1/datasets/{did}/images", json={"name": "dup.jpg", "blob_sha": sha})
     new_id = img.json()["image_id"]
     resp = await client.get(
         f"/v1/datasets/{did}/similarity",
@@ -98,9 +96,7 @@ async def test_identical_images_produce_distance_zero(client) -> None:
 
 async def test_unknown_image_returns_404(client) -> None:
     did, _ = await _make_dataset_with_images(client, 2)
-    resp = await client.get(
-        f"/v1/datasets/{did}/similarity", params={"image_id": "ghost-id"}
-    )
+    resp = await client.get(f"/v1/datasets/{did}/similarity", params={"image_id": "ghost-id"})
     assert resp.status_code == 404
 
 
@@ -130,18 +126,14 @@ async def test_vlad_build_returns_501_without_pycolmap(client) -> None:
     """The build path checks the similarity.vlad capability up front;
     without pycolmap it returns 501 with the canonical name."""
     did, _ = await _make_dataset_with_images(client, 2)
-    resp = await client.post(
-        f"/v1/datasets/{did}/similarity:build", params={"strategy": "vlad"}
-    )
+    resp = await client.post(f"/v1/datasets/{did}/similarity:build", params={"strategy": "vlad"})
     assert resp.status_code == 501
     assert resp.json()["capability"] == "similarity.vlad"
 
 
 async def test_build_endpoint_persists_index(client) -> None:
     did, _ = await _make_dataset_with_images(client, 3)
-    resp = await client.post(
-        f"/v1/datasets/{did}/similarity:build", params={"strategy": "dhash"}
-    )
+    resp = await client.post(f"/v1/datasets/{did}/similarity:build", params={"strategy": "dhash"})
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["strategy"] == "dhash"
@@ -156,7 +148,5 @@ async def test_empty_dataset_rejected(client) -> None:
         json={"name": "ds", "source": {"kind": "upload", "entries": []}},
     )
     did = ds.json()["dataset_id"]
-    resp = await client.get(
-        f"/v1/datasets/{did}/similarity", params={"image_id": "anything"}
-    )
+    resp = await client.get(f"/v1/datasets/{did}/similarity", params={"image_id": "anything"})
     assert resp.status_code == 422

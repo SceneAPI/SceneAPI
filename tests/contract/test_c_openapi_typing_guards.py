@@ -80,9 +80,7 @@ def test_features_endpoint_returns_job_accepted() -> None:
     spec = app.openapi()
     op = spec["paths"]["/v1/datasets/{dataset_id}/features"]["post"]
     # 202 schema must be JobAcceptedResponse-shaped.
-    schema = (
-        op["responses"]["202"]["content"]["application/json"]["schema"]
-    )
+    schema = op["responses"]["202"]["content"]["application/json"]["schema"]
     ref = schema.get("$ref", "")
     assert ref.endswith("/JobAcceptedResponse"), f"unexpected ref: {ref}"
     body = _component_ref(spec, ref)
@@ -117,9 +115,7 @@ def test_pipelines_endpoint_returns_job_accepted() -> None:
 def test_snapshot_list_has_typed_response() -> None:
     app = create_app()
     spec = app.openapi()
-    ref = _typed_response_schema_ref(
-        spec, "/v1/reconstructions/{recon_id}/snapshots", "get"
-    )
+    ref = _typed_response_schema_ref(spec, "/v1/reconstructions/{recon_id}/snapshots", "get")
     assert ref is not None
     assert ref.endswith("/SnapshotListResponse")
 

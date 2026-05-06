@@ -202,9 +202,7 @@ async def _maybe_finalize_job(session: Any, job_id: str) -> None:
     Idempotent: runs after every Task transition; the first call
     with a complete task set wins.
     """
-    rows = (
-        await session.execute(select(Task).where(Task.job_id == job_id))
-    ).scalars().all()
+    rows = (await session.execute(select(Task).where(Task.job_id == job_id))).scalars().all()
     if not rows:
         return
     statuses = {t.status for t in rows}

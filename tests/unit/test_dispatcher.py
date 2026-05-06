@@ -13,10 +13,26 @@ pytestmark = pytest.mark.unit
 def test_handler_registry_has_all_known_kinds() -> None:
     handlers = get_handlers()
     expected = {
-        "noop", "extract", "match", "verify", "map", "ba", "triangulate",
-        "relocalize", "pgo", "export", "vlad_index", "localize",
-        "georegister", "to_cubemap", "dense", "render_cubemap", "mesh",
-        "merge_recons", "video_frames", "kapture_import",
+        "noop",
+        "extract",
+        "match",
+        "verify",
+        "map",
+        "ba",
+        "triangulate",
+        "relocalize",
+        "pgo",
+        "export",
+        "vlad_index",
+        "localize",
+        "georegister",
+        "to_cubemap",
+        "dense",
+        "render_cubemap",
+        "mesh",
+        "merge_recons",
+        "video_frames",
+        "kapture_import",
     }
     assert expected.issubset(handlers.keys())
 

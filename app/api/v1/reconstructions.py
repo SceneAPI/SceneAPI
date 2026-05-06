@@ -304,9 +304,7 @@ async def image_observations(
     etag = weak_etag("obs_by_image", str(snap_dir), image_id, len(body))
     if if_none_match_hit(request, etag):
         return not_modified(etag)
-    payload = ImageObservationsResponse(
-        image_id=image_id, observations=body, count=len(body)
-    )
+    payload = ImageObservationsResponse(image_id=image_id, observations=body, count=len(body))
     return JSONResponse(
         payload.model_dump(),
         headers={"ETag": etag, "Cache-Control": "public, max-age=31536000, immutable"},
@@ -338,9 +336,7 @@ async def point_visibility(
     etag = weak_etag("vis_by_point", str(snap_dir), point3d_id, len(body))
     if if_none_match_hit(request, etag):
         return not_modified(etag)
-    payload = PointVisibilityResponse(
-        point3d_id=point3d_id, observations=body, count=len(body)
-    )
+    payload = PointVisibilityResponse(point3d_id=point3d_id, observations=body, count=len(body))
     return JSONResponse(
         payload.model_dump(),
         headers={"ETag": etag, "Cache-Control": "public, max-age=31536000, immutable"},
@@ -356,9 +352,7 @@ async def read_dense_index(
     session: AsyncSession = Depends(get_db),
 ) -> Response:
     """Manifest of dense MVS outputs in this sealed snapshot."""
-    snap_dir = await _resolve_snapshot_dir(
-        session, tenant_id=tenant_id, recon_id=recon_id, seq=seq
-    )
+    snap_dir = await _resolve_snapshot_dir(session, tenant_id=tenant_id, recon_id=recon_id, seq=seq)
     target = snap_dir / "dense" / "index.json"
     if not target.is_file():
         raise NotFoundError(
@@ -383,9 +377,7 @@ async def read_dense_fused(
     session: AsyncSession = Depends(get_db),
 ) -> Response:
     """The fused dense point cloud (sfmapi binary points format)."""
-    snap_dir = await _resolve_snapshot_dir(
-        session, tenant_id=tenant_id, recon_id=recon_id, seq=seq
-    )
+    snap_dir = await _resolve_snapshot_dir(session, tenant_id=tenant_id, recon_id=recon_id, seq=seq)
     target = snap_dir / "dense" / "fused.bin"
     if not target.is_file():
         raise NotFoundError("dense/fused.bin not present in this snapshot")
@@ -399,9 +391,7 @@ async def read_dense_fused(
     )
 
 
-@router.get(
-    "/reconstructions/{recon_id}/snapshots/{seq}/dense/depth_maps/{image_name}.bin"
-)
+@router.get("/reconstructions/{recon_id}/snapshots/{seq}/dense/depth_maps/{image_name}.bin")
 async def read_depth_map(
     recon_id: str,
     seq: int,
@@ -413,9 +403,7 @@ async def read_depth_map(
     """Per-image depth map (``application/x-sfm-depth-v1``)."""
     if "/" in image_name or ".." in image_name:
         raise NotFoundError("invalid image name")
-    snap_dir = await _resolve_snapshot_dir(
-        session, tenant_id=tenant_id, recon_id=recon_id, seq=seq
-    )
+    snap_dir = await _resolve_snapshot_dir(session, tenant_id=tenant_id, recon_id=recon_id, seq=seq)
     target = snap_dir / "dense" / "depth_maps" / f"{image_name}.bin"
     if not target.is_file():
         raise NotFoundError(f"depth map for {image_name} not present in this snapshot")
@@ -429,9 +417,7 @@ async def read_depth_map(
     )
 
 
-@router.get(
-    "/reconstructions/{recon_id}/snapshots/{seq}/dense/normal_maps/{image_name}.bin"
-)
+@router.get("/reconstructions/{recon_id}/snapshots/{seq}/dense/normal_maps/{image_name}.bin")
 async def read_normal_map(
     recon_id: str,
     seq: int,
@@ -443,9 +429,7 @@ async def read_normal_map(
     """Per-image normal map (``application/x-sfm-normal-v1``)."""
     if "/" in image_name or ".." in image_name:
         raise NotFoundError("invalid image name")
-    snap_dir = await _resolve_snapshot_dir(
-        session, tenant_id=tenant_id, recon_id=recon_id, seq=seq
-    )
+    snap_dir = await _resolve_snapshot_dir(session, tenant_id=tenant_id, recon_id=recon_id, seq=seq)
     target = snap_dir / "dense" / "normal_maps" / f"{image_name}.bin"
     if not target.is_file():
         raise NotFoundError(f"normal map for {image_name} not present in this snapshot")
@@ -510,8 +494,7 @@ async def read_correspondence_graph(
     )
     paths = Paths()
     target = (
-        paths.reconstruction_root(tenant_id, r.project_id, r.recon_id)
-        / "correspondence_graph.json"
+        paths.reconstruction_root(tenant_id, r.project_id, r.recon_id) / "correspondence_graph.json"
     )
     if not target.is_file():
         raise NotFoundError(
@@ -546,8 +529,7 @@ async def read_two_view_geometries(
     )
     paths = Paths()
     target = (
-        paths.reconstruction_root(tenant_id, r.project_id, r.recon_id)
-        / "two_view_geometries.json"
+        paths.reconstruction_root(tenant_id, r.project_id, r.recon_id) / "two_view_geometries.json"
     )
     if not target.is_file():
         raise NotFoundError(

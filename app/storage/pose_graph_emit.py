@@ -51,9 +51,7 @@ def _edges_from_object(graph: Any) -> list[PoseGraphEdge]:
     return edges
 
 
-def emit_pose_graph_file(
-    reconstruction: Any, out_dir: Path, *, graph: Any | None = None
-) -> Path:
+def emit_pose_graph_file(reconstruction: Any, out_dir: Path, *, graph: Any | None = None) -> Path:
     """Write ``pose_graph.json`` into ``out_dir``. ``graph`` is the
     optional ``pycolmap.PoseGraph`` (or any duck-typed object with
     ``edges``); if absent, only the optimized nodes are emitted."""

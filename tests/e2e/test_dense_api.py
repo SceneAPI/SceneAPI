@@ -13,9 +13,7 @@ async def test_dense_returns_501_when_backend_lacks_capability(client) -> None:
 
     This fires before the recon-id 404 check — capability discovery
     is the contract, recon resolution is implementation detail."""
-    resp = await client.post(
-        "/v1/reconstructions/01HGHOST00000000000000000A/dense"
-    )
+    resp = await client.post("/v1/reconstructions/01HGHOST00000000000000000A/dense")
     assert resp.status_code == 501
     body = resp.json()
     assert body["capability"] in ("dense.patch_match_stereo", "dense.stereo_fusion")

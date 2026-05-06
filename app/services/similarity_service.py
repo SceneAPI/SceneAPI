@@ -60,20 +60,22 @@ async def build_index(
         return existing
 
     images = (
-        await session.execute(
-            select(Image)
-            .where(Image.tenant_id == tenant_id, Image.dataset_id == d.dataset_id)
-            .order_by(Image.image_id)
+        (
+            await session.execute(
+                select(Image)
+                .where(Image.tenant_id == tenant_id, Image.dataset_id == d.dataset_id)
+                .order_by(Image.image_id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     if not images:
         raise ValidationError("dataset has no images registered")
 
     hashes: dict[str, str] = {}
     for img in images:
-        path = await image_bytes_service.resolve_image_path(
-            session, tenant_id=tenant_id, image=img
-        )
+        path = await image_bytes_service.resolve_image_path(session, tenant_id=tenant_id, image=img)
         if not path.is_file():
             # Skip silently — clients can rebuild after the materialization
             # pipeline catches up.

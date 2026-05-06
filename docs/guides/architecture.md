@@ -114,12 +114,14 @@ sequenceDiagram
 
 ## Why the runtime version vector
 
-`colmap_mod` (the underlying C++ library) ships a new sha most weeks.
-A reconstruction cached against `colmap_sha=abc` is not equivalent to
-one cached against `colmap_sha=def`, even if the spec is identical.
-The cache key includes a `runtime_version_id` derived from
-`{colmap_sha, baxx_sha, cudss_ver, cuda_arch, sam_model_sha, seed}`,
-so a worker upgrade automatically invalidates cached output.
+The SfM backend (typically a pycolmap fork) ships new builds
+frequently. A reconstruction cached against backend SHA `abc` is
+not equivalent to one cached against `def`, even if the spec is
+identical. The cache key includes a `runtime_version_id` derived
+from `{colmap_sha, baxx_sha, cudss_ver, cuda_arch, sam_model_sha,
+seed}`, so a worker upgrade automatically invalidates cached
+output. The exact field names are backend-specific; the principle
+is generic.
 
 ## Storage layout
 

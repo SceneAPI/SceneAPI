@@ -25,9 +25,10 @@ async def test_oneshot_features_route_registered() -> None:
     from app.main import create_app
 
     app = create_app()
-    async with app.router.lifespan_context(app), AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,
+    ):
         # Empty body — should reach the validation layer.
         r = await client.post(
             "/v1/oneshot/features",
@@ -48,9 +49,10 @@ async def test_oneshot_features_rejects_oversized_body(monkeypatch) -> None:
         from app.main import create_app
 
         app = create_app()
-        async with app.router.lifespan_context(app), AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with (
+            app.router.lifespan_context(app),
+            AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,
+        ):
             # 32 bytes > 16-byte cap.
             r = await client.post(
                 "/v1/oneshot/features",
@@ -70,9 +72,10 @@ async def test_oneshot_features_rejects_bad_content_type() -> None:
     from app.main import create_app
 
     app = create_app()
-    async with app.router.lifespan_context(app), AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,
+    ):
         r = await client.post(
             "/v1/oneshot/features",
             content=b"some-non-image-bytes",

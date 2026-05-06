@@ -85,17 +85,13 @@ class SfmBackend(Protocol):
 
     # ---- inspector helpers (for the export sidecars) -------------------
 
-    def iter_two_view_geometries(
-        self, *, database_path: Path
-    ) -> Iterator[tuple[int, int, Any]]:
+    def iter_two_view_geometries(self, *, database_path: Path) -> Iterator[tuple[int, int, Any]]:
         """Walk every image pair in the database that has a verified
         two-view geometry. Yields ``(image_id1, image_id2, geometry)``
         where ``geometry`` is a duck-typed object with ``F``/``E``/``H``
         attributes (see :mod:`app.storage.two_view_emit`)."""
 
-    def iter_correspondences(
-        self, *, database_path: Path
-    ) -> Iterator[tuple[int, int, Any]]:
+    def iter_correspondences(self, *, database_path: Path) -> Iterator[tuple[int, int, Any]]:
         """Walk every image pair with raw matches. Yields
         ``(image_id1, image_id2, matches)`` where ``matches`` is
         iterable over ``(kp_idx_1, kp_idx_2)`` pairs (see
@@ -123,9 +119,7 @@ class SfmBackend(Protocol):
 
     # ---- refinement -----------------------------------------------------
 
-    def bundle_adjustment(
-        self, *, model_path: Path, output_path: Path, spec: dict
-    ) -> dict:
+    def bundle_adjustment(self, *, model_path: Path, output_path: Path, spec: dict) -> dict:
         """Run BA. ``spec.mode`` is ``standard`` (default) or
         ``two_stage`` — the latter requires capability
         ``ba.two_stage``. Returns
@@ -152,16 +146,12 @@ class SfmBackend(Protocol):
     ) -> dict:
         """Register additional images into an existing reconstruction."""
 
-    def pose_graph_optimize(
-        self, *, model_path: Path, output_path: Path, spec: dict
-    ) -> dict:
+    def pose_graph_optimize(self, *, model_path: Path, output_path: Path, spec: dict) -> dict:
         """Run pose-graph optimization."""
 
     # ---- output / conversion -------------------------------------------
 
-    def export(
-        self, *, model_path: Path, output_path: Path, format: str
-    ) -> dict:
+    def export(self, *, model_path: Path, output_path: Path, format: str) -> dict:
         """Export a sparse model. ``format`` is one of
         ``ply | nvm | colmap_text | colmap_bin | nerfstudio |
         gaussian_splatting | instant_ngp | kapture``."""
@@ -244,9 +234,7 @@ class SfmBackend(Protocol):
 
     # ---- localization ---------------------------------------------------
 
-    def localize_from_memory(
-        self, *, sparse_dir: Path, query_image: Path, spec: dict
-    ) -> dict:
+    def localize_from_memory(self, *, sparse_dir: Path, query_image: Path, spec: dict) -> dict:
         """Localize a single query image against the sparse model.
         Returns a :class:`app.schemas.api.scene.LocalizationResult`-
         shaped dict."""

@@ -50,8 +50,7 @@ async def neighbors(
         strategy=strategy,
         k=k,
         neighbors=[
-            SimilarityNeighborOut(image_id=n.image_id, distance=n.distance)
-            for n in results
+            SimilarityNeighborOut(image_id=n.image_id, distance=n.distance) for n in results
         ],
     )
 
@@ -82,9 +81,7 @@ async def build(
             session, tenant_id=tenant_id, dataset_id=dataset_id
         )
         return accepted_response(
-            JobAcceptedResponse(
-                job_id=job_id, dataset_id=dataset_id, strategy="vlad"
-            )
+            JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id, strategy="vlad")
         )
     index = await similarity_service.build_index(
         session,

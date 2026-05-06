@@ -41,9 +41,7 @@ def link_or_copy(src: Path, dst: Path) -> None:
             shutil.copy2(src, dst)
 
 
-def _materialize_upload(
-    materialization: dict, image_list: list[str], stage: Path
-) -> None:
+def _materialize_upload(materialization: dict, image_list: list[str], stage: Path) -> None:
     bs = get_blob_store()
     blob_shas = materialization.get("blob_shas") or {}
     stage.mkdir(parents=True, exist_ok=True)
@@ -55,9 +53,7 @@ def _materialize_upload(
         link_or_copy(src, stage / name)
 
 
-def _materialize_s3(
-    materialization: dict, image_list: list[str], stage: Path
-) -> None:
+def _materialize_s3(materialization: dict, image_list: list[str], stage: Path) -> None:
     from app.sources.s3 import S3Source
 
     bucket = materialization["bucket"]
@@ -93,9 +89,7 @@ def materialize_image_set(materialization: dict, stage: Path) -> tuple[Path, lis
     raise ValidationError(f"unknown materialization kind: {kind!r}")
 
 
-def resolve_image_path(
-    name: str, materialization: dict, stage: Path
-) -> Path | None:
+def resolve_image_path(name: str, materialization: dict, stage: Path) -> Path | None:
     """Resolve a single image to a real local file path.
 
     Returns ``None`` when the name can't be located — used by callers

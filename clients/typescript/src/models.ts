@@ -24,6 +24,8 @@ export interface Project {
   name: string;
   description: string | null;
   created_at: string;
+  updated_at?: string | null;
+  _links?: Record<string, { href?: string | null } | null> | null;
 }
 
 export interface UploadSourceSpec {
@@ -135,6 +137,8 @@ export interface Dataset {
   active_maskset_id: string | null;
   manifest_hash: string;
   created_at: string;
+  updated_at?: string | null;
+  _links?: Record<string, { href?: string | null } | null> | null;
 }
 
 export interface Image {
@@ -148,6 +152,7 @@ export interface Image {
   width: number | null;
   height: number | null;
   created_at: string;
+  _links?: Record<string, { href?: string | null } | null> | null;
 }
 
 export interface Upload {
@@ -189,6 +194,7 @@ export interface Job {
   finished_at?: string | null;
   error_class?: string | null;
   error_message?: string | null;
+  _links?: Record<string, { href?: string | null } | null> | null;
 }
 
 export interface JobDetail extends Job {
@@ -204,6 +210,7 @@ export interface Reconstruction {
   rv_id: string;
   status: string;
   created_at: string;
+  _links?: Record<string, { href?: string | null } | null> | null;
 }
 
 export interface SubModel {
@@ -216,6 +223,7 @@ export interface SubModel {
   snapshot_seq: number | null;
   sealed_path: string | null;
   created_at: string;
+  _links?: Record<string, { href?: string | null } | null> | null;
 }
 
 export interface JobSubmitResponse {

@@ -33,19 +33,11 @@ def test_extract_features_oneshot_rejects_bad_content_type() -> None:
 
 def test_sniff_extension_recognizes_canonical_magics() -> None:
     assert oneshot_service._sniff_extension(b"\xff\xd8\xff\x00\x00\x00\x00\x00") == ".jpg"
-    assert (
-        oneshot_service._sniff_extension(b"\x89PNG\r\n\x1a\n" + b"\x00" * 4) == ".png"
-    )
-    assert (
-        oneshot_service._sniff_extension(b"II*\x00" + b"\x00" * 4) == ".tif"
-    )
-    assert (
-        oneshot_service._sniff_extension(b"MM\x00*" + b"\x00" * 4) == ".tif"
-    )
+    assert oneshot_service._sniff_extension(b"\x89PNG\r\n\x1a\n" + b"\x00" * 4) == ".png"
+    assert oneshot_service._sniff_extension(b"II*\x00" + b"\x00" * 4) == ".tif"
+    assert oneshot_service._sniff_extension(b"MM\x00*" + b"\x00" * 4) == ".tif"
     assert oneshot_service._sniff_extension(b"BM" + b"\x00" * 6) == ".bmp"
-    assert (
-        oneshot_service._sniff_extension(b"RIFFwxyzWEBP" + b"\x00" * 4) == ".webp"
-    )
+    assert oneshot_service._sniff_extension(b"RIFFwxyzWEBP" + b"\x00" * 4) == ".webp"
     assert oneshot_service._sniff_extension(b"\x00\x00\x00\x00\x00\x00\x00\x00") is None
     assert oneshot_service._sniff_extension(b"") is None
 

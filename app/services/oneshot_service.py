@@ -99,13 +99,9 @@ def extract_features_oneshot(
         except PycolmapUnavailableError:
             raise
         except Exception as e:
-            raise ValidationError(
-                f"oneshot/features: backend failed to extract: {e}"
-            ) from e
+            raise ValidationError(f"oneshot/features: backend failed to extract: {e}") from e
 
-        keypoints, descriptors_b64, descriptor_dim = _read_back_keypoints(
-            db_path, image_file.name
-        )
+        keypoints, descriptors_b64, descriptor_dim = _read_back_keypoints(db_path, image_file.name)
 
     runtime_ms = int((time.perf_counter() - started) * 1000)
     return OneShotFeaturesResponse(
@@ -190,9 +186,7 @@ def _sift_options_from_spec(spec: FeaturesSpec) -> dict[str, Any]:
     return out
 
 
-def _read_back_keypoints(
-    db_path: Path, image_name: str
-) -> tuple[list[list[float]], str, int]:
+def _read_back_keypoints(db_path: Path, image_name: str) -> tuple[list[list[float]], str, int]:
     """Read keypoints + descriptors back out of the COLMAP database
     for one image. Returns:
 
@@ -209,8 +203,7 @@ def _read_back_keypoints(
         import pycolmap as pc  # type: ignore[import-not-found]
     except ImportError as e:
         raise PycolmapUnavailableError(
-            "oneshot/features requires pycolmap to read keypoints back from "
-            "the temp database"
+            "oneshot/features requires pycolmap to read keypoints back from the temp database"
         ) from e
 
     keypoints: list[list[float]] = []
@@ -278,11 +271,7 @@ def localize_oneshot(
 
     with tempfile.TemporaryDirectory(prefix="sfmapi-oneshot-loc-") as tmp:
         tmp_path = Path(tmp)
-        ext = (
-            _ext_for_content_type(content_type)
-            or _sniff_extension(image_bytes)
-            or ".jpg"
-        )
+        ext = _ext_for_content_type(content_type) or _sniff_extension(image_bytes) or ".jpg"
         query_path = tmp_path / f"query{ext}"
         query_path.write_bytes(image_bytes)
 
@@ -295,16 +284,12 @@ def localize_oneshot(
         except PycolmapUnavailableError:
             raise
         except Exception as e:
-            raise ValidationError(
-                f"oneshot/localize: backend failed: {e}"
-            ) from e
+            raise ValidationError(f"oneshot/localize: backend failed: {e}") from e
 
     runtime_ms = int((time.perf_counter() - started) * 1000)
     return OneShotLocalizeResponse(
         recon_id=recon_id,
-        image=OneShotImageInfo(
-            width=width, height=height, byte_size=len(image_bytes)
-        ),
+        image=OneShotImageInfo(width=width, height=height, byte_size=len(image_bytes)),
         result=result_dict,
         runtime=OneShotRuntimeInfo(backend=backend.name, ms=runtime_ms),
         spec=spec.model_dump(mode="json"),

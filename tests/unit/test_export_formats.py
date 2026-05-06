@@ -76,7 +76,13 @@ class _Reconstruction:
 
 
 def _make_recon() -> _Reconstruction:
-    cam = _Camera(camera_id=1, model_name="PINHOLE", width=640, height=480, params=[500.0, 500.0, 320.0, 240.0])
+    cam = _Camera(
+        camera_id=1,
+        model_name="PINHOLE",
+        width=640,
+        height=480,
+        params=[500.0, 500.0, 320.0, 240.0],
+    )
     img = _Image(
         image_id=1,
         name="a.jpg",

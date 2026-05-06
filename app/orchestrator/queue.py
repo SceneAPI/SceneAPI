@@ -124,7 +124,5 @@ def get_queue(settings: Settings | None = None) -> Queue:
     backend = "inline" if s.inline_tasks else s.queue_backend
     cls = _BACKENDS.get(backend)
     if cls is None:
-        raise ValueError(
-            f"unknown queue_backend={backend!r}; valid: {sorted(_BACKENDS)}"
-        )
+        raise ValueError(f"unknown queue_backend={backend!r}; valid: {sorted(_BACKENDS)}")
     return cls(s)

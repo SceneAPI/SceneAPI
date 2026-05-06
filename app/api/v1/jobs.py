@@ -51,9 +51,7 @@ async def list_(
         page_token=page_token,
         status=status,
     )
-    return Page[JobOut](
-        items=[to_out(JobOut, r) for r in rows], next_page_token=next_page_token
-    )
+    return Page[JobOut](items=[to_out(JobOut, r) for r in rows], next_page_token=next_page_token)
 
 
 @router.get("/{job_id}", response_model=JobDetail)

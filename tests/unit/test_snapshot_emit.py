@@ -83,11 +83,19 @@ class _StubReconstruction:
 
 
 def _identity() -> _StubRigid3:
-    return _StubRigid3(rotation=_StubRotation(quat=(0.0, 0.0, 0.0, 1.0)), translation=(0.0, 0.0, 0.0))
+    return _StubRigid3(
+        rotation=_StubRotation(quat=(0.0, 0.0, 0.0, 1.0)), translation=(0.0, 0.0, 0.0)
+    )
 
 
 def _make_recon() -> _StubReconstruction:
-    cam = _StubCamera(camera_id=1, model_name="SIMPLE_RADIAL", width=640, height=480, params=[500.0, 320.0, 240.0, 0.01])
+    cam = _StubCamera(
+        camera_id=1,
+        model_name="SIMPLE_RADIAL",
+        width=640,
+        height=480,
+        params=[500.0, 320.0, 240.0, 0.01],
+    )
     img1 = _StubImage(
         image_id=1,
         name="a.jpg",

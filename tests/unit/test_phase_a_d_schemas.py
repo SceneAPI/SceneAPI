@@ -145,9 +145,7 @@ def test_pose_prior_accepts_timestamp_ns() -> None:
 
 
 def test_pose_prior_accepts_imu() -> None:
-    imu = ImuMeasurement(
-        timestamp_ns=42, gyro=(0.01, 0.02, 0.03), accel=(0.1, -9.81, 0.0)
-    )
+    imu = ImuMeasurement(timestamp_ns=42, gyro=(0.01, 0.02, 0.03), accel=(0.1, -9.81, 0.0))
     p = PosePrior(cam_from_world=_identity_rigid3(), imu=imu)
     parsed = PosePrior.model_validate_json(p.model_dump_json())
     assert parsed.imu is not None
@@ -160,9 +158,7 @@ def test_pose_prior_round_trip_full() -> None:
         cam_from_world=_identity_rigid3(),
         covariance=[0.0] * 36,
         timestamp_ns=12345,
-        imu=ImuMeasurement(
-            timestamp_ns=12345, gyro=(0.0, 0.0, 0.0), accel=(0.0, 0.0, -9.81)
-        ),
+        imu=ImuMeasurement(timestamp_ns=12345, gyro=(0.0, 0.0, 0.0), accel=(0.0, 0.0, -9.81)),
     )
     parsed = PosePrior.model_validate_json(p.model_dump_json())
     assert parsed.covariance is not None

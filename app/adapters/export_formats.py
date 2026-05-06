@@ -77,20 +77,39 @@ def _camera_intrinsics(cam: Any) -> dict:
     elif model == "OPENCV":
         out.update(
             {
-                "fl_x": p[0], "fl_y": p[1], "cx": p[2], "cy": p[3],
-                "k1": p[4], "k2": p[5], "p1": p[6], "p2": p[7],
+                "fl_x": p[0],
+                "fl_y": p[1],
+                "cx": p[2],
+                "cy": p[3],
+                "k1": p[4],
+                "k2": p[5],
+                "p1": p[6],
+                "p2": p[7],
             }
         )
     elif model == "OPENCV_FISHEYE":
         out.update(
             {
-                "fl_x": p[0], "fl_y": p[1], "cx": p[2], "cy": p[3],
-                "k1": p[4], "k2": p[5], "k3": p[6], "k4": p[7],
+                "fl_x": p[0],
+                "fl_y": p[1],
+                "cx": p[2],
+                "cy": p[3],
+                "k1": p[4],
+                "k2": p[5],
+                "k3": p[6],
+                "k4": p[7],
                 "is_fisheye": True,
             }
         )
     else:
-        out.update({"fl_x": p[0] if p else 0.0, "fl_y": p[0] if p else 0.0, "cx": cam.width / 2, "cy": cam.height / 2})
+        out.update(
+            {
+                "fl_x": p[0] if p else 0.0,
+                "fl_y": p[0] if p else 0.0,
+                "cx": cam.width / 2,
+                "cy": cam.height / 2,
+            }
+        )
     return out
 
 
@@ -220,9 +239,7 @@ def export_gaussian_splatting(reconstruction: Any, out_dir: Path) -> Path:
         if track is not None:
             for el in getattr(track, "elements", []) or []:
                 track_pairs.extend([str(int(el.image_id)), str(int(el.point2D_idx))])
-        pt_lines.append(
-            f"{pid} {x} {y} {z} {r} {g} {b} {err} " + " ".join(track_pairs)
-        )
+        pt_lines.append(f"{pid} {x} {y} {z} {r} {g} {b} {err} " + " ".join(track_pairs))
     _atomic_write_text(sparse_dir / "points3D.txt", "\n".join(pt_lines) + "\n")
     return sparse_dir
 

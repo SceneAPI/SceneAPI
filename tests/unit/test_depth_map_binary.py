@@ -36,9 +36,7 @@ def test_depth_round_trip() -> None:
 
 
 def test_normal_round_trip() -> None:
-    arr = np.array(
-        [[[0, 0, 1], [0, 1, 0]], [[1, 0, 0], [0, 0, -1]]], dtype="<f4"
-    )
+    arr = np.array([[[0, 0, 1], [0, 1, 0]], [[1, 0, 0], [0, 0, -1]]], dtype="<f4")
     blob = encode_normal(2, 2, arr.tobytes())
     assert blob[:8] == NORMAL_MAGIC
     assert len(blob) == HEADER_SIZE + 2 * 2 * 3 * 4

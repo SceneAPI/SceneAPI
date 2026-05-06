@@ -53,7 +53,9 @@ class _StubPoseGraph:
 
 
 def _identity() -> _StubRigid3:
-    return _StubRigid3(rotation=_StubRotation(quat=(0.0, 0.0, 0.0, 1.0)), translation=(0.0, 0.0, 0.0))
+    return _StubRigid3(
+        rotation=_StubRotation(quat=(0.0, 0.0, 0.0, 1.0)), translation=(0.0, 0.0, 0.0)
+    )
 
 
 def test_pose_graph_emit_writes_nodes_only_when_no_edges(tmp_path: Path) -> None:

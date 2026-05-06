@@ -153,8 +153,7 @@ def create_app() -> FastAPI:
         # an empty string. Take up to three field problems and join.
         first = errors[:3]
         summary = "; ".join(
-            f"{'.'.join(str(p) for p in e.get('loc', []))}: {e.get('msg', '')}"
-            for e in first
+            f"{'.'.join(str(p) for p in e.get('loc', []))}: {e.get('msg', '')}" for e in first
         )
         if len(errors) > len(first):
             summary += f" (+{len(errors) - len(first)} more)"

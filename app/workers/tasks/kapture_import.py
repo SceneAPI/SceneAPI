@@ -71,9 +71,7 @@ def _parse_kapture_records(records_path: Path) -> list[dict]:
             ts = int(parts[0])
         except ValueError:
             continue
-        out.append(
-            {"timestamp": ts, "sensor_id": parts[1], "image_path": parts[2]}
-        )
+        out.append({"timestamp": ts, "sensor_id": parts[1], "image_path": parts[2]})
     return out
 
 

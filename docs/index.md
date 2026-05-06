@@ -1,8 +1,10 @@
 # sfmapi
 
-> A FastAPI service that wraps a custom [pycolmap](https://github.com/opsiclear/colmap_mod)
-> for Structure-from-Motion, plus image segmentation and masking. Sealed-snapshot
-> progress, content-addressed storage, multi-tenant from day 1.
+> **A generic HTTP/REST API for Structure-from-Motion tasks.**
+> Backend-agnostic by design — any SfM engine that conforms to the
+> [spec](spec.md) can serve it (pycolmap, OpenSfM, hloc, custom
+> forks). Sealed-snapshot progress, content-addressed storage,
+> multi-tenant from day 1.
 
 ::::{grid} 2
 :gutter: 3
@@ -73,18 +75,6 @@ guides/contributing
 ```
 
 ```{toctree}
-:caption: Phase task breakdowns
-:maxdepth: 1
-
-phases/phase_0_skeleton
-phases/phase_1_orchestrator_features_match
-phases/phase_2_incremental_sfm
-phases/phase_3_segmentation
-phases/phase_4_global_spherical
-phases/phase_5_resume_tenancy_s3_obs
-```
-
-```{toctree}
 :caption: Reference
 :maxdepth: 2
 
@@ -143,7 +133,8 @@ GitHub repository <https://github.com/sfmapi/sfmapi>
 
 ## Status
 
-Production-shape but young: 94 tests passing on `main`, four CI
-workflows, dual-DB (SQLite + Postgres) parity, full Phase 0–5
-implementation. See [the changelog](changelog.md) for what landed in
-each release.
+Production-shape but young: 449 tests passing on `main`, eleven CI
+workflows, dual-DB (SQLite + Postgres) parity, AGPL-3.0-or-later
+licensed. See [the changelog](changelog.md) for what landed in each
+release and [the decision register](guides/decisions.md) for the
+30 locked architectural decisions.

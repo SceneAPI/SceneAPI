@@ -52,17 +52,14 @@ def run(task: Task) -> dict:
         image_paths_by_id[sfmapi_id] = path
 
     if not image_paths_by_id:
-        raise ValidationError(
-            "vlad_index: no images could be materialized for VLAD build"
-        )
+        raise ValidationError("vlad_index: no images could be materialized for VLAD build")
 
     sfmapi_ids, vectors = get_backend().build_vlad_index(
         image_paths_by_id=image_paths_by_id, spec=spec
     )
     if vectors.size == 0:
         raise ValidationError(
-            "vlad_index: backend returned no descriptors "
-            "(SIFT extraction failed for every image)"
+            "vlad_index: backend returned no descriptors (SIFT extraction failed for every image)"
         )
     out_path = _write_vlad_index(
         dataset_dir,

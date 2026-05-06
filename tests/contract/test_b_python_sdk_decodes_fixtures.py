@@ -26,13 +26,7 @@ pytestmark = pytest.mark.contract
 def _load_sdk_models() -> Any:
     """Import the SDK's models module by file path so we don't need
     `clients/python` on PYTHONPATH."""
-    src = (
-        Path(__file__).resolve().parents[2]
-        / "clients"
-        / "python"
-        / "sfmapi_client"
-        / "models.py"
-    )
+    src = Path(__file__).resolve().parents[2] / "clients" / "python" / "sfmapi_client" / "models.py"
     spec = importlib.util.spec_from_file_location("_sdk_models", src)
     assert spec is not None
     assert spec.loader is not None

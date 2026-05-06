@@ -235,8 +235,6 @@ async def test_record_404_on_missing_dataset(contract_client: AsyncClient) -> No
     across resource kinds."""
     p = await contract_client.post("/v1/projects", json={"name": "missing-ds-host"})
     pid = p.json()["project_id"]
-    r = await contract_client.get(
-        f"/v1/projects/{pid}/datasets/01HZNOTAREALDATASETID00000"
-    )
+    r = await contract_client.get(f"/v1/projects/{pid}/datasets/01HZNOTAREALDATASETID00000")
     assert r.status_code == 404
     save_fixture("error_404_dataset_missing", r.json())

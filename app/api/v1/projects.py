@@ -88,9 +88,7 @@ async def list_(
     rows, next_page_token = await project_service.list_projects(
         session, tenant_id=tenant_id, page_size=page_size, page_token=page_token
     )
-    return ProjectListPage(
-        items=[_to_out(r) for r in rows], next_page_token=next_page_token
-    )
+    return ProjectListPage(items=[_to_out(r) for r in rows], next_page_token=next_page_token)
 
 
 @router.get("/{project_id}", response_model=ProjectOut)
@@ -169,9 +167,7 @@ async def from_video(
         fps=body.fps,
         max_frames=body.max_frames,
     )
-    return accepted_response(
-        JobAcceptedResponse(job_id=job_id, project_id=project_id)
-    )
+    return accepted_response(JobAcceptedResponse(job_id=job_id, project_id=project_id))
 
 
 @router.post(
@@ -195,6 +191,4 @@ async def import_kapture(
         project_id=project_id,
         archive_path=body.archive_path,
     )
-    return accepted_response(
-        JobAcceptedResponse(job_id=job_id, project_id=project_id)
-    )
+    return accepted_response(JobAcceptedResponse(job_id=job_id, project_id=project_id))

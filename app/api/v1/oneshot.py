@@ -118,9 +118,7 @@ async def oneshot_localize(
         session, tenant_id=tenant_id, recon_id=recon_id
     )
     paths = Paths(settings)
-    sparse_dir = (
-        paths.reconstruction_root(tenant_id, r.project_id, r.recon_id) / "sparse"
-    )
+    sparse_dir = paths.reconstruction_root(tenant_id, r.project_id, r.recon_id) / "sparse"
 
     spec = FeaturesSpec(
         type=type,

@@ -15,9 +15,7 @@ from tests.contract.conftest import load_fixture
 
 pytestmark = pytest.mark.contract
 
-GEN_ROOT = (
-    Path(__file__).resolve().parents[2] / "clients" / "python" / "sfmapi_client_gen"
-)
+GEN_ROOT = Path(__file__).resolve().parents[2] / "clients" / "python" / "sfmapi_client_gen"
 
 
 def _import_generated() -> tuple[object, object]:
@@ -143,7 +141,7 @@ def test_buildhttp_error_translates_problem_json() -> None:
 def test_parse_sse_buffer_handles_canonical_stream() -> None:
     erg, _ = _import_generated()
     body = (
-        "id: 1\nevent: progress\ndata: {\"phase\":\"extract\",\"current\":5}\n\n"
+        'id: 1\nevent: progress\ndata: {"phase":"extract","current":5}\n\n'
         ": this is a comment\n"
         "id: 2\ndata: line1\ndata: line2\n\n"
     )
@@ -178,13 +176,9 @@ def test_parse_points_binary_round_trip_against_server_encoder() -> None:
 
     records = [
         SrvPoint(point3d_id=100, xyz=(1.0, 2.0, 3.0), rgb=(255, 0, 0), track_len=5),
-        SrvPoint(
-            point3d_id=0xDEADBEEF, xyz=(4.5, -1.5, 0.25), rgb=(0, 128, 255), track_len=12
-        ),
+        SrvPoint(point3d_id=0xDEADBEEF, xyz=(4.5, -1.5, 0.25), rgb=(0, 128, 255), track_len=12),
     ]
-    encoded = encode_all(
-        records, bbox_min=(0.0, -1.5, 0.0), bbox_max=(4.5, 2.0, 3.0)
-    )
+    encoded = encode_all(records, bbox_min=(0.0, -1.5, 0.0), bbox_max=(4.5, 2.0, 3.0))
     parsed = erg.parse_points_binary(encoded)
     assert parsed.count == 2
     assert parsed.bbox_min == (0.0, -1.5, 0.0)
@@ -219,9 +213,7 @@ def test_parse_normal_map_round_trip_against_server_encoder() -> None:
 
     from app.schemas.depth_map_binary import encode_normal
 
-    pixels = b"".join(
-        _struct.pack("<f", v) for v in [0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
-    )
+    pixels = b"".join(_struct.pack("<f", v) for v in [0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
     encoded = encode_normal(width=2, height=1, pixels=pixels)
     parsed = erg.parse_normal_map(encoded)
     assert parsed.width == 2
@@ -342,9 +334,7 @@ def test_submit_and_wait_chains_submit_then_wait(monkeypatch: pytest.MonkeyPatch
         submitted["called"] = True
         return {"job_id": "j_chain", "task_ids": ["t1"]}
 
-    result = erg.submit_and_wait(
-        "http://x", submit_fn, poll_interval=0.001, timeout=5.0
-    )
+    result = erg.submit_and_wait("http://x", submit_fn, poll_interval=0.001, timeout=5.0)
     assert submitted["called"] is True
     assert result["status"] == "succeeded"
     assert result["job_id"] == "j_chain"
@@ -365,8 +355,8 @@ def test_submit_and_stream_yields_events_then_returns_terminal(
 
     erg, _ = _import_generated()
     sse_body = (
-        "id: 1\nevent: progress\ndata: {\"phase\":\"extract\"}\n\n"
-        "id: 2\nevent: progress\ndata: {\"phase\":\"match\"}\n\n"
+        'id: 1\nevent: progress\ndata: {"phase":"extract"}\n\n'
+        'id: 2\nevent: progress\ndata: {"phase":"match"}\n\n'
     )
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -464,12 +454,9 @@ def test_dispatcher_finalizes_job_after_every_task_transition() -> None:
     """
     from pathlib import Path as _Path
 
-    src = (
-        _Path(__file__).resolve().parents[2]
-        / "app"
-        / "workers"
-        / "dispatcher.py"
-    ).read_text(encoding="utf-8")
+    src = (_Path(__file__).resolve().parents[2] / "app" / "workers" / "dispatcher.py").read_text(
+        encoding="utf-8"
+    )
     # The function must exist + be called from every terminal branch.
     has_helper = "def _maybe_finalize_job" in src or "_maybe_finalize_job(" in src
     assert has_helper, (
@@ -536,12 +523,9 @@ def test_materialize_dag_persists_node_metadata() -> None:
     """
     from pathlib import Path as _Path
 
-    src = (
-        _Path(__file__).resolve().parents[2]
-        / "app"
-        / "services"
-        / "job_service.py"
-    ).read_text(encoding="utf-8")
+    src = (_Path(__file__).resolve().parents[2] / "app" / "services" / "job_service.py").read_text(
+        encoding="utf-8"
+    )
     has_metadata_branch = "n.metadata" in src and "task_state_json" in src
     assert has_metadata_branch, (
         "job_service.py::materialize_dag is no longer persisting "
@@ -628,13 +612,9 @@ def test_jobs_events_handler_has_terminal_exit_clause() -> None:
     """
     from pathlib import Path as _Path
 
-    src = (
-        _Path(__file__).resolve().parents[2]
-        / "app"
-        / "api"
-        / "v1"
-        / "jobs.py"
-    ).read_text(encoding="utf-8")
+    src = (_Path(__file__).resolve().parents[2] / "app" / "api" / "v1" / "jobs.py").read_text(
+        encoding="utf-8"
+    )
     # Two signals must be present; either disappearing means the
     # terminal-drain exit was lost.
     has_guard = "terminal_seen" in src or "terminal_statuses" in src
@@ -758,6 +738,4 @@ def test_wait_for_job_404_translates_to_typed_error() -> None:
     # raise a transport error, not silently spin. Use a tiny timeout
     # so the test is fast.
     with pytest.raises((erg.SfmApiError, httpx.ConnectError, httpx.HTTPError)):
-        erg.wait_for_job(
-            "http://127.0.0.1:1", "01HZJOB0000000000000000000", timeout=0.5
-        )
+        erg.wait_for_job("http://127.0.0.1:1", "01HZJOB0000000000000000000", timeout=0.5)

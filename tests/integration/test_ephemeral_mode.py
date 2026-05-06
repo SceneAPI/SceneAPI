@@ -59,9 +59,10 @@ async def test_ephemeral_app_boot_health(ephemeral_settings: Settings) -> None:
     from app.main import create_app
 
     app = create_app()
-    async with app.router.lifespan_context(app), AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,
+    ):
         r = await client.get("/healthz")
         assert r.status_code == 200
         assert r.json() == {"status": "ok"}
@@ -80,9 +81,10 @@ async def test_ephemeral_create_project_round_trip(ephemeral_settings: Settings)
     from app.main import create_app
 
     app = create_app()
-    async with app.router.lifespan_context(app), AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,
+    ):
         r = await client.post("/v1/projects", json={"name": "ephemeral-demo"})
         assert r.status_code in (200, 201), r.text
         proj = r.json()
@@ -102,9 +104,10 @@ async def test_ephemeral_workspace_cleaned_after_shutdown(
 
     app = create_app()
     workspace = ephemeral_settings.workspace_root
-    async with app.router.lifespan_context(app), AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,
+    ):
         await client.get("/healthz")
         assert Path(workspace).exists()
     # After the lifespan exits, the tempdir is gone.

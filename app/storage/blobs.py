@@ -193,9 +193,7 @@ class S3BlobStore:
         try:
             import boto3  # type: ignore[import-not-found]
         except ImportError as e:
-            raise StorageError(
-                "blob_backend=s3 requires boto3 (`uv pip install boto3`)"
-            ) from e
+            raise StorageError("blob_backend=s3 requires boto3 (`uv pip install boto3`)") from e
         kwargs: dict[str, Any] = {}
         if self.s.blob_s3_region:
             kwargs["region_name"] = self.s.blob_s3_region
@@ -259,9 +257,7 @@ class S3BlobStore:
             # directly to decide whether to skip the upload.
             if not self._exists_in_bucket(sha):
                 with cache_target.open("rb") as fh:
-                    self._s3().put_object(
-                        Bucket=self.bucket, Key=self._key_for(sha), Body=fh
-                    )
+                    self._s3().put_object(Bucket=self.bucket, Key=self._key_for(sha), Body=fh)
             return sha, total
         except Exception:
             tmp.unlink(missing_ok=True)
@@ -437,9 +433,7 @@ def get_blob_store(settings: Settings | None = None) -> BlobStore:
     s = settings or get_settings()
     cls = _BACKENDS.get(s.blob_backend)
     if cls is None:
-        raise StorageError(
-            f"unknown blob_backend={s.blob_backend!r}; valid: {sorted(_BACKENDS)}"
-        )
+        raise StorageError(f"unknown blob_backend={s.blob_backend!r}; valid: {sorted(_BACKENDS)}")
     if getattr(cls, "is_singleton", False):
         instance = _INSTANCES.get(cls)
         if instance is None:

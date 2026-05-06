@@ -110,29 +110,21 @@ class ColmapModBackend:
         )
 
     def match(self, *, database_path: Path, mode: str, options: dict) -> dict:
-        return colmap_adapter.match_in_db(
-            database_path=database_path, mode=mode, options=options
-        )
+        return colmap_adapter.match_in_db(database_path=database_path, mode=mode, options=options)
 
     def verify_matches(self, *, database_path: Path, options: dict) -> dict:
-        return colmap_adapter.verify_matches(
-            database_path=database_path, options=options
-        )
+        return colmap_adapter.verify_matches(database_path=database_path, options=options)
 
     # ---- DB walkers ----------------------------------------------------
 
-    def iter_two_view_geometries(
-        self, *, database_path: Path
-    ) -> Iterator[tuple[int, int, Any]]:
+    def iter_two_view_geometries(self, *, database_path: Path) -> Iterator[tuple[int, int, Any]]:
         from app.storage.two_view_emit import iter_database_pairs
 
         pc = colmap_adapter._require_pycolmap()
         with pc.Database(str(database_path)) as db:
             yield from iter_database_pairs(db)
 
-    def iter_correspondences(
-        self, *, database_path: Path
-    ) -> Iterator[tuple[int, int, Any]]:
+    def iter_correspondences(self, *, database_path: Path) -> Iterator[tuple[int, int, Any]]:
         from app.storage.correspondence_emit import iter_database_correspondences
 
         pc = colmap_adapter._require_pycolmap()
@@ -141,9 +133,7 @@ class ColmapModBackend:
 
     # ---- refinement ----------------------------------------------------
 
-    def bundle_adjustment(
-        self, *, model_path: Path, output_path: Path, spec: dict
-    ) -> dict:
+    def bundle_adjustment(self, *, model_path: Path, output_path: Path, spec: dict) -> dict:
         from app.storage.snapshot_emit import emit_snapshot_files
 
         pc = colmap_adapter._require_pycolmap()
@@ -224,9 +214,7 @@ class ColmapModBackend:
             "num_reg_images": rec.num_reg_images,
         }
 
-    def pose_graph_optimize(
-        self, *, model_path: Path, output_path: Path, spec: dict
-    ) -> dict:
+    def pose_graph_optimize(self, *, model_path: Path, output_path: Path, spec: dict) -> dict:
         from app.storage.snapshot_emit import emit_snapshot_files
 
         pc = colmap_adapter._require_pycolmap()
@@ -360,16 +348,10 @@ class ColmapModBackend:
     ) -> dict:
         pc = colmap_adapter._require_pycolmap()
         if method == "poisson":
-            fn = (
-                getattr(pc, "poisson_meshing", None)
-                or getattr(pc, "PoissonMeshing", None)
-            )
+            fn = getattr(pc, "poisson_meshing", None) or getattr(pc, "PoissonMeshing", None)
             cap = "mesh.poisson"
         elif method == "delaunay":
-            fn = (
-                getattr(pc, "delaunay_meshing", None)
-                or getattr(pc, "DelaunayMeshing", None)
-            )
+            fn = getattr(pc, "delaunay_meshing", None) or getattr(pc, "DelaunayMeshing", None)
             cap = "mesh.delaunay"
         else:
             raise CapabilityUnavailableError(
@@ -539,9 +521,7 @@ class ColmapModBackend:
                 pass
 
         # Convert COLMAP depth/normal binaries.
-        depth_entries, normal_count = _convert_colmap_depth_maps(
-            workspace / "stereo", dense_dir
-        )
+        depth_entries, normal_count = _convert_colmap_depth_maps(workspace / "stereo", dense_dir)
 
         summary = DenseSummary(
             num_images=len(depth_entries),
@@ -602,9 +582,7 @@ class ColmapModBackend:
         vectors = np.asarray(index._descriptors, dtype=np.float32)
         return sfmapi_ids, vectors
 
-    def localize_from_memory(
-        self, *, sparse_dir: Path, query_image: Path, spec: dict
-    ) -> dict:
+    def localize_from_memory(self, *, sparse_dir: Path, query_image: Path, spec: dict) -> dict:
         from app.storage.snapshot_emit import _quat_xyzw_to_rotation
 
         pc = colmap_adapter._require_pycolmap()
@@ -632,9 +610,7 @@ class ColmapModBackend:
             return _localize_failure(f"sift extract failed: {e}")
 
         try:
-            result = pc.localize_from_memory(
-                reconstruction=rec, query_sift_results=[query_sift]
-            )
+            result = pc.localize_from_memory(reconstruction=rec, query_sift_results=[query_sift])
         except TypeError:
             try:
                 result = pc.localize_from_memory(rec, [query_sift])
@@ -648,9 +624,7 @@ class ColmapModBackend:
             return _localize_failure("no pose returned")
         pose = poses[0]
         success = bool(getattr(pose, "success", True))
-        cam_from_world = getattr(pose, "cam_from_world", None) or getattr(
-            pose, "pose", None
-        )
+        cam_from_world = getattr(pose, "cam_from_world", None) or getattr(pose, "pose", None)
         inlier_matches: list[tuple[int, int]] = []
         raw_inliers = getattr(pose, "inlier_matches", None)
         if raw_inliers is not None:
@@ -674,9 +648,7 @@ class ColmapModBackend:
             "diagnostics": {"query_image": str(query_image), "sparse_dir": str(sparse_dir)},
         }
 
-    def apply_sim3(
-        self, *, model_path: Path, output_path: Path, sim3: dict
-    ) -> dict:
+    def apply_sim3(self, *, model_path: Path, output_path: Path, sim3: dict) -> dict:
         from app.storage.snapshot_emit import emit_snapshot_files
 
         pc = colmap_adapter._require_pycolmap()
@@ -807,9 +779,7 @@ def _read_colmap_depth_map(path: Path) -> tuple[int, int, int, Any]:
     pixels = np.frombuffer(raw[head_end:], dtype="<f4")
     expected = width * height * channels
     if pixels.size != expected:
-        raise ValueError(
-            f"COLMAP map {path} body has {pixels.size} floats, expected {expected}"
-        )
+        raise ValueError(f"COLMAP map {path} body has {pixels.size} floats, expected {expected}")
     return width, height, channels, pixels.reshape(height, width, channels)
 
 
@@ -838,9 +808,7 @@ def _ply_to_points_bin(ply_path: Path) -> tuple[bytes, int]:
 
     record_size = (3 * 4) + (3 if has_rgb else 0)
     if len(body) < num_vertices * record_size:
-        raise ValueError(
-            f"PLY body too short: {len(body)} < {num_vertices * record_size}"
-        )
+        raise ValueError(f"PLY body too short: {len(body)} < {num_vertices * record_size}")
     records: list[Point3DRecord] = []
     bbox_min = [float("inf")] * 3
     bbox_max = [float("-inf")] * 3
@@ -851,9 +819,7 @@ def _ply_to_points_bin(ply_path: Path) -> tuple[bytes, int]:
             r, g, b = body[off + 12], body[off + 13], body[off + 14]
         else:
             r = g = b = 200
-        records.append(
-            Point3DRecord(point3d_id=i, xyz=(x, y, z), rgb=(r, g, b), track_len=0)
-        )
+        records.append(Point3DRecord(point3d_id=i, xyz=(x, y, z), rgb=(r, g, b), track_len=0))
         for axis, val in enumerate((x, y, z)):
             if val < bbox_min[axis]:
                 bbox_min[axis] = val
@@ -963,9 +929,8 @@ def _attach_pose_priors(pc: Any, mapping_input: Any, pose_priors: dict) -> bool:
     versions — try a few shapes and fall through silently if none stick."""
     if not pose_priors or not hasattr(pc, "Rigid3d"):
         return False
-    add_one = (
-        getattr(mapping_input, "add_pose_prior", None)
-        or getattr(mapping_input, "set_pose_prior", None)
+    add_one = getattr(mapping_input, "add_pose_prior", None) or getattr(
+        mapping_input, "set_pose_prior", None
     )
     attached = 0
     for name, prior in pose_priors.items():

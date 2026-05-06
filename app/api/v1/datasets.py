@@ -53,7 +53,9 @@ async def create(
     defaults. 404 if the project doesn't exist for this tenant.
     """
     await project_service.get_project(session, tenant_id=tenant_id, project_id=project_id)
-    src = await dataset_service.create_image_source(session, tenant_id=tenant_id, source=body.source)
+    src = await dataset_service.create_image_source(
+        session, tenant_id=tenant_id, source=body.source
+    )
 
     d = await dataset_service.create_dataset(
         session,
@@ -91,9 +93,7 @@ async def list_(
         page_size=page_size,
         page_token=page_token,
     )
-    return Page[DatasetOut](
-        items=[_to_out(r) for r in rows], next_page_token=next_page_token
-    )
+    return Page[DatasetOut](items=[_to_out(r) for r in rows], next_page_token=next_page_token)
 
 
 @router.get("/{dataset_id}", response_model=DatasetOut)
@@ -192,6 +192,4 @@ async def render_cubemap(
     job_id, _tasks = await sfm_stage_service.submit_render_cubemap(
         session, tenant_id=tenant_id, dataset_id=dataset_id, face_size=face_size
     )
-    return accepted_response(
-        JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id)
-    )
+    return accepted_response(JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id))

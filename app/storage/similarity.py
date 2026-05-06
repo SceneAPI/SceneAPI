@@ -46,7 +46,7 @@ class SimilarityNeighbor:
 class SimilarityIndex:
     strategy: str
     manifest_hash: str
-    hashes: dict[str, str]   # image_id -> hex string
+    hashes: dict[str, str]  # image_id -> hex string
 
     def as_dict(self) -> dict:
         return {
@@ -72,9 +72,7 @@ def dhash_bytes(data: bytes | BinaryIO) -> int:
         fh = data
     with Image.open(fh) as im:
         im = ImageOps.exif_transpose(im)
-        im = im.convert("L").resize(
-            (DHASH_SIZE + 1, DHASH_SIZE), Image.Resampling.LANCZOS
-        )
+        im = im.convert("L").resize((DHASH_SIZE + 1, DHASH_SIZE), Image.Resampling.LANCZOS)
         # `tobytes()` returns row-major pixel data — same layout `getdata()`
         # produced and stable across Pillow versions.
         pixels = list(im.tobytes())

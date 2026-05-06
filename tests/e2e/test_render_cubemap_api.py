@@ -51,9 +51,7 @@ async def test_render_cubemap_returns_501_without_capability(client) -> None:
     """Without pycolmap the backend doesn't advertise the
     spherical.render_cubemap capability — request is rejected before
     the dataset/is_spherical check."""
-    resp = await client.post(
-        "/v1/datasets/01HGHOST00000000000000000A:render_cubemap"
-    )
+    resp = await client.post("/v1/datasets/01HGHOST00000000000000000A:render_cubemap")
     assert resp.status_code == 501
     assert resp.json()["capability"] == "spherical.render_cubemap"
 
@@ -68,15 +66,11 @@ async def test_render_cubemap_501_even_for_pinhole_dataset(client) -> None:
 
 async def test_render_cubemap_rejects_face_size_too_large(client) -> None:
     did = await _make_dataset(client, is_spherical=True)
-    resp = await client.post(
-        f"/v1/datasets/{did}:render_cubemap", params={"face_size": 99999}
-    )
+    resp = await client.post(f"/v1/datasets/{did}:render_cubemap", params={"face_size": 99999})
     assert resp.status_code == 422
 
 
 async def test_render_cubemap_rejects_face_size_too_small(client) -> None:
     did = await _make_dataset(client, is_spherical=True)
-    resp = await client.post(
-        f"/v1/datasets/{did}:render_cubemap", params={"face_size": 1}
-    )
+    resp = await client.post(f"/v1/datasets/{did}:render_cubemap", params={"face_size": 1})
     assert resp.status_code == 422

@@ -106,16 +106,20 @@ async def list_pose_priors(
     """Return ``(image, prior_dict)`` for every image in the dataset that
     carries a non-null ``pose_prior_json``. Order: by image name."""
     rows = (
-        await session.execute(
-            select(Image)
-            .where(
-                Image.tenant_id == tenant_id,
-                Image.dataset_id == dataset_id,
-                Image.pose_prior_json.is_not(None),
+        (
+            await session.execute(
+                select(Image)
+                .where(
+                    Image.tenant_id == tenant_id,
+                    Image.dataset_id == dataset_id,
+                    Image.pose_prior_json.is_not(None),
+                )
+                .order_by(Image.name)
             )
-            .order_by(Image.name)
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return [(img, img.pose_prior_json) for img in rows if img.pose_prior_json]
 
 

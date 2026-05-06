@@ -2,14 +2,13 @@
 
 This guide brings up the full sfmapi stack on a single host and walks
 through a project → upload → dataset → reconstruction loop using
-the Python SDK. Allow ~10 minutes plus the time to build pycolmap on
-the GPU host (much longer the first time).
+the Python SDK. Allow ~10 minutes plus the time to build the SfM
+backend on the GPU host (much longer the first time).
 
 ## Prerequisites
 
 - Docker (with `docker compose`)
-- A GPU host with the colmap_mod CUDA stack already installed
-  (see [colmap_mod's CLAUDE.md](https://github.com/opsiclear/colmap_mod))
+- A GPU host with a pycolmap-compatible CUDA stack already installed
 - `uv` and Python 3.12 on PATH for SDK use
 
 ## 1. Bring up web + redis + postgres

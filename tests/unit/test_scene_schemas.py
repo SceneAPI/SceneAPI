@@ -87,7 +87,13 @@ def test_pose_prior_rejects_wrong_covariance_length() -> None:
 
 
 def test_camera_round_trip() -> None:
-    c = Camera(camera_id=1, model="SIMPLE_RADIAL", width=640, height=480, params=[500.0, 320.0, 240.0, 0.01])
+    c = Camera(
+        camera_id=1,
+        model="SIMPLE_RADIAL",
+        width=640,
+        height=480,
+        params=[500.0, 320.0, 240.0, 0.01],
+    )
     parsed = Camera.model_validate_json(c.model_dump_json())
     assert parsed.params == [500.0, 320.0, 240.0, 0.01]
 
@@ -128,7 +134,9 @@ def test_rig_keys_sensors_by_string_id() -> None:
 
 
 def test_frame_round_trip() -> None:
-    f = Frame(frame_id=10, rig_id=1, rig_from_world=_identity_rigid3(), data_ids={"0": 100, "1": 101})
+    f = Frame(
+        frame_id=10, rig_id=1, rig_from_world=_identity_rigid3(), data_ids={"0": 100, "1": 101}
+    )
     parsed = Frame.model_validate_json(f.model_dump_json())
     assert parsed.data_ids == {"0": 100, "1": 101}
 

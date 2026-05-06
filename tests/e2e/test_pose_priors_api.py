@@ -118,9 +118,7 @@ async def test_dataset_list_returns_only_images_with_priors(client) -> None:
 
 async def test_dataset_bulk_put_sets_multiple(client) -> None:
     did, image_id = await _make_dataset_with_image(client)
-    resp = await client.put(
-        f"/v1/datasets/{did}/pose_priors", json={image_id: _gps_prior()}
-    )
+    resp = await client.put(f"/v1/datasets/{did}/pose_priors", json={image_id: _gps_prior()})
     assert resp.status_code == 200
     assert resp.json()["written"] == 1
     after = await client.get(f"/v1/images/{image_id}/pose_prior")

@@ -88,9 +88,9 @@ def test_k_nearest_orders_by_distance() -> None:
         manifest_hash="x",
         hashes={
             "self": "0" * 16,
-            "near": "0" * 15 + "1",        # hamming 1
-            "mid":  "0" * 8 + "f" * 8,     # hamming ~32
-            "far":  "f" * 16,              # hamming 64
+            "near": "0" * 15 + "1",  # hamming 1
+            "mid": "0" * 8 + "f" * 8,  # hamming ~32
+            "far": "f" * 16,  # hamming 64
         },
     )
     out = sim.k_nearest(idx, image_id="self", k=2)

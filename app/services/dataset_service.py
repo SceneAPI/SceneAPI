@@ -142,9 +142,7 @@ async def list_datasets(
     return rows, next_page_token
 
 
-async def delete_dataset(
-    session: AsyncSession, *, tenant_id: str, dataset_id: str
-) -> None:
+async def delete_dataset(session: AsyncSession, *, tenant_id: str, dataset_id: str) -> None:
     """Cascade-delete a dataset and its images. Blob refcounts are
     decremented for upload-sourced images. Caller is responsible for
     workspace cleanup if any."""
@@ -153,10 +151,14 @@ async def delete_dataset(
     from app.db.models import Blob
 
     rows = (
-        await session.execute(
-            select(Image).where(Image.tenant_id == tenant_id, Image.dataset_id == d.dataset_id)
+        (
+            await session.execute(
+                select(Image).where(Image.tenant_id == tenant_id, Image.dataset_id == d.dataset_id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     for img in rows:
         if img.source_kind == "upload":
             b = await session.get(Blob, img.content_sha)

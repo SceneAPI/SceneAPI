@@ -53,9 +53,7 @@ async def test_dataset_delete_round_trip(conf_client) -> None:
 async def test_dataset_delete_returns_404_for_unknown_dataset(conf_client) -> None:
     pr = await conf_client.post("/v1/projects", json={"name": "del-404"})
     pid = pr.json()["project_id"]
-    resp = await conf_client.delete(
-        f"/v1/projects/{pid}/datasets/01HGHOST00000000000000000A"
-    )
+    resp = await conf_client.delete(f"/v1/projects/{pid}/datasets/01HGHOST00000000000000000A")
     assert resp.status_code == 404
 
 

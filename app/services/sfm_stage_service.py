@@ -250,9 +250,7 @@ async def submit_matches(
     d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=dataset_id)
     pairs = spec.get("pairs") if isinstance(spec.get("pairs"), dict) else spec
     if pairs.get("strategy") == "vocabtree" and not pairs.get("vocab_tree_path"):
-        raise ValidationError(
-            "pairs.vocab_tree_path is required for pairs.strategy=vocabtree"
-        )
+        raise ValidationError("pairs.vocab_tree_path is required for pairs.strategy=vocabtree")
     r, db_path = await _resolve_database_path(session, tenant_id=tenant_id, dataset=d, spec=spec)
     inputs = {
         "dataset_id": d.dataset_id,
@@ -287,16 +285,10 @@ async def submit_render_cubemap(
     as a new ``local`` dataset for downstream pinhole-only pipelines.
     """
     require_capability("spherical.render_cubemap")
-    d = await dataset_service.get_dataset(
-        session, tenant_id=tenant_id, dataset_id=dataset_id
-    )
+    d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=dataset_id)
     if not d.is_spherical:
-        raise ValidationError(
-            "render_cubemap is only valid on datasets marked is_spherical=true"
-        )
-    materialization = await derive_materialization(
-        session, tenant_id=tenant_id, dataset=d
-    )
+        raise ValidationError("render_cubemap is only valid on datasets marked is_spherical=true")
+    materialization = await derive_materialization(session, tenant_id=tenant_id, dataset=d)
     paths = Paths(get_settings())
     dataset_dir = paths.dataset_root(tenant_id, d.project_id, d.dataset_id)
     inputs = {
@@ -337,12 +329,8 @@ async def submit_dense(
     r = await reconstruction_service.get_reconstruction(
         session, tenant_id=tenant_id, recon_id=recon_id
     )
-    d = await dataset_service.get_dataset(
-        session, tenant_id=tenant_id, dataset_id=r.dataset_id
-    )
-    materialization = await derive_materialization(
-        session, tenant_id=tenant_id, dataset=d
-    )
+    d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=r.dataset_id)
+    materialization = await derive_materialization(session, tenant_id=tenant_id, dataset=d)
     image_root = materialization.get("image_root")
     if not image_root:
         raise ValidationError(
@@ -521,16 +509,10 @@ async def submit_to_cubemap(
     r = await reconstruction_service.get_reconstruction(
         session, tenant_id=tenant_id, recon_id=recon_id
     )
-    d = await dataset_service.get_dataset(
-        session, tenant_id=tenant_id, dataset_id=r.dataset_id
-    )
+    d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=r.dataset_id)
     if not d.is_spherical:
-        raise ValidationError(
-            "to_cubemap is only valid on datasets marked is_spherical=true"
-        )
-    materialization = await derive_materialization(
-        session, tenant_id=tenant_id, dataset=d
-    )
+        raise ValidationError("to_cubemap is only valid on datasets marked is_spherical=true")
+    materialization = await derive_materialization(session, tenant_id=tenant_id, dataset=d)
     image_root = materialization.get("image_root")
     if not image_root:
         raise ValidationError(
@@ -638,8 +620,9 @@ async def submit_vlad_index(
     materialization = await derive_materialization(session, tenant_id=tenant_id, dataset=d)
     rows = (
         await session.execute(
-            select(Image.image_id, Image.name)
-            .where(Image.tenant_id == tenant_id, Image.dataset_id == d.dataset_id)
+            select(Image.image_id, Image.name).where(
+                Image.tenant_id == tenant_id, Image.dataset_id == d.dataset_id
+            )
         )
     ).all()
     image_id_by_name = {name: image_id for image_id, name in rows}

@@ -45,8 +45,6 @@ def test_spherical_camera_round_trips_with_empty_params() -> None:
 
 
 def test_spherical_helper_compares_only_to_constant() -> None:
-    cam = Camera(
-        camera_id=3, model="spherical", width=10, height=10, params=[]
-    )
+    cam = Camera(camera_id=3, model="spherical", width=10, height=10, params=[])
     # case sensitive — pycolmap's model strings are uppercase
     assert not is_spherical_camera(cam)

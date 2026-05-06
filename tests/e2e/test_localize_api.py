@@ -35,9 +35,7 @@ async def _upload(client, payload: bytes) -> str:
 
 
 async def test_localize_rejects_missing_blob_sha(client) -> None:
-    resp = await client.post(
-        "/v1/reconstructions/01HGHOST00000000000000000A/localize", json={}
-    )
+    resp = await client.post("/v1/reconstructions/01HGHOST00000000000000000A/localize", json={})
     assert resp.status_code == 422
 
 

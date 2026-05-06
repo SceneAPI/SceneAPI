@@ -51,9 +51,7 @@ async def test_capability_unavailable_returns_501_with_canonical_name(conf_clien
     feats = (await conf_client.get("/v1/capabilities")).json().get("features", {})
     if feats.get("dense.patch_match_stereo"):
         pytest.skip("backend advertises dense.patch_match_stereo; probe doesn't apply")
-    resp = await conf_client.post(
-        "/v1/reconstructions/01HGHOST00000000000000000A/dense"
-    )
+    resp = await conf_client.post("/v1/reconstructions/01HGHOST00000000000000000A/dense")
     assert resp.status_code == 501, resp.text
     body = resp.json()
     assert body.get("capability") in (

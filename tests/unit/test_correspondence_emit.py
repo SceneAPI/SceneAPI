@@ -35,9 +35,7 @@ def test_export_skips_empty_pairs(tmp_path: Path) -> None:
 
 
 def test_export_handles_invalid_rows(tmp_path: Path) -> None:
-    out = export_correspondence_graph(
-        [(1, 2, [(0, 5), ("bad", 1), (3, 4)])], tmp_path
-    )
+    out = export_correspondence_graph([(1, 2, [(0, 5), ("bad", 1), (3, 4)])], tmp_path)
     parsed = CorrespondenceGraphFile.model_validate_json(out.read_text(encoding="utf-8"))
     # The "bad" row was skipped silently.
     assert parsed.pairs[0].matches == [(0, 5), (3, 4)]

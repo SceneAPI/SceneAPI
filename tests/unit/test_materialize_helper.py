@@ -78,18 +78,14 @@ def test_materialize_rejects_empty_image_list(tmp_path: Path) -> None:
 
 def test_materialize_unknown_kind_raises(tmp_path: Path) -> None:
     with pytest.raises(ValidationError, match="unknown materialization"):
-        materialize_image_set(
-            {"kind": "magic", "image_list": ["a.jpg"]}, tmp_path / "x"
-        )
+        materialize_image_set({"kind": "magic", "image_list": ["a.jpg"]}, tmp_path / "x")
 
 
 def test_resolve_image_path_local_returns_existing(tmp_path: Path) -> None:
     root = tmp_path / "imgs"
     root.mkdir()
     (root / "x.jpg").write_bytes(b"x")
-    p = resolve_image_path(
-        "x.jpg", {"kind": "local", "image_root": str(root)}, tmp_path / "stage"
-    )
+    p = resolve_image_path("x.jpg", {"kind": "local", "image_root": str(root)}, tmp_path / "stage")
     assert p == root / "x.jpg"
 
 

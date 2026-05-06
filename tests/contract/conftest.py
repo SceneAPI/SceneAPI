@@ -62,9 +62,10 @@ async def contract_client(ephemeral_settings: Settings) -> AsyncIterator[AsyncCl
     from app.main import create_app
 
     app = create_app()
-    async with app.router.lifespan_context(app), AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://contract"
-    ) as client:
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(transport=ASGITransport(app=app), base_url="http://contract") as client,
+    ):
         yield client
 
 

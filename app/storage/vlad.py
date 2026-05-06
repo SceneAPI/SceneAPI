@@ -67,9 +67,7 @@ def write_index(
 ) -> Path:
     """Persist a VLAD index. Vectors are L2-normalized in-place."""
     if vectors.ndim != 2 or vectors.shape[0] != len(image_ids):
-        raise ValueError(
-            f"vectors shape {vectors.shape} doesn't match {len(image_ids)} ids"
-        )
+        raise ValueError(f"vectors shape {vectors.shape} doesn't match {len(image_ids)} ids")
     vectors = np.asarray(vectors, dtype=np.float32)
     norms = np.linalg.norm(vectors, axis=1, keepdims=True)
     norms[norms == 0] = 1.0

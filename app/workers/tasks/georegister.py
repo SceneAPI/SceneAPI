@@ -30,9 +30,7 @@ def run(task: Task) -> dict:
 
     out_dir = rec_root / "_georegister" / task.task_id
     out_dir.mkdir(parents=True, exist_ok=True)
-    get_backend().apply_sim3(
-        model_path=sparse_dir, output_path=out_dir, sim3=sim3_dict
-    )
+    get_backend().apply_sim3(model_path=sparse_dir, output_path=out_dir, sim3=sim3_dict)
 
     snapshots = SnapshotStore(rec_root)
     seq = (snapshots.latest() or 0) + 1

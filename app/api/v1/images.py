@@ -151,9 +151,7 @@ async def list_(
         page_size=page_size,
         page_token=page_token,
     )
-    return Page[ImageOut](
-        items=[_to_out(r) for r in rows], next_page_token=next_page_token
-    )
+    return Page[ImageOut](items=[_to_out(r) for r in rows], next_page_token=next_page_token)
 
 
 @router.delete("/{name}", status_code=status.HTTP_204_NO_CONTENT)
@@ -334,9 +332,7 @@ async def delete_pose_prior(
     session: AsyncSession = Depends(get_db),
 ) -> None:
     """Clear the PosePrior on an image."""
-    await image_service.set_pose_prior(
-        session, tenant_id=tenant_id, image_id=image_id, prior=None
-    )
+    await image_service.set_pose_prior(session, tenant_id=tenant_id, image_id=image_id, prior=None)
 
 
 @dataset_router.get("/pose_priors", response_model=PosePriorsBulkResponse)
@@ -346,12 +342,8 @@ async def list_dataset_pose_priors(
     session: AsyncSession = Depends(get_db),
 ) -> PosePriorsBulkResponse:
     """All PosePriors for the dataset, keyed by image_id."""
-    rows = await image_service.list_pose_priors(
-        session, tenant_id=tenant_id, dataset_id=dataset_id
-    )
-    return PosePriorsBulkResponse(
-        pose_priors={img.image_id: prior for img, prior in rows}
-    )
+    rows = await image_service.list_pose_priors(session, tenant_id=tenant_id, dataset_id=dataset_id)
+    return PosePriorsBulkResponse(pose_priors={img.image_id: prior for img, prior in rows})
 
 
 @dataset_router.put("/pose_priors", response_model=PosePriorsBulkWriteResponse)
