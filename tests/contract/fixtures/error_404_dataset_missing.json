@@ -1,6 +1,6 @@
 {
   "detail": "Dataset 01HZNOTAREALDATASETID00000 not found",
-  "instance": "http://contract/v1/projects/01KQZ0ZZHZDXAP84PDJ15EB01H/datasets/01HZNOTAREALDATASETID00000",
+  "instance": "http://contract/v1/projects/01KQZ4TXYACK9FD4SNSRC9K68X/datasets/01HZNOTAREALDATASETID00000",
   "status": 404,
   "title": "Resource not found",
   "type": "https://sfmapi.github.io/errors/not_found"

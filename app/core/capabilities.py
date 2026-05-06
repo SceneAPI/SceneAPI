@@ -221,9 +221,26 @@ def detect_capabilities() -> Capabilities:
         vendor=backend_impl.vendor,
     )
     caps = empty_capabilities(backend)
-    for name in backend_impl.capabilities():
+    advertised = set(backend_impl.capabilities())
+    for name in advertised:
         if name in caps.features:
             caps.features[name] = True
+    # Backend advertised capabilities not in ALL_KNOWN are silently
+    # dropped — log a warning so the integrator knows their
+    # capability string never reaches the wire.
+    unknown = advertised - caps.features.keys()
+    if unknown:
+        from app.core.logging import get_logger
+
+        get_logger("sfmapi.capabilities").warning(
+            "backend.capabilities_unknown",
+            backend=backend_impl.name,
+            unknown=sorted(unknown),
+            hint=(
+                "add these to app.core.capabilities.ALL_KNOWN or remove them "
+                "from the backend's capabilities() set"
+            ),
+        )
     # sfmapi-internal capabilities — independent of the SfM backend.
     caps.features["similarity.dhash"] = True
     caps.features["pose_priors.read_write"] = True

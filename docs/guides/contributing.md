@@ -59,13 +59,85 @@ either is red, the PR doesn't land.
 4. Test under `tests/e2e/` (and `tests/integration/` if it touches
    storage).
 5. Update the [API reference](../reference/api.md).
-6. If it submits a Task, add the per-task module under
-   `app/workers/tasks/` and register it in `app/workers/runner.py`.
+6. If the route submits a Task, see "Adding a new SfM stage" below.
+7. Re-run `uv run python scripts/regen_sdk.py` so all three SDKs
+   pick up the new endpoint.
 
 The web tier must not import any engine library (pycolmap, torch,
 cv2, segment_anything, ...); the
 `test_app_does_not_import_pycolmap_or_torch` unit test enforces that
 boundary.
+
+## Adding a new SfM stage
+
+The most common contribution shape — a new pipeline stage like
+`pgo`, `triangulate`, or `mesh`. The post-extraction DX is designed
+so the touchpoints are minimal and the drift modes are caught
+mechanically.
+
+1. **Add the worker task** at `app/workers/tasks/<kind>.py`. Decorate
+   the entry function:
+
+   ```python
+   from app.workers.tasks._registry import task_handler
+
+   @task_handler("my_stage")
+   def run(task: Task) -> dict:
+       inputs, spec = read_state(task)
+       backend = get_backend()
+       result = backend.my_stage_method(...)
+       return {"result_path": ..., **result}
+   ```
+
+   Auto-discovery picks it up — no edit to `app/workers/dispatcher.py`
+   needed. The decorator raises on duplicate-kind so typos collide
+   loudly.
+
+2. **Add the capability string** to
+   `app/core/capabilities.py::ALL_KNOWN`. Pick a canonical name
+   (`pgo.optimize`, `mesh.poisson`, `<family>.<variant>`).
+
+3. **Add a Protocol method** to `app.adapters.backend.SfmBackend` if
+   the stage needs a new backend-side operation. Add the matching
+   stub method to `app.adapters.stub_backend.StubBackend` (raises
+   `CapabilityUnavailableError(capability="<canonical>")`).
+
+4. **Add a service helper** in `app/services/sfm_stage_service.py`:
+
+   ```python
+   async def submit_my_stage(...) -> tuple[str, list]:
+       require_capability("my_stage.canonical")     # MUST be in ALL_KNOWN
+       # ... assemble inputs dict ...
+       return await _submit_single_stage(
+           session, tenant_id=tenant_id, project_id=...,
+           recipe="my_stage", kind="my_stage",
+           inputs=inputs, spec=spec, inline=inline,
+       )
+   ```
+
+   The capability-consistency test
+   (`tests/unit/test_capability_consistency.py`) AST-scans for
+   `require_capability("X.Y")` literals and fails if `"X.Y"` is
+   missing from `ALL_KNOWN`.
+
+5. **Add a route** in the appropriate `app/api/v1/<resource>.py`,
+   delegating to the service helper. Use
+   `accepted_response(JobAcceptedResponse(...))` for the 202
+   envelope.
+
+6. **Add tests**: at minimum an e2e test that POSTs the route and
+   inspects the resulting `Job.status` (the inline queue runs the
+   task in-process, so a single test exercises the full
+   route → service → worker → backend path).
+
+7. **Update `SFMAPI-SPEC.md`** §6 with the new endpoint, tagged
+   `[Extension: <capability>]` if it's optional or `[Core]` if every
+   conformant server must implement it. Update
+   `docs/reference/api.md` with the route catalog entry.
+
+8. **Regen SDKs** with `uv run python scripts/regen_sdk.py`. The
+   contract tests will replay the new fixture through Python +
+   TypeScript + C++ on next CI run.
 
 ## Adding a new backend or backend method
 
@@ -79,5 +151,11 @@ own repos and satisfy ``app.adapters.backend.SfmBackend``.
    ``register_backend("name", MyBackend)``.
 3. If a new wire op is needed (a method not yet on the protocol),
    add it here in `app/adapters/backend.py` and surface a worker
-   task under `app/workers/tasks/`. Worker tasks call backends only
-   through ``get_backend()``, never via direct import.
+   task under `app/workers/tasks/` (see "Adding a new SfM stage"
+   above). Worker tasks call backends only through
+   ``get_backend()``, never via direct import.
+
+Backends advertising a capability that is not in
+`app.core.capabilities.ALL_KNOWN` will see that capability silently
+dropped at `detect_capabilities` time (logged as a warning); add the
+canonical name to `ALL_KNOWN` first.
