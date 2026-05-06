@@ -7,8 +7,11 @@ on:
         description: "Dataset names to run (space-separated). Empty = all."
         required: false
         default: ""
-  schedule:
-    - cron: "0 9 * * *"   # 09:00 UTC nightly
+  # Schedule disabled: bench needs a self-hosted GPU runner with a
+  # registered backend installed. Re-enable once an operator wires
+  # up a runner with the backend package they want to track.
+  # schedule:
+  #   - cron: "0 9 * * *"   # 09:00 UTC nightly
 
 permissions:
   contents: write   # allow committing results back to bench-results branch
@@ -23,7 +26,9 @@ jobs:
     timeout-minutes: 240
     env:
       SFMAPI_BASE_URL: "http://localhost:8080"
-      SFMAPI_PYCOLMAP_AVAILABLE: "true"
+      # The backend that will execute the bench is whatever's
+      # registered on the runner. Set SFMAPI_BACKEND to its name.
+      SFMAPI_BACKEND: "${{ vars.SFMAPI_BENCH_BACKEND || 'colmap_mod' }}"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v7
@@ -55,7 +60,7 @@ jobs:
         if: success()
         run: |
           git config user.name  "sfmapi-bench"
-          git config user.email "bench@sfmapi.dev"
+          git config user.email "bench@sfmapi.github.io"
           git checkout -B bench-results
           git add bench/results
           if git diff --cached --quiet; then
