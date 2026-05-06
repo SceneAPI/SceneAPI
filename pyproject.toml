@@ -1,7 +1,7 @@
 [project]
 name = "sfmapi"
 version = "0.0.1"
-description = "FastAPI service wrapping pycolmap (colmap_mod) for SfM, segmentation, and image processing."
+description = "Generic HTTP/REST API for Structure-from-Motion tasks. Backend-agnostic; reference implementation uses pycolmap."
 readme = "README.md"
 license = { text = "AGPL-3.0-or-later" }
 classifiers = [
@@ -35,7 +35,10 @@ dependencies = [
 
 [project.optional-dependencies]
 sfm = [
-    # pycolmap installed from sibling repo `colmap_mod` in editable mode for dev
+    # Optional: install a backend implementation that satisfies
+    # `app.adapters.backend.SfmBackend`. The reference impl uses
+    # pycolmap (e.g. installed from a sibling colmap_mod checkout
+    # in editable mode for dev).
 ]
 seg = [
     "torch>=2.5",
@@ -70,7 +73,7 @@ markers = [
     "e2e: full app, may hit redis",
     "conformance: tests/conformance — verifies SFMAPI-SPEC.md against any server",
     "contract: tests/contract — replays recorded fixtures through the SDK types",
-    "needs_pycolmap: requires colmap_mod's pycolmap installed",
+    "needs_pycolmap: requires the reference pycolmap backend installed",
     "needs_postgres: requires SFMAPI_DB_URL pointing at postgres",
 ]
 
