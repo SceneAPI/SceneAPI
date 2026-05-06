@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 UploadState = Literal["open", "received", "finalized", "expired"]
 """Closed set of upload lifecycle states (AIP-216).
@@ -27,6 +27,8 @@ class UploadInit(BaseModel):
 
 
 class UploadOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     upload_id: str
     state: UploadState
     expected_size: int

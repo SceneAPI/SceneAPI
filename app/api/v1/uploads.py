@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ValidationError
 from app.core.tenancy import current_tenant
 from app.db.session import get_db
+from app.schemas.api.common import to_out
 from app.schemas.api.uploads import UploadInit, UploadOut
 from app.services import upload_service
 
@@ -41,14 +42,7 @@ async def init(
         expected_sha=body.expected_sha,
         idempotency_key=idempotency_key,
     )
-    return UploadOut(
-        upload_id=u.upload_id,
-        state=u.state,
-        expected_size=u.expected_size,
-        received_bytes=u.received_bytes,
-        blob_sha=u.blob_sha,
-        expires_at=u.expires_at,
-    )
+    return to_out(UploadOut, u)
 
 
 @router.get("/{upload_id}", response_model=UploadOut)
@@ -64,14 +58,7 @@ async def status_route(
     Returns 404 if the upload has expired or never existed.
     """
     u = await upload_service.get_upload(session, tenant_id=tenant_id, upload_id=upload_id)
-    return UploadOut(
-        upload_id=u.upload_id,
-        state=u.state,
-        expected_size=u.expected_size,
-        received_bytes=u.received_bytes,
-        blob_sha=u.blob_sha,
-        expires_at=u.expires_at,
-    )
+    return to_out(UploadOut, u)
 
 
 @router.patch("/{upload_id}", response_model=UploadOut)
@@ -106,14 +93,7 @@ async def patch_chunk(
     u = await upload_service.append_chunk(
         session, tenant_id=tenant_id, upload_id=upload_id, offset=offset, data=data
     )
-    return UploadOut(
-        upload_id=u.upload_id,
-        state=u.state,
-        expected_size=u.expected_size,
-        received_bytes=u.received_bytes,
-        blob_sha=u.blob_sha,
-        expires_at=u.expires_at,
-    )
+    return to_out(UploadOut, u)
 
 
 @router.post("/{upload_id}:finalize", response_model=UploadOut)
@@ -136,11 +116,4 @@ async def finalize(
         upload_id=upload_id,
         client_sha=client_sha,
     )
-    return UploadOut(
-        upload_id=u.upload_id,
-        state=u.state,
-        expected_size=u.expected_size,
-        received_bytes=u.received_bytes,
-        blob_sha=u.blob_sha,
-        expires_at=u.expires_at,
-    )
+    return to_out(UploadOut, u)

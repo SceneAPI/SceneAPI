@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import FileResponse, Response
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -175,16 +174,6 @@ async def delete(
 # ---- top-level reads -------------------------------------------------------
 
 
-async def _get_image(session: AsyncSession, *, tenant_id: str, image_id: str) -> Image:
-    result = await session.execute(
-        select(Image).where(Image.tenant_id == tenant_id, Image.image_id == image_id)
-    )
-    img = result.scalar_one_or_none()
-    if img is None:
-        raise NotFoundError(f"Image {image_id} not found")
-    return img
-
-
 @read_router.get("/{image_id}", response_model=ImageOut)
 async def get_image(
     image_id: str,
@@ -197,7 +186,8 @@ async def get_image(
     EXIF / source pointers — without the bytes themselves. Use
     ``GET /v1/images/{id}/bytes`` for the original payload.
     """
-    return _to_out(await _get_image(session, tenant_id=tenant_id, image_id=image_id))
+    img = await image_service.get_image(session, tenant_id=tenant_id, image_id=image_id)
+    return _to_out(img)
 
 
 @read_router.get("/{image_id}/bytes")
@@ -209,7 +199,7 @@ async def get_image_bytes(
     session: AsyncSession = Depends(get_db),
 ) -> Response:
     """Stream the original image bytes. Carries an ETag for HTTP caches."""
-    img = await _get_image(session, tenant_id=tenant_id, image_id=image_id)
+    img = await image_service.get_image(session, tenant_id=tenant_id, image_id=image_id)
     path = await image_bytes_service.resolve_image_path(session, tenant_id=tenant_id, image=img)
     if not path.is_file():
         raise NotFoundError(f"image bytes missing on disk for {image_id}")
@@ -249,7 +239,7 @@ async def get_image_thumbnail(
     requested = size or s.thumbnail_default_size
     if requested > s.thumbnail_max_size:
         raise ValidationError(f"thumbnail size exceeds max {s.thumbnail_max_size}")
-    img = await _get_image(session, tenant_id=tenant_id, image_id=image_id)
+    img = await image_service.get_image(session, tenant_id=tenant_id, image_id=image_id)
     src_path = await image_bytes_service.resolve_image_path(session, tenant_id=tenant_id, image=img)
     if not src_path.is_file():
         raise NotFoundError("source image missing on disk")
@@ -282,7 +272,7 @@ async def get_image_exif(
     ``exif`` map (not 404) when the source has no EXIF or the bytes
     can't be located.
     """
-    img = await _get_image(session, tenant_id=tenant_id, image_id=image_id)
+    img = await image_service.get_image(session, tenant_id=tenant_id, image_id=image_id)
     if img.exif_json:
         return ImageExifResponse(exif=img.exif_json)
     try:
@@ -304,7 +294,7 @@ async def get_pose_prior(
     session: AsyncSession = Depends(get_db),
 ) -> PosePrior | None:
     """Return the image's PosePrior (or `null` if none is set)."""
-    img = await _get_image(session, tenant_id=tenant_id, image_id=image_id)
+    img = await image_service.get_image(session, tenant_id=tenant_id, image_id=image_id)
     if img.pose_prior_json is None:
         return None
     return PosePrior.model_validate(img.pose_prior_json)
