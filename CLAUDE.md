@@ -4,13 +4,25 @@ Guidance for Claude Code working in this repository.
 
 ## Project Overview
 
-`sfmapi` is a FastAPI service that wraps the user's custom pycolmap (sibling
-repo `../colmap_mod` — see its `CLAUDE.md` for the underlying SfM library) and
-adds image segmentation/masking on top. It exposes SfM as a service: data
-abstractions for projects/datasets/images, decomposed pipeline endpoints
-(`features → matches → verify → map → ba → triangulate → relocalize → pgo`),
-recipe sugar (`/pipelines/{incremental|global|hierarchical|spherical}`), and a
-sealed-snapshot progress feed for light interactivity during long-running runs.
+`sfmapi` is the **wire spec + orchestration shell** for SfM-as-a-service.
+It is a generic HTTP/REST API for Structure-from-Motion tasks; backend
+implementations (pycolmap forks, OpenSfM, hloc, custom engines) live in
+**separate packages** and register at startup via
+`app.adapters.registry.register_backend("name", Backend)`.
+
+The repo ships:
+- A FastAPI web tier with no engine-library imports.
+- Decomposed pipeline endpoints
+  (`features → matches → verify → map → ba → triangulate → relocalize → pgo`)
+  + recipe sugar (`/pipelines/{incremental|global|hierarchical|spherical}`).
+- Sealed-snapshot progress feed for light interactivity during long-running runs.
+- Three SDKs (Python, TypeScript, C++) generated from the same OpenAPI spec.
+- A no-op `StubBackend` (`app.adapters.stub_backend`) for tests + the
+  `SFMAPI_EPHEMERAL=true` self-contained demo runtime.
+
+There is **no** concrete SfM engine in this repo. Routes that need a backend
+return `501 CapabilityUnavailableError` until a real backend package is
+installed and registered.
 
 ## Decision Register
 
@@ -127,10 +139,11 @@ app/
     tasks/
       extract.py match.py verify.py map.py ba.py triangulate.py
       relocalize.py pgo.py export.py segment.py
-  adapters/              ONLY heavy-dep importers (sync)
-    colmap_adapter.py    pycolmap (lazy import; raises if SFMAPI_PYCOLMAP_AVAILABLE=false)
-    sam_adapter.py       segment-anything
-    image_adapter.py     PIL + EXIF
+  adapters/              backend Protocol + registry only — no engine imports
+    backend.py           SfmBackend Protocol (the contract every backend implements)
+    registry.py          register_backend() + get_backend()
+    stub_backend.py      no-op stub used by tests + SFMAPI_EPHEMERAL=true
+    image_adapter.py     PIL + EXIF (pure-python, no engine dep)
 tests/
   unit/                  fast, no IO
   integration/           hits db + filesystem
@@ -430,22 +443,22 @@ scripts/                 dev / ops scripts
 ## Build / Test / Dev Loop
 
 ```bash
-# Setup
+# Setup (standalone — no Docker, no Redis, no Postgres)
 uv venv
 uv pip install -e ".[dev]"
-cp .env.example .env
+cp .env.example .env             # defaults: SQLite + fs blobs + inline queue
 uv run alembic upgrade head
 
-# Test (default — skips pycolmap and postgres-only)
+# Run
+uv run uvicorn app.main:app --reload
+
+# Test (default — skips needs_backend / needs_postgres)
 uv run pytest -q
 
 # Dual-DB CI runs (must both pass)
 SFMAPI_DB_URL=sqlite+aiosqlite:///./test.db uv run pytest -q
 SFMAPI_DB_URL=postgresql+psycopg://sfm:sfm@localhost:5432/sfmapi_test \
-  uv run pytest -q -m "not needs_pycolmap"
-
-# With pycolmap available (sibling colmap_mod installed in this venv)
-SFMAPI_PYCOLMAP_AVAILABLE=true uv run pytest -q
+  uv run pytest -q -m "not needs_backend"
 
 # Lint + type
 uv run ruff check .
@@ -453,50 +466,36 @@ uv run ruff format --check .
 uv run mypy app
 ```
 
-## Phase Task Breakdowns
+## Backend integration notes
 
-Each phase has its own doc with concrete TDD task lists:
-
-- **[Phase 0](docs/phases/phase_0_skeleton.md)** — skeleton, tenancy, blob store,
-  ImageSource (upload + local), CRUD, hash plumbing, runtime_versions.
-- **[Phase 1](docs/phases/phase_1_orchestrator_features_match.md)** — DAG
-  orchestrator, ARQ workers, supervisor + subprocess, lease/janitor, sealed
-  snapshots, ProgressEvent + SSE replay, features/match/verify endpoints.
-- **[Phase 2](docs/phases/phase_2_incremental_sfm.md)** — incremental_mapping with
-  MappingInput checkpoints, multi-submodel, standalone bundle_adjust /
-  triangulate / relocalize / PGO, diagnostics, paginated reads, export.
-- **[Phase 3](docs/phases/phase_3_segmentation.md)** — SAM adapter, MaskSet model,
-  mask-aware re-extraction, model_artifact storage.
-- **[Phase 4](docs/phases/phase_4_global_spherical.md)** — global / hierarchical /
-  spherical mapping + cubemap, IncrementalVLADIndex, advanced recipes,
-  pipelines/{recipe} sugar.
-- **[Phase 5](docs/phases/phase_5_resume_tenancy_s3_obs.md)** — full resume from
-  MappingInput, auth + quota enforcement, fair-share scheduler, S3 GA,
-  Prometheus metrics, structured logging hardening.
-
-## Pycolmap Integration Notes
-
-- The web process must work without `pycolmap` installed (returns 503 from
-  any endpoint that requires it). `SFMAPI_PYCOLMAP_AVAILABLE=true` enables
-  worker tasks to import it.
-- `colmap_mod` mutates fast (defaults change weekly). Cache invalidation
-  uses the full `runtime_version_id` (sha of `colmap_sha + baxx_sha +
-  cudss_ver + cuda_arch + sam_model_sha + seed`).
-- API NEVER opens `database.db` directly. All DB reads go through
-  `pycolmap.Database` from a worker. API reads sealed snapshots only.
+- The web tier must work without any concrete backend installed (calls
+  that need one return `501 CapabilityUnavailableError`). The
+  `StubBackend` ships in this repo for tests + the
+  `SFMAPI_EPHEMERAL=true` demo runtime; production deployments install
+  a third-party backend package and call `register_backend()` at
+  startup.
+- Backends mutate fast (defaults change frequently). Cache invalidation
+  uses the backend-defined `runtime_version_id` opaque string returned
+  by `SfmBackend.runtime_versions()` and salted into every cache key.
+- API NEVER opens the backend's working DB directly. All reads go via
+  the backend's own methods; the API only serves sealed snapshots.
 - `MappingInput.save/load` (`PCMAPIN\0` v1) is the canonical
-  cross-stage + resume primitive.
-- Pipeline callbacks (`INITIAL_IMAGE_PAIR_REG_CALLBACK`,
-  `NEXT_IMAGE_REG_CALLBACK`, `LAST_IMAGE_REG_CALLBACK`) drive
-  `ProgressEvent` emission and snapshot triggers.
+  cross-stage + resume primitive — backends that support resume
+  emit/consume this format.
+- Pipeline callbacks drive `ProgressEvent` emission and snapshot
+  triggers; backends register them via the methods on `SfmBackend`.
 - `Reconstruction` is a run; produces N `SubModel` rows
   (`sparse/0`, `sparse/1`, ...). API reads are submodel-keyed.
 
 ## Anti-Patterns / Don'ts
 
-- Don't import `pycolmap` from the web process. Ever.
-- Don't read live `database.db` or `sparse/` from the API. Sealed snapshots
-  only.
+- Don't import any engine library (pycolmap, torch, cv2, segment_anything,
+  ...) from the web process. Ever. The
+  `test_app_does_not_import_pycolmap_or_torch` unit test enforces this.
+- Don't add a default backend to `app.adapters.registry` — sfmapi ships
+  no engine on purpose.
+- Don't read the backend's live working state from the API. Sealed
+  snapshots only.
 - Don't `SIGTERM` into a CUDA process for cancellation — corrupts context.
   Cooperative flag between phases; hard-kill = subprocess SIGKILL + worker
   restart.
