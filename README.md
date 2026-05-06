@@ -15,16 +15,33 @@ See [docs/](https://sfmapi.github.io/) for the user-facing site,
 [SFMAPI-SPEC.md](./SFMAPI-SPEC.md) for the wire spec, and
 [CLAUDE.md](./CLAUDE.md) for in-repo conventions.
 
-## Quickstart
+## Quickstart (standalone — no Docker, no Redis, no Postgres)
+
+The defaults in `.env.example` give you a single-process install:
+SQLite file beside the working dir, filesystem blob store, in-process
+worker. Drop in a backend package later via `register_backend()`.
 
 ```bash
 uv venv
 uv pip install -e ".[dev]"
 cp .env.example .env
 uv run alembic upgrade head
-uv run pytest -q
 uv run uvicorn app.main:app --reload
+# In another shell:
+curl http://localhost:8080/healthz
+curl http://localhost:8080/version
 ```
+
+For a fully ephemeral, in-memory run (no files written, all state
+wiped on shutdown):
+
+```bash
+SFMAPI_EPHEMERAL=true uv run uvicorn app.main:app
+```
+
+For multi-instance / GPU-fleet deployments: switch
+`SFMAPI_QUEUE_BACKEND=arq`, point `SFMAPI_DB_URL` at Postgres, and
+run real workers. See `deploy/helm/` for a reference Helm chart.
 
 ## Layout
 
