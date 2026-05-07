@@ -13,47 +13,48 @@ tree per reconstruction.
 
 ```{mermaid}
 flowchart LR
-    subgraph Client
-        SDK[Generated SDKs<br/>Python · TypeScript · C++]
-        UI[CLI / curl / browser]
+    subgraph Client["Client"]
+        SDK["Generated SDKs"]
+        UI["CLI, curl, browser"]
     end
 
-    subgraph Web["Web tier (in-process)"]
-        API[FastAPI app]
-        Inline[Inline queue<br/>standalone mode]
+    subgraph Web["Web tier"]
+        API["FastAPI app"]
+        Inline["Inline queue"]
         API --- Inline
     end
 
-    subgraph WorkerPkg["Backend package<br/>(separate repo)"]
-        Backend["SfmBackend impl<br/>e.g. ColmapModBackend"]
-        Backend --> Engine["pycolmap / OpenSfM /<br/>hloc / custom fork"]
+    subgraph WorkerPkg["Backend package"]
+        Backend["SfmBackend implementation"]
+        Engine["SfM engine"]
+        Backend --> Engine
     end
 
-    subgraph Persistence
-        DB[(SQLite / Postgres)]
-        Blobs[(blobs/&lt;sha&gt;)]
-        WS[(workspaces/&lt;tenant&gt;/...)]
+    subgraph Persistence["Persistence"]
+        DB[(SQL database)]
+        Blobs[(Blob store)]
+        WS[(Workspace snapshots)]
     end
 
-    subgraph Multi["Multi-instance only (optional)"]
+    subgraph Multi["Optional multi-instance mode"]
         Redis[(Redis)]
-        Sup["Supervisor + workers<br/>per GPU"]
+        Sup["Supervisor and workers"]
     end
 
     SDK --> API
     UI --> API
     API -->|writes| DB
     API -->|writes| Blobs
-    API -->|reads sealed| WS
+    API -->|reads snapshots| WS
 
     Inline -.->|standalone| Backend
-    Sup -.->|polls + leases| DB
+    Sup -.->|polls and leases| DB
     Sup -.->|consumes| Redis
     Sup -.-> Backend
     Backend -->|reads bytes| Blobs
-    Backend -->|writes snapshots/{seq}/| WS
-    Backend -->|writes events.jsonl| WS
-    API -->|tails events.jsonl| WS
+    Backend -->|writes snapshots| WS
+    Backend -->|writes events| WS
+    API -->|tails events| WS
 ```
 
 ## Boundaries
@@ -105,14 +106,14 @@ sequenceDiagram
     participant API
     participant Client
 
-    Worker->>Disk: write sparse/0/... (in place)
+    Worker->>Disk: write live sparse reconstruction
     loop every 50 image registrations
-        Worker->>Disk: copy sparse/ -> snapshots/.tmp_42/
-        Worker->>Disk: write snapshots/.tmp_42/.complete
-        Worker->>Disk: os.replace(.tmp_42, 00000042)
-        Worker->>API: emit ProgressEvent(snapshot_available, seq=42)
+        Worker->>Disk: copy live state to a temporary snapshot
+        Worker->>Disk: write completion marker
+        Worker->>Disk: atomically promote snapshot 42
+        Worker->>API: emit snapshot available event
     end
-    Client->>API: GET /reconstructions/R/snapshots/42/points.bin
+    Client->>API: request sealed snapshot 42
     API->>Disk: serve immutable file
     API-->>Client: bytes
 ```
