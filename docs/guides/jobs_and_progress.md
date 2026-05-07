@@ -9,13 +9,13 @@ layer; ARQ doesn't know about the DAG, only the orchestrator does.
 ```{mermaid}
 stateDiagram-v2
     [*] --> pending
-    pending --> running : worker leases task(s)
+    pending --> running : worker leases task
     running --> succeeded
     running --> failed
-    running --> cancelled : DELETE /jobs/{id}
-    running --> cancelled_dirty : DELETE /jobs/{id}?force=true
-    failed --> pending : POST /jobs/{id}/resume
-    cancelled --> pending : POST /jobs/{id}/resume
+    running --> cancelled : cancel request
+    running --> cancelled_dirty : force cancel request
+    failed --> pending : resume request
+    cancelled --> pending : resume request
     succeeded --> [*]
 ```
 

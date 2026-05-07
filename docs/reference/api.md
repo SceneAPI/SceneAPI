@@ -10,16 +10,16 @@ quick orientation.
 
 ```{mermaid}
 flowchart LR
-    Tenant -- 1..N --> Project
-    Project -- 1..N --> Dataset
-    Project -- 1..N --> Job
-    Project -- 1..N --> Reconstruction
-    Dataset -- 1..N --> Image
-    Reconstruction -- 1..N --> SubModel
-    Reconstruction -- 1..N --> SealedSnapshot
-    Image -.- Blob
-    Upload -- finalize --> Blob
-    Job -- 1..N --> Task
+    Tenant["Tenant"] --> Project["Project"]
+    Project --> Dataset["Dataset"]
+    Project --> Job["Job"]
+    Project --> Reconstruction["Reconstruction"]
+    Dataset --> Image["Image"]
+    Reconstruction --> SubModel["SubModel"]
+    Reconstruction --> SealedSnapshot["Sealed snapshot"]
+    Image -.-> Blob
+    Upload["Upload"] --> Blob["Blob"]
+    Job --> Task["Task"]
 ```
 
 | Resource | Lifetime | Owns | Created via | Notes |
