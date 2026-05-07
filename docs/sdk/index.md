@@ -60,15 +60,3 @@ target_link_libraries(your_target PRIVATE sfmapi_cpp)
 The C++ client provides wire structs, binary parsers, and a pluggable
 HTTP client. It intentionally does not bundle a JSON library or HTTP
 transport.
-
-## Legacy Python client
-
-A deprecated hand-written Python client at `clients/python/sfmapi_client/`
-ships in parallel for now. New consumers should prefer the generated
-SDK above; the legacy API reference remains available for existing
-users:
-
-- {doc}`Legacy sync client <sync>`
-- {doc}`Legacy async client <async>`
-- {doc}`Legacy models <models>`
-- {doc}`Legacy errors <errors>`

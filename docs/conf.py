@@ -67,7 +67,23 @@ myst_heading_anchors = 3
 linkify_fuzzy_links = False
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    # Repo-dev notes retained in source, but omitted from the public site.
+    "sdk/sync.md",
+    "sdk/async.md",
+    "sdk/models.md",
+    "sdk/errors.md",
+    "guides/decisions.md",
+    "guides/aip_audit_2026.md",
+    "guides/oneshot_streaming_proposal.md",
+    "guides/resume_unification_proposal.md",
+    "guides/sealed_snapshots_on_s3_proposal.md",
+    "guides/rls_postgres_tenancy_proposal.md",
+    "guides/streaming_slam_proposal.md",
+]
 
 # -- HTML output -------------------------------------------------------------
 

@@ -182,9 +182,7 @@ For "right now" use cases that don't need a Project/Dataset row.
 | POST | `/v1/oneshot/localize` | image bytes + `?recon_id=` | `OneShotLocalizeResponse` |
 
 Bytes are tempfile'd then deleted; no DB row is created. Capped at
-`SFMAPI_ONESHOT_MAX_REQUEST_BYTES` (50 MiB default). See [the
-streaming proposal](../guides/oneshot_streaming_proposal.md) for
-context.
+`SFMAPI_ONESHOT_MAX_REQUEST_BYTES` (50 MiB default).
 
 ## Jobs
 

@@ -42,7 +42,6 @@ Use generated Python/TypeScript surfaces plus the header-only C++17
 client, all checked against the same wire fixtures.
 
 - {doc}`SDK overview <sdk/index>`
-- {doc}`Legacy Python sync client <sdk/sync>`
 :::
 
 :::{grid-item-card} Build or operate
@@ -53,13 +52,11 @@ deploy web/worker tiers, and configure storage and auth.
 - {doc}`Deployment <guides/deployment>`
 :::
 
-:::{grid-item-card} Reference and rationale
-Look up the normative contract, API behavior, design decisions, and
-project history.
+:::{grid-item-card} Specification and releases
+Look up the normative contract and project-level release history.
 
 - {doc}`SFMAPI specification <spec>`
-- {doc}`Architecture <guides/architecture>`
-- {doc}`Decision register <guides/decisions>`
+- {doc}`Changelog <changelog>`
 :::
 
 ::::
@@ -72,8 +69,7 @@ project history.
   for backend and operator context.
 - {doc}`Configuration <reference/configuration>`, {doc}`multi-tenancy <guides/multitenancy>`,
   and {doc}`CLI/scripts <reference/cli>` for deployments.
-- {doc}`AIP audit <guides/aip_audit_2026>`, proposals, and the
-  {doc}`changelog <changelog>` for design history.
+- {doc}`Changelog <changelog>` for release history and project updates.
 
 ## Status
 
@@ -133,24 +129,6 @@ reference/cli
 :maxdepth: 2
 
 SDK overview <sdk/index>
-Legacy Python sync client <sdk/sync>
-Legacy Python async client <sdk/async>
-Legacy Python models <sdk/models>
-Legacy Python errors <sdk/errors>
-```
-
-```{toctree}
-:caption: Understand the system
-:hidden:
-:maxdepth: 1
-
-guides/decisions
-guides/aip_audit_2026
-guides/oneshot_streaming_proposal
-guides/resume_unification_proposal
-guides/sealed_snapshots_on_s3_proposal
-guides/rls_postgres_tenancy_proposal
-guides/streaming_slam_proposal
 ```
 
 ```{toctree}

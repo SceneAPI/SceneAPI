@@ -58,12 +58,9 @@ content-addressed digest; lose the raw key, mint a new one.
 The web layer never trusts a caller-provided `tenant_id` — it pulls
 the tenant from `current_tenant()` and adds it to every query in
 the service layer. A row that exists under a different tenant looks
-identical to "not present" (404), per
-[L2](../guides/decisions.md#locked-decisions).
+identical to "not present" (404).
 
-For implementation details (Postgres RLS proposal etc.) see
-[multitenancy](../guides/multitenancy.md) and the
-[Postgres RLS proposal](../guides/rls_postgres_tenancy_proposal.md).
+For implementation details see [multi-tenancy](../guides/multitenancy.md).
 
 ## SDK usage
 
