@@ -36,9 +36,11 @@ constexpr const char* kFeatureTypeD2Net = "d2net";
 struct FeaturesSpec {
   int version = 1;
   std::string type = kFeatureTypeSift;
+  std::optional<std::string> provider;
   int max_num_features = 8192;
   bool use_gpu = true;
   int seed = 0;
+  Json::Object backend_options;
   Json::Object extractor_options;
 
   Json ToJson() const {
@@ -49,6 +51,12 @@ struct FeaturesSpec {
         {"use_gpu", use_gpu},
         {"seed", static_cast<double>(seed)},
     };
+    if (provider) {
+      o["provider"] = *provider;
+    }
+    if (!backend_options.empty()) {
+      o["backend_options"] = Json(backend_options);
+    }
     if (!extractor_options.empty()) {
       o["extractor_options"] = Json(extractor_options);
     }
@@ -72,12 +80,14 @@ constexpr const char* kPairFromPoses = "from_poses";
 struct PairsSpec {
   int version = 1;
   std::string strategy = kPairExhaustive;
+  std::optional<std::string> provider;
   int overlap = 10;
   std::optional<std::string> vocab_tree_path;
   std::string retrieval_strategy = "vlad";  // dhash | vlad | netvlad
   int retrieval_k = 20;
   std::optional<double> overlap_distance_m;
   std::optional<double> max_angle_deg;
+  Json::Object backend_options;
 
   Json ToJson() const {
     Json::Object o{
@@ -87,9 +97,11 @@ struct PairsSpec {
         {"retrieval_strategy", retrieval_strategy},
         {"retrieval_k", static_cast<double>(retrieval_k)},
     };
+    if (provider) o["provider"] = *provider;
     if (vocab_tree_path) o["vocab_tree_path"] = *vocab_tree_path;
     if (overlap_distance_m) o["overlap_distance_m"] = *overlap_distance_m;
     if (max_angle_deg) o["max_angle_deg"] = *max_angle_deg;
+    if (!backend_options.empty()) o["backend_options"] = Json(backend_options);
     return Json(std::move(o));
   }
   std::string ToJsonString() const { return ToJson().Dump(); }
@@ -109,10 +121,12 @@ constexpr const char* kMatcherMASt3R = "mast3r";
 struct MatcherSpec {
   int version = 1;
   std::string type = kMatcherNnMutual;
+  std::optional<std::string> provider;
   bool use_gpu = true;
   bool cross_check = true;
   double max_ratio = 0.8;
   double max_distance = 0.7;
+  Json::Object backend_options;
   Json::Object matcher_options;
 
   Json ToJson() const {
@@ -124,6 +138,12 @@ struct MatcherSpec {
         {"max_ratio", max_ratio},
         {"max_distance", max_distance},
     };
+    if (provider) {
+      o["provider"] = *provider;
+    }
+    if (!backend_options.empty()) {
+      o["backend_options"] = Json(backend_options);
+    }
     if (!matcher_options.empty()) {
       o["matcher_options"] = Json(matcher_options);
     }
@@ -138,15 +158,24 @@ struct MatcherSpec {
 
 struct VerifySpec {
   int version = 1;
+  std::optional<std::string> provider;
   bool use_gpu = true;
   double min_inlier_ratio = 0.25;
+  Json::Object backend_options;
 
   Json ToJson() const {
-    return Json(Json::Object{
+    Json::Object o{
         {"version", static_cast<double>(version)},
         {"use_gpu", use_gpu},
         {"min_inlier_ratio", min_inlier_ratio},
-    });
+    };
+    if (provider) {
+      o["provider"] = *provider;
+    }
+    if (!backend_options.empty()) {
+      o["backend_options"] = Json(backend_options);
+    }
+    return Json(std::move(o));
   }
   std::string ToJsonString() const { return ToJson().Dump(); }
 };
@@ -164,15 +193,17 @@ constexpr const char* kBaLossTukey = "tukey";
 struct BundleAdjustmentSpec {
   int version = 1;
   std::string mode = kBaModeStandard;
+  std::optional<std::string> provider;
   bool refine_focal_length = true;
   bool refine_principal_point = false;
   bool refine_extra_params = true;
   int max_num_iterations = 100;
   std::string loss_kernel = kBaLossSquared;
   double loss_threshold = 1.0;
+  Json::Object backend_options;
 
   Json ToJson() const {
-    return Json(Json::Object{
+    Json::Object o{
         {"version", static_cast<double>(version)},
         {"mode", mode},
         {"refine_focal_length", refine_focal_length},
@@ -181,7 +212,14 @@ struct BundleAdjustmentSpec {
         {"max_num_iterations", static_cast<double>(max_num_iterations)},
         {"loss_kernel", loss_kernel},
         {"loss_threshold", loss_threshold},
-    });
+    };
+    if (provider) {
+      o["provider"] = *provider;
+    }
+    if (!backend_options.empty()) {
+      o["backend_options"] = Json(backend_options);
+    }
+    return Json(std::move(o));
   }
   std::string ToJsonString() const { return ToJson().Dump(); }
 };
@@ -193,9 +231,11 @@ struct BundleAdjustmentSpec {
 struct IncrementalSpec {
   std::string kind = "incremental";
   int version = 1;
+  std::optional<std::string> provider;
   int seed = 0;
   std::optional<int> max_runtime_seconds;
   std::optional<int> snapshot_frames_freq = 50;
+  Json::Object backend_options;
   std::optional<std::pair<std::string, std::string>> init_image_pair;
   bool multiple_models = true;
   int max_num_models = 50;
@@ -212,6 +252,12 @@ struct IncrementalSpec {
         {"min_num_matches", static_cast<double>(min_num_matches)},
         {"extract_colors", extract_colors},
     };
+    if (provider) {
+      o["provider"] = *provider;
+    }
+    if (!backend_options.empty()) {
+      o["backend_options"] = Json(backend_options);
+    }
     if (max_runtime_seconds) {
       o["max_runtime_seconds"] = static_cast<double>(*max_runtime_seconds);
     }
@@ -230,20 +276,29 @@ struct IncrementalSpec {
 struct GlobalSpec {
   std::string kind = "global";
   int version = 1;
+  std::optional<std::string> provider;
   int seed = 0;
   std::string backend = "AUTO";
   std::string formulation = "AUTO";
   bool use_incremental_quality_fallback = true;
+  Json::Object backend_options;
 
   Json ToJson() const {
-    return Json(Json::Object{
+    Json::Object o{
         {"kind", kind},
         {"version", static_cast<double>(version)},
         {"seed", static_cast<double>(seed)},
         {"backend", backend},
         {"formulation", formulation},
         {"use_incremental_quality_fallback", use_incremental_quality_fallback},
-    });
+    };
+    if (provider) {
+      o["provider"] = *provider;
+    }
+    if (!backend_options.empty()) {
+      o["backend_options"] = Json(backend_options);
+    }
+    return Json(std::move(o));
   }
   std::string ToJsonString() const { return ToJson().Dump(); }
 };
@@ -251,18 +306,27 @@ struct GlobalSpec {
 struct HierarchicalSpec {
   std::string kind = "hierarchical";
   int version = 1;
+  std::optional<std::string> provider;
   int seed = 0;
   int cluster_max_size = 100;
   int cluster_overlap = 25;
+  Json::Object backend_options;
 
   Json ToJson() const {
-    return Json(Json::Object{
+    Json::Object o{
         {"kind", kind},
         {"version", static_cast<double>(version)},
         {"seed", static_cast<double>(seed)},
         {"cluster_max_size", static_cast<double>(cluster_max_size)},
         {"cluster_overlap", static_cast<double>(cluster_overlap)},
-    });
+    };
+    if (provider) {
+      o["provider"] = *provider;
+    }
+    if (!backend_options.empty()) {
+      o["backend_options"] = Json(backend_options);
+    }
+    return Json(std::move(o));
   }
   std::string ToJsonString() const { return ToJson().Dump(); }
 };
@@ -270,16 +334,25 @@ struct HierarchicalSpec {
 struct SphericalSpec {
   std::string kind = "spherical";
   int version = 1;
+  std::optional<std::string> provider;
   int seed = 0;
   bool panorama = true;
+  Json::Object backend_options;
 
   Json ToJson() const {
-    return Json(Json::Object{
+    Json::Object o{
         {"kind", kind},
         {"version", static_cast<double>(version)},
         {"seed", static_cast<double>(seed)},
         {"panorama", panorama},
-    });
+    };
+    if (provider) {
+      o["provider"] = *provider;
+    }
+    if (!backend_options.empty()) {
+      o["backend_options"] = Json(backend_options);
+    }
+    return Json(std::move(o));
   }
   std::string ToJsonString() const { return ToJson().Dump(); }
 };

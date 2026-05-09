@@ -20,13 +20,14 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.adapters import backend_config
 from app.core.capabilities import require as require_capability
 from app.core.config import get_settings
 from app.core.errors import ValidationError
 from app.core.hashing import canonical_json, content_address
 from app.core.ids import new_id
 from app.core.paths import Paths
-from app.db.models import Dataset, Image, ImageSource, Reconstruction
+from app.db.models import Blob, Dataset, Image, ImageSource, Reconstruction
 from app.orchestrator.dag import TaskNode, hash_inputs, hash_params
 from app.orchestrator.scheduler import submit_job_dag
 from app.services import dataset_service, reconstruction_service, runtime_version_service
@@ -196,6 +197,78 @@ def reconstruction_database_path(tenant_id: str, project_id: str, recon_id: str)
     return str(paths.reconstruction_root(tenant_id, project_id, recon_id) / "database.db")
 
 
+def _stage_backend_options(spec: dict, *, stage: str) -> dict:
+    options = spec.get("backend_options") or {}
+    if not isinstance(options, dict):
+        raise ValidationError(f"{stage}.backend_options must be an object")
+    return options
+
+
+def validate_features_config(spec: dict) -> None:
+    feature_type = str(spec.get("type") or "sift")
+    backend_config.validate_backend_options(
+        stage="features",
+        capability=f"features.extract.{feature_type}",
+        provider=spec.get("provider"),
+        options=_stage_backend_options(spec, stage="features"),
+    )
+
+
+def validate_matches_config(spec: dict) -> None:
+    pairs = spec.get("pairs", {})
+    matcher = spec.get("matcher", {})
+    if not isinstance(pairs, dict):
+        raise ValidationError("spec.pairs must be a dict")
+    if not isinstance(matcher, dict):
+        raise ValidationError("spec.matcher must be a dict")
+    strategy = str(pairs.get("strategy") or "exhaustive")
+    matcher_type = str(matcher.get("type") or "nn-mutual")
+    backend_config.validate_backend_options(
+        stage="pairs",
+        capability=f"pairs.{strategy}",
+        provider=pairs.get("provider"),
+        options=_stage_backend_options(pairs, stage="pairs"),
+    )
+    backend_config.validate_backend_options(
+        stage="matcher",
+        capability=f"matchers.{matcher_type}",
+        provider=matcher.get("provider"),
+        options=_stage_backend_options(matcher, stage="matcher"),
+    )
+
+
+def validate_verify_config(spec: dict) -> None:
+    backend_config.validate_backend_options(
+        stage="verify",
+        capability="matches.verify",
+        provider=spec.get("provider"),
+        options=_stage_backend_options(spec, stage="verify"),
+    )
+
+
+def validate_mapping_config(spec: dict) -> None:
+    kind = str(spec.get("kind") or "incremental")
+    backend_config.validate_backend_options(
+        stage="mapping",
+        capability=f"map.{kind}",
+        provider=spec.get("provider"),
+        options=_stage_backend_options(spec, stage="mapping"),
+    )
+
+
+def validate_recipe_stage_configs(
+    *,
+    features_spec: dict,
+    matches_spec: dict,
+    verify_spec: dict,
+    pipeline_spec: dict,
+) -> None:
+    validate_features_config(features_spec)
+    validate_matches_config(matches_spec)
+    validate_verify_config(verify_spec)
+    validate_mapping_config(pipeline_spec)
+
+
 async def submit_features(
     session: AsyncSession,
     *,
@@ -204,6 +277,7 @@ async def submit_features(
     spec: dict,
     inline: bool = False,
 ) -> tuple[str, list]:
+    validate_features_config(spec)
     d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=dataset_id)
     r = await ensure_reconstruction(session, tenant_id=tenant_id, dataset=d, spec=spec)
     materialization = await derive_materialization(session, tenant_id=tenant_id, dataset=d)
@@ -247,12 +321,14 @@ async def submit_matches(
     spec: dict,
     inline: bool = False,
 ) -> tuple[str, list]:
+    validate_matches_config(spec)
     d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=dataset_id)
     pairs = spec.get("pairs", {})
     if not isinstance(pairs, dict):
         raise ValidationError("spec.pairs must be a dict")
     if pairs.get("strategy") == "vocabtree" and not pairs.get("vocab_tree_path"):
         raise ValidationError("pairs.vocab_tree_path is required for pairs.strategy=vocabtree")
+    await _validate_explicit_pairs(session, tenant_id=tenant_id, dataset=d, pairs=pairs)
     r, db_path = await _resolve_database_path(session, tenant_id=tenant_id, dataset=d, spec=spec)
     inputs = {
         "dataset_id": d.dataset_id,
@@ -270,6 +346,67 @@ async def submit_matches(
         spec=spec,
         inline=inline,
     )
+
+
+async def _validate_explicit_pairs(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    dataset: Dataset,
+    pairs: dict,
+) -> None:
+    if pairs.get("strategy") != "explicit":
+        if pairs.get("image_pairs") or pairs.get("pairs_blob_sha"):
+            raise ValidationError(
+                "pairs.image_pairs and pairs.pairs_blob_sha require pairs.strategy=explicit"
+            )
+        return
+
+    image_pairs = pairs.get("image_pairs") or []
+    pairs_blob_sha = pairs.get("pairs_blob_sha")
+    has_inline = bool(image_pairs)
+    has_blob = bool(pairs_blob_sha)
+    if has_inline == has_blob:
+        raise ValidationError(
+            "pairs.strategy=explicit requires exactly one of pairs.image_pairs "
+            "or pairs.pairs_blob_sha"
+        )
+
+    if has_blob:
+        blob = await session.get(Blob, str(pairs_blob_sha))
+        if blob is None:
+            raise ValidationError(
+                f"pairs.pairs_blob_sha={pairs_blob_sha!r} does not reference a finalized blob"
+            )
+        return
+
+    result = await session.execute(
+        select(Image.name).where(
+            Image.tenant_id == tenant_id,
+            Image.dataset_id == dataset.dataset_id,
+        )
+    )
+    known_names = {str(name) for (name,) in result.all()}
+    missing: list[str] = []
+    for index, pair in enumerate(image_pairs):
+        if not isinstance(pair, dict):
+            raise ValidationError(f"pairs.image_pairs[{index}] must be an object")
+        image_name1 = str(pair.get("image_name1") or "")
+        image_name2 = str(pair.get("image_name2") or "")
+        if not image_name1 or not image_name2:
+            raise ValidationError(
+                f"pairs.image_pairs[{index}] requires image_name1 and image_name2"
+            )
+        if image_name1 == image_name2:
+            raise ValidationError(
+                f"pairs.image_pairs[{index}] must reference two different images"
+            )
+        for image_name in (image_name1, image_name2):
+            if image_name not in known_names:
+                missing.append(image_name)
+    if missing:
+        missing_preview = ", ".join(sorted(set(missing))[:5])
+        raise ValidationError(f"pairs.image_pairs references unknown dataset images: {missing_preview}")
 
 
 async def submit_render_cubemap(
@@ -577,6 +714,7 @@ async def submit_verify(
     spec: dict,
     inline: bool = False,
 ) -> tuple[str, list]:
+    validate_verify_config(spec)
     d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=dataset_id)
     r, db_path = await _resolve_database_path(session, tenant_id=tenant_id, dataset=d, spec=spec)
     inputs = {

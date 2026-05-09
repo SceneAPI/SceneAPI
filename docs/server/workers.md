@@ -9,6 +9,10 @@
    :members:
    :no-index:
 
+.. automodule:: app.workers.progress
+   :members:
+   :no-index:
+
 .. automodule:: app.workers.tasks.extract
    :members:
    :no-index:

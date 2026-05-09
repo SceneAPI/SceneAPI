@@ -99,10 +99,15 @@ static void TestJsonBuilder() {
 static void TestSpecs() {
   sfmapi::FeaturesSpec fs;
   fs.type = sfmapi::kFeatureTypeSuperPoint;
+  fs.provider = "hloc";
   fs.max_num_features = 4096;
+  fs.backend_options["SuperPoint.max_keypoints"] = 4096;
   auto fs_json = sfmapi::Json::Parse(fs.ToJsonString());
   CHECK(fs_json["type"].as_string() == "superpoint", "features.type");
+  CHECK(fs_json["provider"].as_string() == "hloc", "features.provider");
   CHECK(fs_json["max_num_features"].as_number() == 4096, "features.max_num");
+  CHECK(fs_json["backend_options"]["SuperPoint.max_keypoints"].as_number() == 4096,
+        "features.backend_options");
   CHECK(fs_json["version"].as_number() == 1, "features.version");
 
   sfmapi::PairsSpec ps;
@@ -116,8 +121,11 @@ static void TestSpecs() {
 
   sfmapi::MatcherSpec ms;
   ms.type = sfmapi::kMatcherLightGlue;
+  ms.backend_options["LightGlue.depth_confidence"] = 0.9;
   auto ms_json = sfmapi::Json::Parse(ms.ToJsonString());
   CHECK(ms_json["type"].as_string() == "lightglue", "matcher.type");
+  CHECK(ms_json["backend_options"]["LightGlue.depth_confidence"].as_number() == 0.9,
+        "matcher.backend_options");
 
   sfmapi::BundleAdjustmentSpec ba;
   ba.mode = sfmapi::kBaModeFeaturemetric;

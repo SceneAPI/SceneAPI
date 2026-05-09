@@ -11,7 +11,7 @@ T = TypeVar("T", bound="MatcherSpecMatcherOptions")
 
 @_attrs_define
 class MatcherSpecMatcherOptions:
-    """ """
+    """Deprecated compatibility alias for backend-specific matcher options. Prefer backend_options."""
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 

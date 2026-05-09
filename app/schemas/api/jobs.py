@@ -87,7 +87,10 @@ class TaskOut(BaseModel):
     cache_key: str
     inputs_hash: str
     params_hash: str
-    outputs_ref: dict | None = Field(default=None, validation_alias="outputs_ref_json")
+    outputs_ref: dict[str, object] | None = Field(
+        default=None,
+        validation_alias="outputs_ref_json",
+    )
 
 
 class JobDetail(JobOut):
@@ -96,6 +99,51 @@ class JobDetail(JobOut):
     list endpoints; use :class:`JobDetail` for single-job reads."""
 
     tasks: list[TaskOut] = []
+
+
+class TaskProgressOut(BaseModel):
+    """Per-task progress snapshot for polling clients.
+
+    ``progress`` is a best-effort fraction in ``[0, 1]``. It is ``1``
+    for terminal tasks, event-derived for running tasks when the
+    latest ``phase_progress`` event carries ``current`` / ``total``,
+    and ``0`` otherwise.
+    """
+
+    task_id: str
+    kind: str
+    status: TaskStatus
+    progress: float = Field(..., ge=0.0, le=1.0)
+    phase: str | None = None
+    current: int | None = None
+    total: int | None = None
+    latest_event_id: int | None = None
+    latest_event_kind: str | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    elapsed_seconds: float | None = None
+
+
+class JobProgressOut(BaseModel):
+    """Compact polling snapshot for job progress.
+
+    This endpoint complements ``/events`` for dashboards and CLIs that
+    prefer polling over holding an SSE connection open.
+    """
+
+    job_id: str
+    recipe: str
+    status: JobStatus
+    progress: float = Field(..., ge=0.0, le=1.0)
+    total_tasks: int
+    completed_tasks: int
+    task_counts: dict[str, int]
+    current_task_id: str | None = None
+    current_task_kind: str | None = None
+    current_phase: str | None = None
+    latest_event_id: int | None = None
+    latest_event: dict[str, object] | None = None
+    tasks: list[TaskProgressOut] = []
 
 
 class JobAcceptedResponse(BaseModel):
@@ -116,6 +164,7 @@ class JobAcceptedResponse(BaseModel):
     - ``applied_sim3`` — georegister applied transform
     - ``target_recon_id`` / ``source_recon_ids`` — ``reconstructions:merge``
     - ``strategy`` — ``similarity:build``
+    - ``action_id`` / ``backend`` — backend-native extension actions
     """
 
     job_id: str
@@ -128,3 +177,5 @@ class JobAcceptedResponse(BaseModel):
     target_recon_id: str | None = None
     source_recon_ids: list[str] | None = None
     strategy: str | None = None
+    action_id: str | None = None
+    backend: str | None = None

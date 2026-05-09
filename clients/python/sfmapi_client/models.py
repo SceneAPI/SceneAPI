@@ -306,7 +306,13 @@ class SubModel(_Base):
 
 FeatureType = Literal["sift", "superpoint", "aliked", "disk", "r2d2", "d2net"]
 PairStrategy = Literal[
-    "exhaustive", "sequential", "spatial", "vocabtree", "retrieval", "from_poses"
+    "exhaustive",
+    "sequential",
+    "spatial",
+    "vocabtree",
+    "retrieval",
+    "from_poses",
+    "explicit",
 ]
 MatcherType = Literal["nn-mutual", "nn-ratio", "superglue", "lightglue", "loftr", "mast3r"]
 
@@ -314,13 +320,20 @@ MatcherType = Literal["nn-mutual", "nn-ratio", "superglue", "lightglue", "loftr"
 class FeaturesSpec(_Base):
     version: Literal[1] = 1
     type: FeatureType = "sift"
+    provider: str | None = None
     max_num_features: int = 8192
     use_gpu: bool = True
     seed: int = 0
+    backend_options: dict[str, Any] = Field(default_factory=dict)
     extractor_options: dict[str, Any] = Field(default_factory=dict)
     # Backwards-compat aliases — only meaningful when type == "sift".
     sift_max_num_features: int | None = None
     sift_first_octave: int | None = None
+
+
+class ImagePairRef(_Base):
+    image_name1: str
+    image_name2: str
 
 
 class PairsSpec(_Base):
@@ -328,12 +341,17 @@ class PairsSpec(_Base):
 
     version: Literal[1] = 1
     strategy: PairStrategy = "exhaustive"
+    provider: str | None = None
     overlap: int = 10
     vocab_tree_path: str | None = None
     retrieval_strategy: Literal["dhash", "vlad", "netvlad"] = "vlad"
     retrieval_k: int = 20
     overlap_distance_m: float | None = None
     max_angle_deg: float | None = None
+    image_pairs: list[ImagePairRef] | None = None
+    pairs_blob_sha: str | None = None
+    pairs_blob_format: Literal["image_name_pairs_txt"] = "image_name_pairs_txt"
+    backend_options: dict[str, Any] = Field(default_factory=dict)
 
 
 class MatcherSpec(_Base):
@@ -341,35 +359,43 @@ class MatcherSpec(_Base):
 
     version: Literal[1] = 1
     type: MatcherType = "nn-mutual"
+    provider: str | None = None
     use_gpu: bool = True
     cross_check: bool = True
     max_ratio: float = 0.8
     max_distance: float = 0.7
+    backend_options: dict[str, Any] = Field(default_factory=dict)
     matcher_options: dict[str, Any] = Field(default_factory=dict)
 
 
 class VerifySpec(_Base):
     version: Literal[1] = 1
+    provider: str | None = None
     use_gpu: bool = True
     min_inlier_ratio: float = 0.25
+    backend_options: dict[str, Any] = Field(default_factory=dict)
 
 
 class BundleAdjustmentSpec(_Base):
     version: Literal[1] = 1
     mode: Literal["standard", "two_stage", "featuremetric"] = "standard"
+    provider: str | None = None
     refine_focal_length: bool = True
     refine_principal_point: bool = False
     refine_extra_params: bool = True
     max_num_iterations: int = 100
     loss_kernel: Literal["squared", "huber", "cauchy", "soft_l1", "tukey"] = "squared"
     loss_threshold: float = 1.0
+    backend_options: dict[str, Any] = Field(default_factory=dict)
 
 
 class _PipelineSpecBase(_Base):
     version: Literal[1] = 1
+    provider: str | None = None
     seed: int = 0
     max_runtime_seconds: int | None = None
     snapshot_frames_freq: int | None = 50
+    backend_options: dict[str, Any] = Field(default_factory=dict)
 
 
 class IncrementalSpec(_PipelineSpecBase):

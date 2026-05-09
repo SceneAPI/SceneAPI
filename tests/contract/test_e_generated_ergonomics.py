@@ -524,6 +524,8 @@ def test_job_accepted_response_carries_stage_specific_typed_fields() -> None:
         "target_recon_id",
         "source_recon_ids",
         "strategy",
+        "action_id",
+        "backend",
     ):
         assert name in declared, (
             f"JobAcceptedResponse is missing typed field {name!r} — "

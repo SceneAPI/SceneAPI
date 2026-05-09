@@ -69,15 +69,15 @@ def sync_detailed(
 
      Mint a fresh API key bound to a tenant.
 
-    Returns the raw key in ``raw_key`` exactly once — only a salted
-    hash is persisted, so callers MUST capture the value here. Use
-    the key as the ``Bearer`` token in ``Authorization`` against any
-    tenant-scoped route once ``auth_mode != \"none\"``.
+    Returns the raw key in ``raw_key`` exactly once; only a salted hash
+    is persisted, so callers MUST capture the value here. Use the key
+    as the ``Bearer`` token in ``Authorization`` against tenant-scoped
+    routes once ``auth_mode == \"api_key\"``.
 
-    WARNING — auth_mode=none default
-    --------------------------------
-    Until ``SFMAPI_AUTH_MODE`` is flipped to ``api_key``, this route
-    is itself unauthenticated. Production deployments MUST front
+    WARNING - operator route
+    ------------------------
+    This route is not tenant-scoped and is not protected by sfmapi's
+    tenant API-key dependency. Production deployments MUST front
     ``/v1/admin/...`` with an admin-only auth layer (deploy-time
     master key, mesh-level mTLS, infra-network-only). See ``L2`` in
     ``decisions.md``.
@@ -113,15 +113,15 @@ def sync(
 
      Mint a fresh API key bound to a tenant.
 
-    Returns the raw key in ``raw_key`` exactly once — only a salted
-    hash is persisted, so callers MUST capture the value here. Use
-    the key as the ``Bearer`` token in ``Authorization`` against any
-    tenant-scoped route once ``auth_mode != \"none\"``.
+    Returns the raw key in ``raw_key`` exactly once; only a salted hash
+    is persisted, so callers MUST capture the value here. Use the key
+    as the ``Bearer`` token in ``Authorization`` against tenant-scoped
+    routes once ``auth_mode == \"api_key\"``.
 
-    WARNING — auth_mode=none default
-    --------------------------------
-    Until ``SFMAPI_AUTH_MODE`` is flipped to ``api_key``, this route
-    is itself unauthenticated. Production deployments MUST front
+    WARNING - operator route
+    ------------------------
+    This route is not tenant-scoped and is not protected by sfmapi's
+    tenant API-key dependency. Production deployments MUST front
     ``/v1/admin/...`` with an admin-only auth layer (deploy-time
     master key, mesh-level mTLS, infra-network-only). See ``L2`` in
     ``decisions.md``.
@@ -152,15 +152,15 @@ async def asyncio_detailed(
 
      Mint a fresh API key bound to a tenant.
 
-    Returns the raw key in ``raw_key`` exactly once — only a salted
-    hash is persisted, so callers MUST capture the value here. Use
-    the key as the ``Bearer`` token in ``Authorization`` against any
-    tenant-scoped route once ``auth_mode != \"none\"``.
+    Returns the raw key in ``raw_key`` exactly once; only a salted hash
+    is persisted, so callers MUST capture the value here. Use the key
+    as the ``Bearer`` token in ``Authorization`` against tenant-scoped
+    routes once ``auth_mode == \"api_key\"``.
 
-    WARNING — auth_mode=none default
-    --------------------------------
-    Until ``SFMAPI_AUTH_MODE`` is flipped to ``api_key``, this route
-    is itself unauthenticated. Production deployments MUST front
+    WARNING - operator route
+    ------------------------
+    This route is not tenant-scoped and is not protected by sfmapi's
+    tenant API-key dependency. Production deployments MUST front
     ``/v1/admin/...`` with an admin-only auth layer (deploy-time
     master key, mesh-level mTLS, infra-network-only). See ``L2`` in
     ``decisions.md``.
@@ -194,15 +194,15 @@ async def asyncio(
 
      Mint a fresh API key bound to a tenant.
 
-    Returns the raw key in ``raw_key`` exactly once — only a salted
-    hash is persisted, so callers MUST capture the value here. Use
-    the key as the ``Bearer`` token in ``Authorization`` against any
-    tenant-scoped route once ``auth_mode != \"none\"``.
+    Returns the raw key in ``raw_key`` exactly once; only a salted hash
+    is persisted, so callers MUST capture the value here. Use the key
+    as the ``Bearer`` token in ``Authorization`` against tenant-scoped
+    routes once ``auth_mode == \"api_key\"``.
 
-    WARNING — auth_mode=none default
-    --------------------------------
-    Until ``SFMAPI_AUTH_MODE`` is flipped to ``api_key``, this route
-    is itself unauthenticated. Production deployments MUST front
+    WARNING - operator route
+    ------------------------
+    This route is not tenant-scoped and is not protected by sfmapi's
+    tenant API-key dependency. Production deployments MUST front
     ``/v1/admin/...`` with an admin-only auth layer (deploy-time
     master key, mesh-level mTLS, infra-network-only). See ``L2`` in
     ``decisions.md``.

@@ -115,8 +115,7 @@ async def patch(
     update_mask: str | None = Query(
         default=None,
         description=(
-            "Optional AIP-161 comma-separated field mask. "
-            "Allowed paths: name, description."
+            "Optional AIP-161 comma-separated field mask. Allowed paths: name, description."
         ),
     ),
     tenant_id: str = Depends(current_tenant),

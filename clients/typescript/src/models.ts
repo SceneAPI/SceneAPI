@@ -264,10 +264,13 @@ export type FeatureType =
 export interface FeaturesSpec {
   version?: 1;
   type?: FeatureType;
+  provider?: string | null;
   max_num_features?: number;
   use_gpu?: boolean;
   seed?: number;
-  /** Extractor-specific options forwarded to the backend. */
+  /** Backend-specific options discovered from `/v1/backend/config-schemas`. */
+  backend_options?: Record<string, unknown>;
+  /** Deprecated compatibility alias; prefer `backend_options`. */
   extractor_options?: Record<string, unknown>;
   /** Backwards-compat aliases — only meaningful when `type === "sift"`. */
   sift_max_num_features?: number;
@@ -281,17 +284,29 @@ export type PairStrategy =
   | "spatial"
   | "vocabtree"
   | "retrieval"
-  | "from_poses";
+  | "from_poses"
+  | "explicit";
+
+export interface ImagePairRef {
+  image_name1: string;
+  image_name2: string;
+}
 
 export interface PairsSpec {
   version?: 1;
   strategy?: PairStrategy;
+  provider?: string | null;
   overlap?: number;
   vocab_tree_path?: string | null;
   retrieval_strategy?: "dhash" | "vlad" | "netvlad";
   retrieval_k?: number;
   overlap_distance_m?: number | null;
   max_angle_deg?: number | null;
+  image_pairs?: ImagePairRef[] | null;
+  pairs_blob_sha?: string | null;
+  pairs_blob_format?: "image_name_pairs_txt";
+  /** Backend-specific options discovered from `/v1/backend/config-schemas`. */
+  backend_options?: Record<string, unknown>;
 }
 
 /** Per-pair matcher. Capability flag is `matchers.{type}`. */
@@ -306,36 +321,49 @@ export type MatcherType =
 export interface MatcherSpec {
   version?: 1;
   type?: MatcherType;
+  provider?: string | null;
   use_gpu?: boolean;
   cross_check?: boolean;
   max_ratio?: number;
   max_distance?: number;
+  /** Backend-specific options discovered from `/v1/backend/config-schemas`. */
+  backend_options?: Record<string, unknown>;
+  /** Deprecated compatibility alias; prefer `backend_options`. */
   matcher_options?: Record<string, unknown>;
 }
 
 export interface VerifySpec {
   version?: 1;
+  provider?: string | null;
   use_gpu?: boolean;
   min_inlier_ratio?: number;
+  /** Backend-specific options discovered from `/v1/backend/config-schemas`. */
+  backend_options?: Record<string, unknown>;
 }
 
 export interface BundleAdjustmentSpec {
   version?: 1;
   /** `featuremetric` requires capability `ba.featuremetric`. */
   mode?: "standard" | "two_stage" | "featuremetric";
+  provider?: string | null;
   refine_focal_length?: boolean;
   refine_principal_point?: boolean;
   refine_extra_params?: boolean;
   max_num_iterations?: number;
   loss_kernel?: "squared" | "huber" | "cauchy" | "soft_l1" | "tukey";
   loss_threshold?: number;
+  /** Backend-specific options discovered from `/v1/backend/config-schemas`. */
+  backend_options?: Record<string, unknown>;
 }
 
 interface _PipelineSpecBase {
   version?: 1;
+  provider?: string | null;
   seed?: number;
   max_runtime_seconds?: number | null;
   snapshot_frames_freq?: number | null;
+  /** Backend-specific options discovered from `/v1/backend/config-schemas`. */
+  backend_options?: Record<string, unknown>;
 }
 
 export interface IncrementalSpec extends _PipelineSpecBase {

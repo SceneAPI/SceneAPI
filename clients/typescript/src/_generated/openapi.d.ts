@@ -218,6 +218,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/backend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Backend
+         * @description Read the active backend identity and extension-action links.
+         */
+        get: operations["get_backend_v1_backend_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/backend/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Actions
+         * @description List backend-native extension actions.
+         *
+         *     This is the generic discovery layer for COLMAP commands and future
+         *     backend-specific tools. Portable sfmapi features still belong in
+         *     ``GET /v1/capabilities``; this catalog is intentionally namespaced
+         *     and backend-specific.
+         */
+        get: operations["list_actions_v1_backend_actions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/backend/config-schemas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Config Schemas
+         * @description List backend-specific option schemas for portable sfmapi stages.
+         *
+         *     Clients use this catalog to discover which keys are valid inside a
+         *     stage spec's ``backend_options`` object. The top-level stage spec
+         *     remains the portable sfmapi contract.
+         */
+        get: operations["list_config_schemas_v1_backend_config_schemas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/backend/actions/{action_id}:validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate Action
+         * @description Validate backend action inputs without creating a job.
+         */
+        post: operations["validate_action_v1_backend_actions__action_id__validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/backend/actions/{action_id}:run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Action
+         * @description Submit a backend-native action as a normal sfmapi job.
+         *
+         *     All execution goes through the existing job/task path, so clients
+         *     use ``GET /v1/jobs/{job_id}``, ``/progress``, cancellation, and SSE
+         *     exactly as they do for standard SfM workflows.
+         */
+        post: operations["run_action_v1_backend_actions__action_id__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/backend/actions/{action_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Action
+         * @description Read one backend action descriptor including schemas.
+         */
+        get: operations["get_action_v1_backend_actions__action_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/backend/config-schemas/{config_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Config Schema
+         * @description Read one backend-specific option schema.
+         */
+        get: operations["get_config_schema_v1_backend_config_schemas__config_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/uploads": {
         parameters: {
             query?: never;
@@ -689,6 +842,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/jobs/{job_id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Progress
+         * @description Return a compact progress snapshot for a job.
+         *
+         *     This is the polling counterpart to ``GET /v1/jobs/{job_id}/events``.
+         *     It always works from durable state: task lifecycle rows plus the
+         *     latest persisted progress events. ``progress`` is a best-effort
+         *     fraction, so clients should treat it as UI telemetry rather than a
+         *     scheduling guarantee.
+         */
+        get: operations["progress_v1_jobs__job_id__progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/jobs/{job_id}:cancel": {
         parameters: {
             query?: never;
@@ -816,9 +995,11 @@ export interface paths {
          *     Pair selection (``body.pairs``) and per-pair matching
          *     (``body.matcher``) are independent shapes (AIP-202): pick pairs
          *     via exhaustive / sequential / spatial / vocabtree / retrieval /
-         *     from_poses, then run any of nn-mutual / nn-ratio / superglue /
-         *     lightglue / loftr against them. Requires features to have been
-         *     extracted; returns 202 + ``Location``.
+         *     from_poses / explicit, then run any of nn-mutual / nn-ratio /
+         *     superglue / lightglue / loftr against them. Optional provider
+         *     fields disambiguate mixed deployments such as hloc retrieval with
+         *     COLMAP SIFT. Requires features to have been extracted; returns
+         *     202 + ``Location``.
          */
         post: operations["matches_v1_datasets__dataset_id__matches_post"];
         delete?: never;
@@ -1147,7 +1328,10 @@ export interface paths {
          *     into a single job DAG keyed on ``recipe`` (one of ``incremental``
          *     | ``global`` | ``hierarchical`` | ``spherical``). The recipe MUST
          *     match ``body.spec.kind`` — 422 ``ValidationError`` if not. Each
-         *     backend advertises which recipes it implements via the
+         *     stage spec keeps optional provider selectors
+         *     so mixed deployments can route hloc and COLMAP implementations
+         *     behind the same portable capability names. Each backend advertises
+         *     which recipes it implements via the
          *     ``pipelines.{kind}`` capability flags; unsupported recipes
          *     return ``501 capability_unavailable``. Returns 202 + a
          *     ``Location`` header pointing at the parent job.
@@ -1192,11 +1376,11 @@ export interface paths {
          * List Keys
          * @description List every API key on file (active + revoked).
          *
-         *     Raw-key material is NEVER returned — use :func:`issue` and capture
+         *     Raw-key material is NEVER returned; use :func:`issue` and capture
          *     the value at creation time. Ordered by ``created_at`` ascending.
          *
-         *     See WARNING on ``POST /v1/admin/api-keys`` — this route is
-         *     unauthenticated when ``auth_mode=none`` (the dev default).
+         *     See WARNING on ``POST /v1/admin/api-keys``; this route is an
+         *     operator route and must be protected by deployment infrastructure.
          */
         get: operations["list_keys_v1_admin_api_keys_get"];
         put?: never;
@@ -1204,15 +1388,15 @@ export interface paths {
          * Issue
          * @description Mint a fresh API key bound to a tenant.
          *
-         *     Returns the raw key in ``raw_key`` exactly once — only a salted
-         *     hash is persisted, so callers MUST capture the value here. Use
-         *     the key as the ``Bearer`` token in ``Authorization`` against any
-         *     tenant-scoped route once ``auth_mode != "none"``.
+         *     Returns the raw key in ``raw_key`` exactly once; only a salted hash
+         *     is persisted, so callers MUST capture the value here. Use the key
+         *     as the ``Bearer`` token in ``Authorization`` against tenant-scoped
+         *     routes once ``auth_mode == "api_key"``.
          *
-         *     WARNING — auth_mode=none default
-         *     --------------------------------
-         *     Until ``SFMAPI_AUTH_MODE`` is flipped to ``api_key``, this route
-         *     is itself unauthenticated. Production deployments MUST front
+         *     WARNING - operator route
+         *     ------------------------
+         *     This route is not tenant-scoped and is not protected by sfmapi's
+         *     tenant API-key dependency. Production deployments MUST front
          *     ``/v1/admin/...`` with an admin-only auth layer (deploy-time
          *     master key, mesh-level mTLS, infra-network-only). See ``L2`` in
          *     ``decisions.md``.
@@ -1240,11 +1424,11 @@ export interface paths {
          *
          *     Soft-delete: the row stays for audit, ``revoked_at`` is stamped
          *     and ``revoked=true`` shipped on the next read. Subsequent auth
-         *     attempts with that key will fail. Idempotent — revoking an
+         *     attempts with that key will fail. Idempotent; revoking an
          *     already-revoked key is a 200 no-op.
          *
-         *     See WARNING on ``POST /v1/admin/api-keys`` — this route is
-         *     unauthenticated when ``auth_mode=none`` (the dev default).
+         *     See WARNING on ``POST /v1/admin/api-keys``; this route is an
+         *     operator route and must be protected by deployment infrastructure.
          */
         delete: operations["revoke_v1_admin_api_keys__api_key_id__delete"];
         options?: never;
@@ -1491,6 +1675,158 @@ export interface components {
             /** Revoked */
             revoked: boolean;
         };
+        /**
+         * BackendActionOut
+         * @description Discoverable backend-native operation.
+         *
+         *     ``action_id`` is namespaced by the backend or tool family, for
+         *     example ``colmap.feature_extractor``. Portable clients should treat
+         *     action ids as opaque strings and inspect ``input_schema`` before
+         *     presenting a UI or constructing a request.
+         */
+        BackendActionOut: {
+            /** Action Id */
+            action_id: string;
+            /** Backend */
+            backend: string;
+            /** Display Name */
+            display_name: string;
+            /** Description */
+            description?: string | null;
+            /** Category */
+            category?: string | null;
+            /**
+             * Stability
+             * @default backend_extension
+             * @enum {string}
+             */
+            stability: "stable" | "experimental" | "backend_extension" | "deprecated";
+            /**
+             * Side Effects
+             * @default unknown
+             * @enum {string}
+             */
+            side_effects: "none" | "read" | "write" | "unknown";
+            /**
+             * Long Running
+             * @default true
+             */
+            long_running: boolean;
+            /**
+             * Supports Progress
+             * @default false
+             */
+            supports_progress: boolean;
+            /**
+             * Idempotent
+             * @default false
+             */
+            idempotent: boolean;
+            /**
+             * Gpu Required
+             * @default true
+             */
+            gpu_required: boolean;
+            /** Required Capabilities */
+            required_capabilities?: string[];
+            /** Input Schema */
+            input_schema?: {
+                [key: string]: unknown;
+            } | null;
+            /** Output Schema */
+            output_schema?: {
+                [key: string]: unknown;
+            } | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Links */
+            _links?: {
+                [key: string]: components["schemas"]["Link"] | null;
+            } | null;
+        };
+        /**
+         * BackendActionRunRequest
+         * @description Submit a backend-native action as an sfmapi job.
+         */
+        BackendActionRunRequest: {
+            /** Project Id */
+            project_id: string;
+            /** Inputs */
+            inputs?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * BackendActionValidateRequest
+         * @description Validate action input without submitting work.
+         */
+        BackendActionValidateRequest: {
+            /** Inputs */
+            inputs?: {
+                [key: string]: unknown;
+            };
+        };
+        /** BackendActionValidateResponse */
+        BackendActionValidateResponse: {
+            /** Action Id */
+            action_id: string;
+            /** Valid */
+            valid: boolean;
+            /** Errors */
+            errors?: components["schemas"]["BackendActionValidationErrorOut"][];
+            /** Normalized Inputs */
+            normalized_inputs?: {
+                [key: string]: unknown;
+            };
+        };
+        /** BackendActionValidationErrorOut */
+        BackendActionValidationErrorOut: {
+            /** Field */
+            field?: string | null;
+            /** Message */
+            message: string;
+        };
+        /**
+         * BackendConfigSchemaOut
+         * @description Discoverable backend-specific options for a portable sfmapi stage.
+         *
+         *     Clients send these settings in the stage spec's ``backend_options``
+         *     object. Portable knobs stay on the top-level stage spec.
+         */
+        BackendConfigSchemaOut: {
+            /** Config Id */
+            config_id: string;
+            /** Backend */
+            backend: string;
+            /** Stage */
+            stage: string;
+            /** Capability */
+            capability?: string | null;
+            /** Provider */
+            provider?: string | null;
+            /** Display Name */
+            display_name: string;
+            /** Description */
+            description?: string | null;
+            /** Option Schema */
+            option_schema?: {
+                [key: string]: unknown;
+            } | null;
+            /** Defaults */
+            defaults?: {
+                [key: string]: unknown;
+            };
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Links */
+            _links?: {
+                [key: string]: components["schemas"]["Link"] | null;
+            } | null;
+        };
         /** BackendInfoOut */
         BackendInfoOut: {
             /** Name */
@@ -1502,6 +1838,39 @@ export interface components {
              * @default
              */
             vendor: string;
+        };
+        /**
+         * BackendOut
+         * @description Active backend summary plus extension-action availability.
+         */
+        BackendOut: {
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+            /**
+             * Vendor
+             * @default
+             */
+            vendor: string;
+            /** Runtime Versions */
+            runtime_versions?: {
+                [key: string]: string;
+            };
+            /**
+             * Action Count
+             * @default 0
+             */
+            action_count: number;
+            /**
+             * Config Schema Count
+             * @default 0
+             */
+            config_schema_count: number;
+            /** Links */
+            _links?: {
+                [key: string]: components["schemas"]["Link"] | null;
+            } | null;
         };
         /**
          * BackendVersion
@@ -1679,6 +2048,7 @@ export interface components {
              *       "max_num_features": 8192,
              *       "use_gpu": true,
              *       "seed": 0,
+             *       "backend_options": {},
              *       "extractor_options": {}
              *     }
              */
@@ -1710,6 +2080,11 @@ export interface components {
              */
             type: "sift" | "superpoint" | "aliked" | "disk" | "r2d2" | "d2net";
             /**
+             * Provider
+             * @description Optional backend implementation selector when more than one registered provider can run the same feature type, for example 'colmap' or 'hloc'. Portable capability checks still use type.
+             */
+            provider?: string | null;
+            /**
              * Max Num Features
              * @default 8192
              */
@@ -1724,7 +2099,17 @@ export interface components {
              * @default 0
              */
             seed: number;
-            /** Extractor Options */
+            /**
+             * Backend Options
+             * @description Backend-specific feature-extraction options. Discover supported keys with GET /v1/backend/config-schemas.
+             */
+            backend_options?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Extractor Options
+             * @description Deprecated compatibility alias for backend-specific extractor options. Prefer backend_options.
+             */
             extractor_options?: {
                 [key: string]: unknown;
             };
@@ -1742,6 +2127,11 @@ export interface components {
              */
             version: 1;
             /**
+             * Provider
+             * @description Optional backend implementation selector when more than one registered provider can run the same portable mapping recipe.
+             */
+            provider?: string | null;
+            /**
              * Seed
              * @default 0
              */
@@ -1753,6 +2143,13 @@ export interface components {
              * @default 50
              */
             snapshot_frames_freq: number | null;
+            /**
+             * Backend Options
+             * @description Backend-specific mapping options. Discover supported keys with GET /v1/backend/config-schemas and keep portable settings in the top-level spec fields.
+             */
+            backend_options?: {
+                [key: string]: unknown;
+            };
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -1814,6 +2211,11 @@ export interface components {
              */
             version: 1;
             /**
+             * Provider
+             * @description Optional backend implementation selector when more than one registered provider can run the same portable mapping recipe.
+             */
+            provider?: string | null;
+            /**
              * Seed
              * @default 0
              */
@@ -1825,6 +2227,13 @@ export interface components {
              * @default 50
              */
             snapshot_frames_freq: number | null;
+            /**
+             * Backend Options
+             * @description Backend-specific mapping options. Discover supported keys with GET /v1/backend/config-schemas and keep portable settings in the top-level spec fields.
+             */
+            backend_options?: {
+                [key: string]: unknown;
+            };
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -1938,6 +2347,16 @@ export interface components {
             } | null;
         };
         /**
+         * ImagePairRef
+         * @description One explicit pair of dataset image names.
+         */
+        ImagePairRef: {
+            /** Image Name1 */
+            image_name1: string;
+            /** Image Name2 */
+            image_name2: string;
+        };
+        /**
          * ImuMeasurement
          * @description A single IMU sample.
          *
@@ -1972,6 +2391,11 @@ export interface components {
              */
             version: 1;
             /**
+             * Provider
+             * @description Optional backend implementation selector when more than one registered provider can run the same portable mapping recipe.
+             */
+            provider?: string | null;
+            /**
              * Seed
              * @default 0
              */
@@ -1983,6 +2407,13 @@ export interface components {
              * @default 50
              */
             snapshot_frames_freq: number | null;
+            /**
+             * Backend Options
+             * @description Backend-specific mapping options. Discover supported keys with GET /v1/backend/config-schemas and keep portable settings in the top-level spec fields.
+             */
+            backend_options?: {
+                [key: string]: unknown;
+            };
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2056,6 +2487,7 @@ export interface components {
          *     - ``applied_sim3`` — georegister applied transform
          *     - ``target_recon_id`` / ``source_recon_ids`` — ``reconstructions:merge``
          *     - ``strategy`` — ``similarity:build``
+         *     - ``action_id`` / ``backend`` — backend-native extension actions
          */
         JobAcceptedResponse: {
             /** Job Id */
@@ -2077,6 +2509,10 @@ export interface components {
             source_recon_ids?: string[] | null;
             /** Strategy */
             strategy?: string | null;
+            /** Action Id */
+            action_id?: string | null;
+            /** Backend */
+            backend?: string | null;
         };
         /**
          * JobDetail
@@ -2175,6 +2611,51 @@ export interface components {
             } | null;
         };
         /**
+         * JobProgressOut
+         * @description Compact polling snapshot for job progress.
+         *
+         *     This endpoint complements ``/events`` for dashboards and CLIs that
+         *     prefer polling over holding an SSE connection open.
+         */
+        JobProgressOut: {
+            /** Job Id */
+            job_id: string;
+            /** Recipe */
+            recipe: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "succeeded" | "failed" | "cancelled" | "cancelled_dirty";
+            /** Progress */
+            progress: number;
+            /** Total Tasks */
+            total_tasks: number;
+            /** Completed Tasks */
+            completed_tasks: number;
+            /** Task Counts */
+            task_counts: {
+                [key: string]: number;
+            };
+            /** Current Task Id */
+            current_task_id?: string | null;
+            /** Current Task Kind */
+            current_task_kind?: string | null;
+            /** Current Phase */
+            current_phase?: string | null;
+            /** Latest Event Id */
+            latest_event_id?: number | null;
+            /** Latest Event */
+            latest_event?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Tasks
+             * @default []
+             */
+            tasks: components["schemas"]["TaskProgressOut"][];
+        };
+        /**
          * KaptureImportRequest
          * @description ``POST /v1/projects/{pid}/datasets:import_kapture``.
          */
@@ -2242,6 +2723,11 @@ export interface components {
              */
             type: "nn-mutual" | "nn-ratio" | "superglue" | "lightglue" | "loftr" | "mast3r";
             /**
+             * Provider
+             * @description Optional backend implementation selector when more than one registered provider can run the same matcher type.
+             */
+            provider?: string | null;
+            /**
              * Use Gpu
              * @default true
              */
@@ -2261,7 +2747,17 @@ export interface components {
              * @default 0.7
              */
             max_distance: number;
-            /** Matcher Options */
+            /**
+             * Backend Options
+             * @description Backend-specific matcher options. Discover supported keys with GET /v1/backend/config-schemas.
+             */
+            backend_options?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Matcher Options
+             * @description Deprecated compatibility alias for backend-specific matcher options. Prefer backend_options.
+             */
             matcher_options?: {
                 [key: string]: unknown;
             };
@@ -2278,7 +2774,9 @@ export interface components {
              *       "strategy": "exhaustive",
              *       "overlap": 10,
              *       "retrieval_strategy": "vlad",
-             *       "retrieval_k": 20
+             *       "retrieval_k": 20,
+             *       "pairs_blob_format": "image_name_pairs_txt",
+             *       "backend_options": {}
              *     }
              */
             pairs: components["schemas"]["PairsSpec"];
@@ -2290,6 +2788,7 @@ export interface components {
              *       "cross_check": true,
              *       "max_ratio": 0.8,
              *       "max_distance": 0.7,
+             *       "backend_options": {},
              *       "matcher_options": {}
              *     }
              */
@@ -2413,6 +2912,24 @@ export interface components {
             /** Ms */
             ms: number;
         };
+        /** Page[BackendActionOut] */
+        Page_BackendActionOut_: {
+            /** Items */
+            items: components["schemas"]["BackendActionOut"][];
+            /** Next Page Token */
+            next_page_token?: string | null;
+            /** Total */
+            total?: number | null;
+        };
+        /** Page[BackendConfigSchemaOut] */
+        Page_BackendConfigSchemaOut_: {
+            /** Items */
+            items: components["schemas"]["BackendConfigSchemaOut"][];
+            /** Next Page Token */
+            next_page_token?: string | null;
+            /** Total */
+            total?: number | null;
+        };
         /** Page[DatasetOut] */
         Page_DatasetOut_: {
             /** Items */
@@ -2478,7 +2995,12 @@ export interface components {
              * @default exhaustive
              * @enum {string}
              */
-            strategy: "exhaustive" | "sequential" | "spatial" | "vocabtree" | "retrieval" | "from_poses";
+            strategy: "exhaustive" | "sequential" | "spatial" | "vocabtree" | "retrieval" | "from_poses" | "explicit";
+            /**
+             * Provider
+             * @description Optional backend implementation selector for this pair-selection stage. Use only to disambiguate providers that expose the same portable pair capability.
+             */
+            provider?: string | null;
             /**
              * Overlap
              * @default 10
@@ -2501,6 +3023,29 @@ export interface components {
             overlap_distance_m?: number | null;
             /** Max Angle Deg */
             max_angle_deg?: number | null;
+            /**
+             * Image Pairs
+             * @description Inline image-name pairs for strategy='explicit'. Intended for small lists; upload large hloc/COLMAP pair files and pass pairs_blob_sha instead.
+             */
+            image_pairs?: components["schemas"]["ImagePairRef"][] | null;
+            /**
+             * Pairs Blob Sha
+             * @description Sha256 of a finalized upload containing newline-delimited image name pairs, one 'image1 image2' pair per line. Only valid with strategy='explicit'.
+             */
+            pairs_blob_sha?: string | null;
+            /**
+             * Pairs Blob Format
+             * @default image_name_pairs_txt
+             * @constant
+             */
+            pairs_blob_format: "image_name_pairs_txt";
+            /**
+             * Backend Options
+             * @description Backend-specific pair-selection options. Discover supported keys with GET /v1/backend/config-schemas.
+             */
+            backend_options?: {
+                [key: string]: unknown;
+            };
         };
         /**
          * PipelineRequest
@@ -2521,6 +3066,7 @@ export interface components {
              *       "max_num_features": 8192,
              *       "use_gpu": true,
              *       "seed": 0,
+             *       "backend_options": {},
              *       "extractor_options": {}
              *     }
              */
@@ -2531,7 +3077,9 @@ export interface components {
              *       "strategy": "exhaustive",
              *       "overlap": 10,
              *       "retrieval_strategy": "vlad",
-             *       "retrieval_k": 20
+             *       "retrieval_k": 20,
+             *       "pairs_blob_format": "image_name_pairs_txt",
+             *       "backend_options": {}
              *     }
              */
             pairs: components["schemas"]["PairsSpec"];
@@ -2543,6 +3091,7 @@ export interface components {
              *       "cross_check": true,
              *       "max_ratio": 0.8,
              *       "max_distance": 0.7,
+             *       "backend_options": {},
              *       "matcher_options": {}
              *     }
              */
@@ -2551,7 +3100,8 @@ export interface components {
              * @default {
              *       "version": 1,
              *       "use_gpu": true,
-             *       "min_inlier_ratio": 0.25
+             *       "min_inlier_ratio": 0.25,
+             *       "backend_options": {}
              *     }
              */
             verify: components["schemas"]["VerifySpec"];
@@ -2868,6 +3418,11 @@ export interface components {
              */
             version: 1;
             /**
+             * Provider
+             * @description Optional backend implementation selector when more than one registered provider can run the same portable mapping recipe.
+             */
+            provider?: string | null;
+            /**
              * Seed
              * @default 0
              */
@@ -2879,6 +3434,13 @@ export interface components {
              * @default 50
              */
             snapshot_frames_freq: number | null;
+            /**
+             * Backend Options
+             * @description Backend-specific mapping options. Discover supported keys with GET /v1/backend/config-schemas and keep portable settings in the top-level spec fields.
+             */
+            backend_options?: {
+                [key: string]: unknown;
+            };
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2971,6 +3533,44 @@ export interface components {
             } | null;
         };
         /**
+         * TaskProgressOut
+         * @description Per-task progress snapshot for polling clients.
+         *
+         *     ``progress`` is a best-effort fraction in ``[0, 1]``. It is ``1``
+         *     for terminal tasks, event-derived for running tasks when the
+         *     latest ``phase_progress`` event carries ``current`` / ``total``,
+         *     and ``0`` otherwise.
+         */
+        TaskProgressOut: {
+            /** Task Id */
+            task_id: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "succeeded" | "failed" | "cancelled" | "cancelled_dirty" | "skipped";
+            /** Progress */
+            progress: number;
+            /** Phase */
+            phase?: string | null;
+            /** Current */
+            current?: number | null;
+            /** Total */
+            total?: number | null;
+            /** Latest Event Id */
+            latest_event_id?: number | null;
+            /** Latest Event Kind */
+            latest_event_kind?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Elapsed Seconds */
+            elapsed_seconds?: number | null;
+        };
+        /**
          * UploadEntrySpec
          * @description One image entry in an :class:`UploadSourceSpec`. Each entry binds
          *     a human-readable filename to a previously-finalized upload's
@@ -3046,7 +3646,8 @@ export interface components {
              * @default {
              *       "version": 1,
              *       "use_gpu": true,
-             *       "min_inlier_ratio": 0.25
+             *       "min_inlier_ratio": 0.25,
+             *       "backend_options": {}
              *     }
              */
             spec: components["schemas"]["VerifySpec"];
@@ -3060,6 +3661,11 @@ export interface components {
              */
             version: 1;
             /**
+             * Provider
+             * @description Optional backend implementation selector for geometric verification when multiple providers expose matches.verify.
+             */
+            provider?: string | null;
+            /**
              * Use Gpu
              * @default true
              */
@@ -3069,6 +3675,13 @@ export interface components {
              * @default 0.25
              */
             min_inlier_ratio: number;
+            /**
+             * Backend Options
+             * @description Backend-specific geometric-verification options. Discover supported keys with GET /v1/backend/config-schemas.
+             */
+            backend_options?: {
+                [key: string]: unknown;
+            };
         };
         /** VersionResponse */
         VersionResponse: {
@@ -3413,6 +4026,226 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_backend_v1_backend_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendOut"];
+                };
+            };
+        };
+    };
+    list_actions_v1_backend_actions_get: {
+        parameters: {
+            query?: {
+                page_token?: string | null;
+                page_size?: number;
+                /** @description Include each action's input/output schema in the list response. */
+                include_schemas?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_BackendActionOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_config_schemas_v1_backend_config_schemas_get: {
+        parameters: {
+            query?: {
+                page_token?: string | null;
+                page_size?: number;
+                /** @description Include JSON Schemas for each backend_options object. */
+                include_schemas?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_BackendConfigSchemaOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validate_action_v1_backend_actions__action_id__validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackendActionValidateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendActionValidateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_action_v1_backend_actions__action_id__run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackendActionRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_action_v1_backend_actions__action_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_config_schema_v1_backend_config_schemas__config_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                config_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendConfigSchemaOut"];
                 };
             };
             /** @description Validation Error */
@@ -4275,6 +5108,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    progress_v1_jobs__job_id__progress_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobProgressOut"];
                 };
             };
             /** @description Validation Error */

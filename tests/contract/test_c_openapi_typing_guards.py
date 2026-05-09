@@ -112,6 +112,29 @@ def test_pipelines_endpoint_returns_job_accepted() -> None:
     assert schema.get("$ref", "").endswith("/JobAcceptedResponse")
 
 
+def test_backend_action_endpoints_are_typed() -> None:
+    app = create_app()
+    spec = app.openapi()
+    ref = _typed_response_schema_ref(spec, "/v1/backend", "get")
+    assert ref is not None
+    assert ref.endswith("/BackendOut")
+    ref = _typed_response_schema_ref(spec, "/v1/backend/actions", "get")
+    assert ref is not None
+    assert ref.endswith("/Page_BackendActionOut_")
+    ref = _typed_response_schema_ref(spec, "/v1/backend/actions/{action_id}", "get")
+    assert ref is not None
+    assert ref.endswith("/BackendActionOut")
+    ref = _typed_response_schema_ref(spec, "/v1/backend/config-schemas", "get")
+    assert ref is not None
+    assert ref.endswith("/Page_BackendConfigSchemaOut_")
+    ref = _typed_response_schema_ref(spec, "/v1/backend/config-schemas/{config_id}", "get")
+    assert ref is not None
+    assert ref.endswith("/BackendConfigSchemaOut")
+    run_op = spec["paths"]["/v1/backend/actions/{action_id}:run"]["post"]
+    schema = run_op["responses"]["202"]["content"]["application/json"]["schema"]
+    assert schema.get("$ref", "").endswith("/JobAcceptedResponse")
+
+
 def test_snapshot_list_has_typed_response() -> None:
     app = create_app()
     spec = app.openapi()

@@ -33,6 +33,10 @@ dependencies = [
     "prometheus-client>=0.21",
 ]
 
+[project.scripts]
+sfmapi = "app.cli:main"
+sfmapi-mcp = "app.mcp.server:main"
+
 [project.optional-dependencies]
 # sfmapi ships no concrete SfM backend; install a third-party
 # package implementing `app.adapters.backend.SfmBackend` and
@@ -49,6 +53,9 @@ dev = [
     "freezegun>=1.5",
     "respx>=0.21",
     "moto[s3]>=5.0",
+]
+mcp = [
+    "fastmcp==3.2.4",
 ]
 
 [build-system]

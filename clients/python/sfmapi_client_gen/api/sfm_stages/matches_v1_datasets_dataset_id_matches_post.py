@@ -78,9 +78,11 @@ def sync_detailed(
     Pair selection (``body.pairs``) and per-pair matching
     (``body.matcher``) are independent shapes (AIP-202): pick pairs
     via exhaustive / sequential / spatial / vocabtree / retrieval /
-    from_poses, then run any of nn-mutual / nn-ratio / superglue /
-    lightglue / loftr against them. Requires features to have been
-    extracted; returns 202 + ``Location``.
+    from_poses / explicit, then run any of nn-mutual / nn-ratio /
+    superglue / lightglue / loftr against them. Optional provider
+    fields disambiguate mixed deployments such as hloc retrieval with
+    COLMAP SIFT. Requires features to have been extracted; returns
+    202 + ``Location``.
 
     Args:
         dataset_id (str):
@@ -121,9 +123,11 @@ def sync(
     Pair selection (``body.pairs``) and per-pair matching
     (``body.matcher``) are independent shapes (AIP-202): pick pairs
     via exhaustive / sequential / spatial / vocabtree / retrieval /
-    from_poses, then run any of nn-mutual / nn-ratio / superglue /
-    lightglue / loftr against them. Requires features to have been
-    extracted; returns 202 + ``Location``.
+    from_poses / explicit, then run any of nn-mutual / nn-ratio /
+    superglue / lightglue / loftr against them. Optional provider
+    fields disambiguate mixed deployments such as hloc retrieval with
+    COLMAP SIFT. Requires features to have been extracted; returns
+    202 + ``Location``.
 
     Args:
         dataset_id (str):
@@ -159,9 +163,11 @@ async def asyncio_detailed(
     Pair selection (``body.pairs``) and per-pair matching
     (``body.matcher``) are independent shapes (AIP-202): pick pairs
     via exhaustive / sequential / spatial / vocabtree / retrieval /
-    from_poses, then run any of nn-mutual / nn-ratio / superglue /
-    lightglue / loftr against them. Requires features to have been
-    extracted; returns 202 + ``Location``.
+    from_poses / explicit, then run any of nn-mutual / nn-ratio /
+    superglue / lightglue / loftr against them. Optional provider
+    fields disambiguate mixed deployments such as hloc retrieval with
+    COLMAP SIFT. Requires features to have been extracted; returns
+    202 + ``Location``.
 
     Args:
         dataset_id (str):
@@ -200,9 +206,11 @@ async def asyncio(
     Pair selection (``body.pairs``) and per-pair matching
     (``body.matcher``) are independent shapes (AIP-202): pick pairs
     via exhaustive / sequential / spatial / vocabtree / retrieval /
-    from_poses, then run any of nn-mutual / nn-ratio / superglue /
-    lightglue / loftr against them. Requires features to have been
-    extracted; returns 202 + ``Location``.
+    from_poses / explicit, then run any of nn-mutual / nn-ratio /
+    superglue / lightglue / loftr against them. Optional provider
+    fields disambiguate mixed deployments such as hloc retrieval with
+    COLMAP SIFT. Requires features to have been extracted; returns
+    202 + ``Location``.
 
     Args:
         dataset_id (str):

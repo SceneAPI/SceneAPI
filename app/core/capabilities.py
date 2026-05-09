@@ -65,6 +65,7 @@ OPTIONAL_CAPABILITIES: tuple[str, ...] = (
     "pairs.vocabtree",
     "pairs.retrieval",
     "pairs.from_poses",
+    "pairs.explicit",
     # Per-matcher capability (one per MatcherType)
     "matchers.nn-mutual",
     "matchers.nn-ratio",
@@ -117,6 +118,14 @@ OPTIONAL_CAPABILITIES: tuple[str, ...] = (
     # Snapshot inspection
     "observations.by_image",
     "observations.by_point",
+    # Backend extension action catalog. These flags mean the server
+    # can expose backend-native operations without adding each
+    # backend-specific command to the portable capability registry.
+    "backend.actions",
+    "backend.action_schema",
+    "backend.action_validate",
+    "backend.action_jobs",
+    "backend.config_schemas",
     # Segmentation
     "segment.sam",
 )
@@ -132,7 +141,7 @@ class BackendInfo:
     version: str  # backend version string
     vendor: str = ""  # optional human-readable vendor
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, str]:
         return {"name": self.name, "version": self.version, "vendor": self.vendor}
 
 
@@ -165,7 +174,7 @@ class Capabilities:
     def supports(self, capability: str) -> bool:
         return bool(self.features.get(capability, False))
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, object]:
         return {
             "schema_version": self.schema_version,
             "backend": self.backend.as_dict(),
@@ -225,10 +234,41 @@ def detect_capabilities() -> Capabilities:
     for name in advertised:
         if name in caps.features:
             caps.features[name] = True
+    action_ids: set[str] = set()
+    try:
+        from app.adapters.backend_actions import has_backend_actions, list_backend_actions
+
+        if has_backend_actions(backend_impl):
+            action_ids = {
+                str(action["action_id"])
+                for action in list_backend_actions(backend_impl, include_schemas=False)
+            }
+            caps.features["backend.actions"] = True
+            caps.features["backend.action_schema"] = True
+            caps.features["backend.action_validate"] = True
+            caps.features["backend.action_jobs"] = True
+    except Exception:
+        pass
+    try:
+        from app.adapters.backend_config import has_backend_config_schemas
+
+        if has_backend_config_schemas(backend_impl):
+            caps.features["backend.config_schemas"] = True
+    except Exception:
+        pass
     # Backend advertised capabilities not in ALL_KNOWN are silently
     # dropped — log a warning so the integrator knows their
     # capability string never reaches the wire.
     unknown = advertised - caps.features.keys()
+    if action_ids:
+        unknown = {
+            name
+            for name in unknown
+            if not any(
+                name == action_id or name.startswith(f"{action_id}.")
+                for action_id in action_ids
+            )
+        }
     if unknown:
         from app.core.logging import get_logger
 

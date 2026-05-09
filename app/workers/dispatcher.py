@@ -36,9 +36,15 @@ from app.core.config import get_settings
 from app.core.errors import PycolmapUnavailableError
 from app.core.ids import new_id
 from app.core.logging import get_logger
+from app.core.paths import Paths
 from app.db.models import Job, Task
 from app.db.session import get_session_factory
 from app.orchestrator.lease import now_utc, refresh_lease, try_acquire_lease
+from app.workers.progress import (
+    WorkerProgressReporter,
+    reset_progress_reporter,
+    set_progress_reporter,
+)
 
 WORKER_ID: str = os.environ.get("SFMAPI_WORKER_ID") or new_id()
 
@@ -78,7 +84,7 @@ def get_handlers() -> dict[str, Callable[..., Any]]:
     return _HANDLERS_CACHE
 
 
-async def execute_task(task_id: str) -> dict:
+async def execute_task(task_id: str) -> dict[str, Any]:
     """Run one Task end-to-end. Queue-agnostic: any backend that can
     deliver a ``task_id`` can call this.
 
@@ -96,6 +102,8 @@ async def execute_task(task_id: str) -> dict:
         task = result.scalar_one_or_none()
         if task is None:
             return {"status": "missing"}
+        job = await session.get(Job, task.job_id)
+        project_id = job.project_id if job is not None else None
         acquired = await try_acquire_lease(
             session,
             table=Task.__table__,
@@ -118,6 +126,8 @@ async def execute_task(task_id: str) -> dict:
     if handler is None:
         async with factory() as session:
             t = await session.get(Task, task_id)
+            if t is None:
+                return {"status": "missing"}
             t.status = "failed"
             t.error_class = "UnknownTask"
             t.error_message = f"No handler for kind={task.kind}"
@@ -126,11 +136,28 @@ async def execute_task(task_id: str) -> dict:
             await _maybe_finalize_job(session, t.job_id)
         return {"status": "failed"}
 
+    event_path = None
+    if project_id is not None:
+        event_path = (
+            Paths(settings).job_root(task.tenant_id, project_id, task.job_id) / "events.jsonl"
+        )
+    reporter = WorkerProgressReporter(
+        job_id=task.job_id,
+        task_id=task.task_id,
+        loop=asyncio.get_running_loop(),
+        event_path=event_path,
+    )
     heartbeat_task = asyncio.create_task(_heartbeat(task_id))
     try:
-        outputs = await asyncio.to_thread(handler, task)
+        token = set_progress_reporter(reporter)
+        try:
+            outputs = await asyncio.to_thread(handler, task)
+        finally:
+            reset_progress_reporter(token)
         async with factory() as session:
             t = await session.get(Task, task_id)
+            if t is None:
+                return {"status": "missing"}
             t.status = "succeeded"
             t.outputs_ref_json = outputs or {}
             t.finished_at = now_utc()
@@ -140,6 +167,8 @@ async def execute_task(task_id: str) -> dict:
     except PycolmapUnavailableError as e:
         async with factory() as session:
             t = await session.get(Task, task_id)
+            if t is None:
+                return {"status": "missing"}
             t.status = "failed"
             t.error_class = "PycolmapUnavailable"
             t.error_message = str(e)
@@ -151,6 +180,8 @@ async def execute_task(task_id: str) -> dict:
         log.exception("task.failed", err=str(e))
         async with factory() as session:
             t = await session.get(Task, task_id)
+            if t is None:
+                return {"status": "missing"}
             t.status = "failed"
             t.error_class = type(e).__name__
             t.error_message = str(e)[:2000]

@@ -14,6 +14,22 @@ and a no-op stub for tests / ephemeral demos.
    :members:
    :no-index:
 
+.. automodule:: app.adapters.progress
+   :members:
+   :no-index:
+
+.. automodule:: app.adapters.backend_actions
+   :members:
+   :no-index:
+
+.. automodule:: app.adapters.backend_config
+   :members:
+   :no-index:
+
+.. automodule:: app.adapters.backend_contract
+   :members:
+   :no-index:
+
 .. automodule:: app.adapters.stub_backend
    :members:
    :no-index:

@@ -31,10 +31,13 @@ worker.
 
 :::{grid-item-card} Call the API
 Create resources, submit long-running jobs, watch progress, and read
-sealed reconstruction snapshot files.
+sealed reconstruction snapshot files. Inspect backend-native action
+catalogs and backend option schemas when a deployment exposes
+engine-specific tools or provider-specific stage options.
 
 - {doc}`REST API reference <reference/api>`
 - {doc}`OpenAPI <reference/openapi>`
+- {doc}`MCP adapter <guides/mcp>`
 :::
 
 :::{grid-item-card} Use a client library
@@ -45,8 +48,9 @@ client, all checked against the same wire fixtures.
 :::
 
 :::{grid-item-card} Build or operate
-Implement `SfmBackend`, advertise capabilities, register the backend,
-deploy web/worker tiers, and configure storage and auth.
+Implement `SfmBackend`, advertise portable capabilities, expose
+backend-native actions and config schemas, deploy web/worker tiers,
+and configure storage and auth.
 
 - {doc}`Implement a backend <guides/backend_implementations>`
 - {doc}`Deployment <guides/deployment>`
@@ -97,6 +101,7 @@ First REST workflow with curl <reference/curl_tour>
 
 reference/api
 reference/openapi
+guides/mcp
 reference/auth
 reference/errors
 ```

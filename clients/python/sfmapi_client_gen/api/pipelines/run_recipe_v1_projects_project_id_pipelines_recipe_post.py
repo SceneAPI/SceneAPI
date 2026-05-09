@@ -84,7 +84,10 @@ def sync_detailed(
     into a single job DAG keyed on ``recipe`` (one of ``incremental``
     | ``global`` | ``hierarchical`` | ``spherical``). The recipe MUST
     match ``body.spec.kind`` — 422 ``ValidationError`` if not. Each
-    backend advertises which recipes it implements via the
+    stage spec keeps optional provider selectors
+    so mixed deployments can route hloc and COLMAP implementations
+    behind the same portable capability names. Each backend advertises
+    which recipes it implements via the
     ``pipelines.{kind}`` capability flags; unsupported recipes
     return ``501 capability_unavailable``. Returns 202 + a
     ``Location`` header pointing at the parent job.
@@ -135,7 +138,10 @@ def sync(
     into a single job DAG keyed on ``recipe`` (one of ``incremental``
     | ``global`` | ``hierarchical`` | ``spherical``). The recipe MUST
     match ``body.spec.kind`` — 422 ``ValidationError`` if not. Each
-    backend advertises which recipes it implements via the
+    stage spec keeps optional provider selectors
+    so mixed deployments can route hloc and COLMAP implementations
+    behind the same portable capability names. Each backend advertises
+    which recipes it implements via the
     ``pipelines.{kind}`` capability flags; unsupported recipes
     return ``501 capability_unavailable``. Returns 202 + a
     ``Location`` header pointing at the parent job.
@@ -181,7 +187,10 @@ async def asyncio_detailed(
     into a single job DAG keyed on ``recipe`` (one of ``incremental``
     | ``global`` | ``hierarchical`` | ``spherical``). The recipe MUST
     match ``body.spec.kind`` — 422 ``ValidationError`` if not. Each
-    backend advertises which recipes it implements via the
+    stage spec keeps optional provider selectors
+    so mixed deployments can route hloc and COLMAP implementations
+    behind the same portable capability names. Each backend advertises
+    which recipes it implements via the
     ``pipelines.{kind}`` capability flags; unsupported recipes
     return ``501 capability_unavailable``. Returns 202 + a
     ``Location`` header pointing at the parent job.
@@ -230,7 +239,10 @@ async def asyncio(
     into a single job DAG keyed on ``recipe`` (one of ``incremental``
     | ``global`` | ``hierarchical`` | ``spherical``). The recipe MUST
     match ``body.spec.kind`` — 422 ``ValidationError`` if not. Each
-    backend advertises which recipes it implements via the
+    stage spec keeps optional provider selectors
+    so mixed deployments can route hloc and COLMAP implementations
+    behind the same portable capability names. Each backend advertises
+    which recipes it implements via the
     ``pipelines.{kind}`` capability flags; unsupported recipes
     return ``501 capability_unavailable``. Returns 202 + a
     ``Location`` header pointing at the parent job.

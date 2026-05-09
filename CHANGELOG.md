@@ -15,6 +15,29 @@ below and a new `Unreleased` block is started.
 
 _Drafted by release-drafter from merged PRs since the last tag._
 
+### Added
+- Added `GET /v1/jobs/{id}/progress`, a compact polling snapshot for
+  job status, task counts, latest progress event, active task, and
+  best-effort overall progress.
+- Added an optional backend `ProgressReporter` contract. Long-running
+  backend methods may accept `progress=` to emit durable
+  `ProgressEvent` telemetry without breaking existing backend
+  implementations.
+- Added an optional FastMCP adapter, `sfmapi-mcp` entrypoint, and
+  `SFMAPI_MCP_ENABLED` FastAPI mount for local agent access over stdio
+  or HTTP, including local HTML status pages.
+- Added MCP read-only tool annotations, resource templates, server
+  instructions, and a non-loopback HTTP opt-in guard.
+- Scoped MCP tenant access with `SFMAPI_MCP_TENANT_ID` so API-key
+  deployments cannot use MCP as a cross-tenant read bypass.
+- Added a backend action catalog at `/v1/backend/actions` so
+  backend-native tools can be discovered, validated, and submitted as
+  normal jobs without leaking tool-specific ids into portable
+  capability flags.
+- Added `SFMAPI_MCP_MODE` and the `sfmapi serve --mcp local` /
+  `sfmapi mcp` commands for a clearer local agent setup, while keeping
+  `SFMAPI_MCP_ENABLED=true` as a compatibility alias.
+
 ### Changed
 - Reorganized the published documentation homepage and sidebar around
   user journeys: start, API usage, backend implementation, operations,

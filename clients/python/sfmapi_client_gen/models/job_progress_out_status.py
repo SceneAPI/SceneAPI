@@ -1,0 +1,13 @@
+from enum import Enum
+
+
+class JobProgressOutStatus(str, Enum):
+    CANCELLED = "cancelled"
+    CANCELLED_DIRTY = "cancelled_dirty"
+    FAILED = "failed"
+    PENDING = "pending"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+
+    def __str__(self) -> str:
+        return str(self.value)

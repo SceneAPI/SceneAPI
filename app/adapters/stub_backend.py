@@ -51,7 +51,7 @@ class StubBackend:
         raise CapabilityUnavailableError(capability="features.extract")
 
     def match(self, *, database_path: Path, mode: str, options: dict) -> dict:
-        raise CapabilityUnavailableError(capability=f"matches.{mode}")
+        raise CapabilityUnavailableError(capability=f"pairs.{mode}")
 
     def verify_matches(self, *, database_path: Path, options: dict) -> dict:
         raise CapabilityUnavailableError(capability="matches.verify")

@@ -147,9 +147,20 @@ own repos and satisfy ``app.adapters.backend.SfmBackend``.
 1. Implement the protocol in your backend package; raise
    ``CapabilityUnavailableError`` for ops you don't support and
    advertise the supported subset via ``capabilities()``.
-2. Register the factory at app startup:
+2. Keep `capabilities()` portable. Backend-native commands such as
+   `colmap.feature_extractor` or `openmvg.compute_features` belong in
+   `list_backend_actions()`, not in `ALL_KNOWN`.
+3. Register the factory at app startup:
    ``register_backend("name", MyBackend)``.
-3. If a new wire op is needed (a method not yet on the protocol),
+4. Add a backend contract test:
+   ``assert_backend_contract(MyBackend())`` from
+   `app.adapters.backend_contract`. This catches unknown portable
+   capabilities, malformed action/config descriptors, duplicate ids,
+   non-portable `required_capabilities`, runtime-managed options in
+   `backend_options` schemas, and action/config ids leaked through
+   `capabilities()`. For a package-level smoke check, run
+   `sfmapi check-backend --import my_backend --backend my_backend`.
+5. If a new wire op is needed (a method not yet on the protocol),
    add it here in `app/adapters/backend.py` and surface a worker
    task under `app/workers/tasks/` (see "Adding a new SfM stage"
    above). Worker tasks call backends only through
@@ -158,4 +169,6 @@ own repos and satisfy ``app.adapters.backend.SfmBackend``.
 Backends advertising a capability that is not in
 `app.core.capabilities.ALL_KNOWN` will see that capability silently
 dropped at `detect_capabilities` time (logged as a warning); add the
-canonical name to `ALL_KNOWN` first.
+canonical name to `ALL_KNOWN` first only when it is a portable sfmapi
+feature. For engine-native tools, add or fix the backend action
+descriptor instead.

@@ -17,6 +17,7 @@ from app.adapters.registry import get_backend
 from app.core.capabilities import require as require_capability
 from app.db.models import Task
 from app.workers._task_io import read_state
+from app.workers.options import stage_options
 from app.workers.tasks._registry import task_handler
 
 
@@ -29,5 +30,5 @@ def run(task: Task) -> dict:
     return get_backend().bundle_adjustment(
         model_path=Path(inputs["model_path"]),
         output_path=Path(inputs["output_path"]),
-        spec=spec,
+        spec=stage_options(spec),
     )

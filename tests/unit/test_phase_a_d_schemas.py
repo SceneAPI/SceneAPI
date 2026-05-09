@@ -19,8 +19,10 @@ from app.schemas.api.scene import (
 from app.schemas.pipeline_spec import (
     BundleAdjustmentSpec,
     FeaturesSpec,
+    IncrementalSpec,
     MatcherSpec,
     PairsSpec,
+    VerifySpec,
 )
 
 pytestmark = pytest.mark.unit
@@ -36,10 +38,17 @@ def test_features_spec_defaults_to_sift() -> None:
 
 
 def test_features_spec_accepts_alternative_type() -> None:
-    f = FeaturesSpec(type="superpoint", max_num_features=4096)
+    f = FeaturesSpec(
+        type="superpoint",
+        provider="hloc",
+        max_num_features=4096,
+        backend_options={"SuperPoint.max_keypoints": 4096},
+    )
     body = f.model_dump()
     assert body["type"] == "superpoint"
+    assert body["provider"] == "hloc"
     assert body["max_num_features"] == 4096
+    assert body["backend_options"] == {"SuperPoint.max_keypoints": 4096}
 
 
 def test_pairs_spec_strategies() -> None:
@@ -49,10 +58,47 @@ def test_pairs_spec_strategies() -> None:
 
 
 def test_pairs_spec_retrieval_carries_strategy_and_k() -> None:
-    p = PairsSpec(strategy="retrieval", retrieval_strategy="vlad", retrieval_k=30)
+    p = PairsSpec(
+        strategy="retrieval",
+        retrieval_strategy="vlad",
+        retrieval_k=30,
+        backend_options={"hloc.num_matched": 30},
+    )
     body = p.model_dump()
     assert body["retrieval_strategy"] == "vlad"
     assert body["retrieval_k"] == 30
+    assert body["backend_options"] == {"hloc.num_matched": 30}
+
+
+def test_pairs_spec_accepts_explicit_inline_pairs() -> None:
+    p = PairsSpec(
+        strategy="explicit",
+        provider="hloc",
+        image_pairs=[{"image_name1": "a.jpg", "image_name2": "b.jpg"}],
+    )
+    body = p.model_dump()
+    assert body["strategy"] == "explicit"
+    assert body["provider"] == "hloc"
+    assert body["image_pairs"] == [{"image_name1": "a.jpg", "image_name2": "b.jpg"}]
+
+
+def test_pairs_spec_explicit_requires_one_pair_source() -> None:
+    with pytest.raises(ValueError, match="requires exactly one"):
+        PairsSpec(strategy="explicit")
+    with pytest.raises(ValueError, match="requires exactly one"):
+        PairsSpec(
+            strategy="explicit",
+            image_pairs=[{"image_name1": "a.jpg", "image_name2": "b.jpg"}],
+            pairs_blob_sha="0" * 64,
+        )
+
+
+def test_pairs_spec_rejects_explicit_fields_on_other_strategies() -> None:
+    with pytest.raises(ValueError, match="only valid"):
+        PairsSpec(
+            strategy="sequential",
+            image_pairs=[{"image_name1": "a.jpg", "image_name2": "b.jpg"}],
+        )
 
 
 def test_matcher_spec_defaults_to_nn_mutual() -> None:
@@ -70,20 +116,43 @@ def test_pairs_and_matcher_specs_round_trip_independently() -> None:
     """AIP-202: pair selection and per-pair matching are independent
     shapes; clients pick them separately on every match-stage call."""
     pairs = PairsSpec(strategy="sequential", overlap=15)
-    matcher = MatcherSpec(type="nn-ratio", cross_check=False, max_ratio=0.6)
+    matcher = MatcherSpec(
+        type="nn-ratio",
+        cross_check=False,
+        max_ratio=0.6,
+        backend_options={"SiftMatching.max_ratio": 0.6},
+    )
     assert pairs.strategy == "sequential"
     assert pairs.overlap == 15
     assert matcher.type == "nn-ratio"
     assert matcher.cross_check is False
     assert matcher.max_ratio == 0.6
+    assert matcher.backend_options == {"SiftMatching.max_ratio": 0.6}
+
+
+def test_verify_and_mapping_specs_accept_backend_options() -> None:
+    verify = VerifySpec(provider="colmap", backend_options={"RANSAC.max_error": 4.0})
+    mapping = IncrementalSpec(
+        provider="colmap",
+        backend_options={"Mapper.ba_refine_focal_length": False},
+    )
+    assert verify.backend_options == {"RANSAC.max_error": 4.0}
+    assert mapping.provider == "colmap"
+    assert mapping.backend_options == {"Mapper.ba_refine_focal_length": False}
 
 
 # ---- Phase C: featuremetric BA ----------------------------------------
 
 
 def test_ba_spec_accepts_featuremetric_mode() -> None:
-    spec = BundleAdjustmentSpec(mode="featuremetric")
+    spec = BundleAdjustmentSpec(
+        mode="featuremetric",
+        provider="hloc",
+        backend_options={"featuremetric.max_num_iterations": 20},
+    )
     assert spec.mode == "featuremetric"
+    assert spec.provider == "hloc"
+    assert spec.backend_options == {"featuremetric.max_num_iterations": 20}
 
 
 def test_ba_spec_loss_kernel_default_squared() -> None:

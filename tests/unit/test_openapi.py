@@ -33,6 +33,7 @@ def test_app_openapi_3_1_with_expected_paths() -> None:
         "/v1/datasets/{dataset_id}/matches",
         "/v1/datasets/{dataset_id}/verify",
         "/v1/jobs/{job_id}",
+        "/v1/jobs/{job_id}/progress",
         "/v1/jobs/{job_id}:cancel",
         "/v1/jobs/{job_id}:resume",
         "/v1/jobs/{job_id}/events",

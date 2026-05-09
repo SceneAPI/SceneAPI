@@ -16,6 +16,13 @@ A new backend is added by:
 3. Implementing :meth:`SfmBackend.capabilities` so it returns the set
    of canonical capability names the backend exposes (subset of
    :data:`app.core.capabilities.ALL_KNOWN`).
+4. Optionally implementing the backend action provider methods
+   documented in :mod:`app.adapters.backend_actions` to expose
+   backend-native tools such as COLMAP CLI commands without adding
+   each vendor-specific operation to the portable capability registry.
+5. Optionally implementing ``list_backend_config_schemas()`` as
+   documented in :mod:`app.adapters.backend_config` to describe valid
+   ``backend_options`` keys for each portable stage/capability.
 
 No reference backend ships in this repository — sfmapi is the wire
 contract + orchestration shell, and engine-specific implementations
@@ -27,6 +34,12 @@ Method return shapes are documented as plain dicts; clients that need
 strict typing should validate against the corresponding schema in
 :mod:`app.schemas.api.scene`. Returning extra fields is allowed —
 callers MUST tolerate them.
+
+Long-running methods MAY accept an additional keyword-only
+``progress: app.adapters.progress.ProgressReporter | None`` argument.
+Workers pass it only when a backend method advertises support for that
+keyword, so adding progress reporting is backwards compatible with
+older backend packages.
 """
 
 from __future__ import annotations
@@ -34,6 +47,8 @@ from __future__ import annotations
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
+
+from app.adapters.progress import ProgressReporter
 
 
 @runtime_checkable
@@ -76,9 +91,16 @@ class SfmBackend(Protocol):
         database. Returns ``{num_images, num_keypoints, ...}``."""
 
     def match(self, *, database_path: Path, mode: str, options: dict) -> dict:
-        """Run feature matching. ``mode`` is one of
-        ``exhaustive | sequential | spatial | vocabtree``. Returns
-        ``{num_matches, ...}``."""
+        """Run feature matching.
+
+        ``mode`` is the pair-selection strategy from ``PairsSpec``
+        (``exhaustive | sequential | spatial | vocabtree | retrieval |
+        from_poses | explicit``). ``options`` includes nested
+        ``pairs`` and ``matcher`` dictionaries plus legacy flat keys for
+        older backends. Explicit pair-list requests include
+        ``options["pairs"]["pairs_path"]`` / ``match_list_path`` once the
+        worker has materialized an uploaded or inline pair list.
+        Returns ``{num_matches, ...}``."""
 
     def verify_matches(self, *, database_path: Path, options: dict) -> dict:
         """Run geometric verification on existing matches. Returns
@@ -241,4 +263,4 @@ class SfmBackend(Protocol):
         """Return engine + dependency versions for the cache key."""
 
 
-__all__ = ["SfmBackend"]
+__all__ = ["ProgressReporter", "SfmBackend"]

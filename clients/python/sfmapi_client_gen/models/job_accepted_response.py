@@ -34,6 +34,7 @@ class JobAcceptedResponse:
     - ``applied_sim3`` — georegister applied transform
     - ``target_recon_id`` / ``source_recon_ids`` — ``reconstructions:merge``
     - ``strategy`` — ``similarity:build``
+    - ``action_id`` / ``backend`` — backend-native extension actions
 
         Attributes:
             job_id (str):
@@ -46,6 +47,8 @@ class JobAcceptedResponse:
             target_recon_id (None | str | Unset):
             source_recon_ids (list[str] | None | Unset):
             strategy (None | str | Unset):
+            action_id (None | str | Unset):
+            backend (None | str | Unset):
     """
 
     job_id: str
@@ -58,6 +61,8 @@ class JobAcceptedResponse:
     target_recon_id: None | str | Unset = UNSET
     source_recon_ids: list[str] | None | Unset = UNSET
     strategy: None | str | Unset = UNSET
+    action_id: None | str | Unset = UNSET
+    backend: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -122,6 +127,18 @@ class JobAcceptedResponse:
         else:
             strategy = self.strategy
 
+        action_id: None | str | Unset
+        if isinstance(self.action_id, Unset):
+            action_id = UNSET
+        else:
+            action_id = self.action_id
+
+        backend: None | str | Unset
+        if isinstance(self.backend, Unset):
+            backend = UNSET
+        else:
+            backend = self.backend
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -147,6 +164,10 @@ class JobAcceptedResponse:
             field_dict["source_recon_ids"] = source_recon_ids
         if strategy is not UNSET:
             field_dict["strategy"] = strategy
+        if action_id is not UNSET:
+            field_dict["action_id"] = action_id
+        if backend is not UNSET:
+            field_dict["backend"] = backend
 
         return field_dict
 
@@ -247,6 +268,24 @@ class JobAcceptedResponse:
 
         strategy = _parse_strategy(d.pop("strategy", UNSET))
 
+        def _parse_action_id(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        action_id = _parse_action_id(d.pop("action_id", UNSET))
+
+        def _parse_backend(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        backend = _parse_backend(d.pop("backend", UNSET))
+
         job_accepted_response = cls(
             job_id=job_id,
             task_ids=task_ids,
@@ -258,6 +297,8 @@ class JobAcceptedResponse:
             target_recon_id=target_recon_id,
             source_recon_ids=source_recon_ids,
             strategy=strategy,
+            action_id=action_id,
+            backend=backend,
         )
 
         job_accepted_response.additional_properties = d

@@ -15,24 +15,32 @@ directory pycolmap can read.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
+from app.adapters.progress import call_with_optional_progress
 from app.adapters.registry import get_backend
 from app.core.config import get_settings
 from app.core.paths import Paths
 from app.db.models import Task
 from app.workers._materialize import materialize_image_set
 from app.workers._task_io import read_state
+from app.workers.options import stage_options
+from app.workers.progress import get_progress_reporter
 from app.workers.tasks._registry import task_handler
 
 
-def _materialize(task: Task, materialization: dict, paths: Paths) -> tuple[Path, list[str]]:
+def _materialize(
+    task: Task,
+    materialization: dict[str, Any],
+    paths: Paths,
+) -> tuple[Path, list[str]]:
     """Realize the dataset's images under a per-task stage dir."""
     stage = paths.workspace_root / "_stage" / task.task_id
     return materialize_image_set(materialization, stage)
 
 
 @task_handler("extract")
-def run(task: Task) -> dict:
+def run(task: Task) -> dict[str, Any]:
     s = get_settings()
     paths = Paths(s)
     inputs, spec = read_state(task)
@@ -45,10 +53,34 @@ def run(task: Task) -> dict:
     rec_root = paths.reconstruction_root(task.tenant_id, project_id, recon_id)
     rec_root.mkdir(parents=True, exist_ok=True)
     db_path = Path(inputs.get("database_path") or (rec_root / "database.db"))
-    summary = get_backend().extract_features(
+    progress = get_progress_reporter()
+    total_images = len(image_list)
+    if progress is not None:
+        progress.phase_started("feature_extraction")
+        progress.phase_progress("feature_extraction", current=0, total=total_images)
+    summary = call_with_optional_progress(
+        get_backend().extract_features,
+        progress=progress,
         database_path=db_path,
         image_root=image_root,
         image_list=image_list,
-        options={"sift": spec.get("sift") or {}},
+        options=_feature_options(spec),
     )
+    if progress is not None:
+        progress.phase_progress("feature_extraction", current=total_images, total=total_images)
+        progress.phase_completed("feature_extraction")
     return {"database_path": str(db_path), **summary}
+
+
+def _feature_options(spec: dict[str, Any]) -> dict[str, Any]:
+    options = stage_options(spec, legacy_option_fields=("extractor_options",))
+    if "sift" not in options:
+        sift_options = {
+            key: options[key]
+            for key in ("max_num_features", "sift_first_octave")
+            if options.get(key) is not None
+        }
+        if "sift_first_octave" in sift_options:
+            sift_options["first_octave"] = sift_options.pop("sift_first_octave")
+        options["sift"] = sift_options
+    return options

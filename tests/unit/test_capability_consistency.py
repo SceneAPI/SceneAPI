@@ -93,6 +93,7 @@ def test_runtime_suffix_capability_prefixes_are_known() -> None:
     to the vocabulary."""
     expected_prefixes = {
         "features.extract.",
+        "pairs.",
         "matchers.",
         "map.",
         "ba.",

@@ -102,10 +102,13 @@ echo "JOB_ID=$JOB_ID"
 ## 6. Poll the job
 
 ```bash
-# Quick poll loop.
+# Quick progress poll loop.
 while true; do
-  STATUS=$(curl -s $BASE/v1/jobs/$JOB_ID | jq -r .status)
-  echo "  status=$STATUS"
+  SNAPSHOT=$(curl -s $BASE/v1/jobs/$JOB_ID/progress)
+  STATUS=$(echo "$SNAPSHOT" | jq -r .status)
+  PCT=$(echo "$SNAPSHOT" | jq -r '(.progress * 100 | floor)')
+  PHASE=$(echo "$SNAPSHOT" | jq -r '.current_phase // "-"')
+  echo "  status=$STATUS progress=${PCT}% phase=$PHASE"
   case "$STATUS" in
     succeeded|failed|cancelled|cancelled_dirty) break ;;
   esac
@@ -113,7 +116,9 @@ while true; do
 done
 ```
 
-Or stream the live progress events:
+Use `GET /v1/jobs/$JOB_ID` when you need the full task list and final
+outputs. Use the event stream when you want every `ProgressEvent`
+rather than a snapshot:
 
 ```bash
 curl -N $BASE/v1/jobs/$JOB_ID/events

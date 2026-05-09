@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Literal, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -9,6 +9,11 @@ from attrs import field as _attrs_field
 from ..models.pairs_spec_retrieval_strategy import PairsSpecRetrievalStrategy
 from ..models.pairs_spec_strategy import PairsSpecStrategy
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.image_pair_ref import ImagePairRef
+    from ..models.pairs_spec_backend_options import PairsSpecBackendOptions
+
 
 T = TypeVar("T", bound="PairsSpec")
 
@@ -24,22 +29,36 @@ class PairsSpec:
         Attributes:
             version (Literal[1] | Unset):  Default: 1.
             strategy (PairsSpecStrategy | Unset):  Default: PairsSpecStrategy.EXHAUSTIVE.
+            provider (None | str | Unset): Optional backend implementation selector for this pair-selection stage. Use only
+                to disambiguate providers that expose the same portable pair capability.
             overlap (int | Unset):  Default: 10.
             vocab_tree_path (None | str | Unset):
             retrieval_strategy (PairsSpecRetrievalStrategy | Unset):  Default: PairsSpecRetrievalStrategy.VLAD.
             retrieval_k (int | Unset):  Default: 20.
             overlap_distance_m (float | None | Unset):
             max_angle_deg (float | None | Unset):
+            image_pairs (list[ImagePairRef] | None | Unset): Inline image-name pairs for strategy='explicit'. Intended for
+                small lists; upload large hloc/COLMAP pair files and pass pairs_blob_sha instead.
+            pairs_blob_sha (None | str | Unset): Sha256 of a finalized upload containing newline-delimited image name pairs,
+                one 'image1 image2' pair per line. Only valid with strategy='explicit'.
+            pairs_blob_format (Literal['image_name_pairs_txt'] | Unset):  Default: 'image_name_pairs_txt'.
+            backend_options (PairsSpecBackendOptions | Unset): Backend-specific pair-selection options. Discover supported
+                keys with GET /v1/backend/config-schemas.
     """
 
     version: Literal[1] | Unset = 1
     strategy: PairsSpecStrategy | Unset = PairsSpecStrategy.EXHAUSTIVE
+    provider: None | str | Unset = UNSET
     overlap: int | Unset = 10
     vocab_tree_path: None | str | Unset = UNSET
     retrieval_strategy: PairsSpecRetrievalStrategy | Unset = PairsSpecRetrievalStrategy.VLAD
     retrieval_k: int | Unset = 20
     overlap_distance_m: float | None | Unset = UNSET
     max_angle_deg: float | None | Unset = UNSET
+    image_pairs: list[ImagePairRef] | None | Unset = UNSET
+    pairs_blob_sha: None | str | Unset = UNSET
+    pairs_blob_format: Literal["image_name_pairs_txt"] | Unset = "image_name_pairs_txt"
+    backend_options: PairsSpecBackendOptions | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -48,6 +67,12 @@ class PairsSpec:
         strategy: str | Unset = UNSET
         if not isinstance(self.strategy, Unset):
             strategy = self.strategy.value
+
+        provider: None | str | Unset
+        if isinstance(self.provider, Unset):
+            provider = UNSET
+        else:
+            provider = self.provider
 
         overlap = self.overlap
 
@@ -75,6 +100,30 @@ class PairsSpec:
         else:
             max_angle_deg = self.max_angle_deg
 
+        image_pairs: list[dict[str, Any]] | None | Unset
+        if isinstance(self.image_pairs, Unset):
+            image_pairs = UNSET
+        elif isinstance(self.image_pairs, list):
+            image_pairs = []
+            for image_pairs_type_0_item_data in self.image_pairs:
+                image_pairs_type_0_item = image_pairs_type_0_item_data.to_dict()
+                image_pairs.append(image_pairs_type_0_item)
+
+        else:
+            image_pairs = self.image_pairs
+
+        pairs_blob_sha: None | str | Unset
+        if isinstance(self.pairs_blob_sha, Unset):
+            pairs_blob_sha = UNSET
+        else:
+            pairs_blob_sha = self.pairs_blob_sha
+
+        pairs_blob_format = self.pairs_blob_format
+
+        backend_options: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.backend_options, Unset):
+            backend_options = self.backend_options.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -82,6 +131,8 @@ class PairsSpec:
             field_dict["version"] = version
         if strategy is not UNSET:
             field_dict["strategy"] = strategy
+        if provider is not UNSET:
+            field_dict["provider"] = provider
         if overlap is not UNSET:
             field_dict["overlap"] = overlap
         if vocab_tree_path is not UNSET:
@@ -94,11 +145,22 @@ class PairsSpec:
             field_dict["overlap_distance_m"] = overlap_distance_m
         if max_angle_deg is not UNSET:
             field_dict["max_angle_deg"] = max_angle_deg
+        if image_pairs is not UNSET:
+            field_dict["image_pairs"] = image_pairs
+        if pairs_blob_sha is not UNSET:
+            field_dict["pairs_blob_sha"] = pairs_blob_sha
+        if pairs_blob_format is not UNSET:
+            field_dict["pairs_blob_format"] = pairs_blob_format
+        if backend_options is not UNSET:
+            field_dict["backend_options"] = backend_options
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.image_pair_ref import ImagePairRef
+        from ..models.pairs_spec_backend_options import PairsSpecBackendOptions
+
         d = dict(src_dict)
         version = cast(Literal[1] | Unset, d.pop("version", UNSET))
         if version != 1 and not isinstance(version, Unset):
@@ -110,6 +172,15 @@ class PairsSpec:
             strategy = UNSET
         else:
             strategy = PairsSpecStrategy(_strategy)
+
+        def _parse_provider(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        provider = _parse_provider(d.pop("provider", UNSET))
 
         overlap = d.pop("overlap", UNSET)
 
@@ -149,15 +220,66 @@ class PairsSpec:
 
         max_angle_deg = _parse_max_angle_deg(d.pop("max_angle_deg", UNSET))
 
+        def _parse_image_pairs(data: object) -> list[ImagePairRef] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                image_pairs_type_0 = []
+                _image_pairs_type_0 = data
+                for image_pairs_type_0_item_data in _image_pairs_type_0:
+                    image_pairs_type_0_item = ImagePairRef.from_dict(image_pairs_type_0_item_data)
+
+                    image_pairs_type_0.append(image_pairs_type_0_item)
+
+                return image_pairs_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(list[ImagePairRef] | None | Unset, data)
+
+        image_pairs = _parse_image_pairs(d.pop("image_pairs", UNSET))
+
+        def _parse_pairs_blob_sha(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        pairs_blob_sha = _parse_pairs_blob_sha(d.pop("pairs_blob_sha", UNSET))
+
+        pairs_blob_format = cast(
+            Literal["image_name_pairs_txt"] | Unset, d.pop("pairs_blob_format", UNSET)
+        )
+        if pairs_blob_format != "image_name_pairs_txt" and not isinstance(pairs_blob_format, Unset):
+            raise ValueError(
+                f"pairs_blob_format must match const 'image_name_pairs_txt', got '{pairs_blob_format}'"
+            )
+
+        _backend_options = d.pop("backend_options", UNSET)
+        backend_options: PairsSpecBackendOptions | Unset
+        if isinstance(_backend_options, Unset):
+            backend_options = UNSET
+        else:
+            backend_options = PairsSpecBackendOptions.from_dict(_backend_options)
+
         pairs_spec = cls(
             version=version,
             strategy=strategy,
+            provider=provider,
             overlap=overlap,
             vocab_tree_path=vocab_tree_path,
             retrieval_strategy=retrieval_strategy,
             retrieval_k=retrieval_k,
             overlap_distance_m=overlap_distance_m,
             max_angle_deg=max_angle_deg,
+            image_pairs=image_pairs,
+            pairs_blob_sha=pairs_blob_sha,
+            pairs_blob_format=pairs_blob_format,
+            backend_options=backend_options,
         )
 
         pairs_spec.additional_properties = d

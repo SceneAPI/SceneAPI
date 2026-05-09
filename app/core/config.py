@@ -90,6 +90,28 @@ class Settings(BaseSettings):
     # the field entirely from ``GET /spec`` responses).
     spec_url: str | None = "https://sfmapi.github.io/spec"
 
+    # Request profiling. Disabled by default because cProfile adds
+    # overhead. When enabled, responses get a Server-Timing header and
+    # requests at/above `profile_min_ms` emit a structured profile log.
+    profile_requests: bool = False
+    profile_min_ms: float = 0.0
+    profile_top_n: int = 20
+    profile_sort_by: Literal["cumulative", "tottime", "time", "calls"] = "cumulative"
+    profile_dir: Path | None = None
+    warm_capabilities: bool = False
+
+    # Optional MCP adapter. Disabled by default so the core REST server
+    # does not depend on FastMCP unless explicitly enabled. Prefer
+    # `SFMAPI_MCP_MODE=local` for new API-process mounts; the boolean is
+    # kept as a compatibility alias for older deployments.
+    mcp_mode: Literal["off", "local", "stdio", "http"] = "off"
+    mcp_enabled: bool = False
+    mcp_mount_path: str = "/mcp"
+    # Tenant scope for MCP tools. When auth is disabled this defaults
+    # to `default_tenant`; when auth is enabled it must be set so MCP
+    # cannot be used as a cross-tenant bypass around API-key auth.
+    mcp_tenant_id: str | None = None
+
     def model_post_init(self, _ctx: object) -> None:
         # Ephemeral mode rewires four subsystems to in-memory equivalents.
         # We do it post-init so explicit overrides (e.g. from tests) still
@@ -125,6 +147,17 @@ class Settings(BaseSettings):
         if not raw:
             return []
         return [o.strip() for o in raw.split(",") if o.strip()]
+
+    def mcp_api_enabled(self) -> bool:
+        """Return whether the FastAPI app should mount the MCP adapter."""
+        return self.mcp_enabled or self.mcp_mode == "local"
+
+    def normalized_mcp_mount_path(self) -> str:
+        """Return a root-relative MCP mount path without a trailing slash."""
+        path = (self.mcp_mount_path or "/mcp").strip()
+        if not path.startswith("/"):
+            path = f"/{path}"
+        return path.rstrip("/") or "/mcp"
 
 
 _settings: Settings | None = None

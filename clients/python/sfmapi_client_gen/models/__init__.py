@@ -1,7 +1,31 @@
 """Contains all the data models used in inputs/outputs"""
 
 from .api_key_out import ApiKeyOut
+from .backend_action_out import BackendActionOut
+from .backend_action_out_input_schema_type_0 import BackendActionOutInputSchemaType0
+from .backend_action_out_links_type_0 import BackendActionOutLinksType0
+from .backend_action_out_metadata import BackendActionOutMetadata
+from .backend_action_out_output_schema_type_0 import BackendActionOutOutputSchemaType0
+from .backend_action_out_side_effects import BackendActionOutSideEffects
+from .backend_action_out_stability import BackendActionOutStability
+from .backend_action_run_request import BackendActionRunRequest
+from .backend_action_run_request_inputs import BackendActionRunRequestInputs
+from .backend_action_validate_request import BackendActionValidateRequest
+from .backend_action_validate_request_inputs import BackendActionValidateRequestInputs
+from .backend_action_validate_response import BackendActionValidateResponse
+from .backend_action_validate_response_normalized_inputs import (
+    BackendActionValidateResponseNormalizedInputs,
+)
+from .backend_action_validation_error_out import BackendActionValidationErrorOut
+from .backend_config_schema_out import BackendConfigSchemaOut
+from .backend_config_schema_out_defaults import BackendConfigSchemaOutDefaults
+from .backend_config_schema_out_links_type_0 import BackendConfigSchemaOutLinksType0
+from .backend_config_schema_out_metadata import BackendConfigSchemaOutMetadata
+from .backend_config_schema_out_option_schema_type_0 import BackendConfigSchemaOutOptionSchemaType0
 from .backend_info_out import BackendInfoOut
+from .backend_out import BackendOut
+from .backend_out_links_type_0 import BackendOutLinksType0
+from .backend_out_runtime_versions import BackendOutRuntimeVersions
 from .backend_version import BackendVersion
 from .backend_version_runtime_versions import BackendVersionRuntimeVersions
 from .batch_create_images_request import BatchCreateImagesRequest
@@ -22,6 +46,7 @@ from .dataset_patch_intrinsics_mode_type_0 import DatasetPatchIntrinsicsModeType
 from .dataset_patch_rig_config_type_0 import DatasetPatchRigConfigType0
 from .features_request import FeaturesRequest
 from .features_spec import FeaturesSpec
+from .features_spec_backend_options import FeaturesSpecBackendOptions
 from .features_spec_extractor_options import FeaturesSpecExtractorOptions
 from .features_spec_type import FeaturesSpecType
 from .finalize_v1_uploads_upload_id_finalize_post_payload import (
@@ -29,10 +54,12 @@ from .finalize_v1_uploads_upload_id_finalize_post_payload import (
 )
 from .global_spec import GlobalSpec
 from .global_spec_backend import GlobalSpecBackend
+from .global_spec_backend_options import GlobalSpecBackendOptions
 from .global_spec_formulation import GlobalSpecFormulation
 from .gps_coord import GpsCoord
 from .health_response import HealthResponse
 from .hierarchical_spec import HierarchicalSpec
+from .hierarchical_spec_backend_options import HierarchicalSpecBackendOptions
 from .http_validation_error import HTTPValidationError
 from .image_create import ImageCreate
 from .image_create_exif_type_0 import ImageCreateExifType0
@@ -42,8 +69,10 @@ from .image_observation_row import ImageObservationRow
 from .image_observations_response import ImageObservationsResponse
 from .image_out import ImageOut
 from .image_out_links_type_0 import ImageOutLinksType0
+from .image_pair_ref import ImagePairRef
 from .imu_measurement import ImuMeasurement
 from .incremental_spec import IncrementalSpec
+from .incremental_spec_backend_options import IncrementalSpecBackendOptions
 from .issue_key_body import IssueKeyBody
 from .issue_key_response import IssueKeyResponse
 from .job_accepted_response import JobAcceptedResponse
@@ -53,6 +82,10 @@ from .job_detail_status import JobDetailStatus
 from .job_out import JobOut
 from .job_out_links_type_0 import JobOutLinksType0
 from .job_out_status import JobOutStatus
+from .job_progress_out import JobProgressOut
+from .job_progress_out_latest_event_type_0 import JobProgressOutLatestEventType0
+from .job_progress_out_status import JobProgressOutStatus
+from .job_progress_out_task_counts import JobProgressOutTaskCounts
 from .kapture_import_request import KaptureImportRequest
 from .link import Link
 from .list_v1_jobs_get_status_type_0 import ListV1JobsGetStatusType0
@@ -60,6 +93,7 @@ from .local_source_spec import LocalSourceSpec
 from .localization_request import LocalizationRequest
 from .localization_request_sift_type_0 import LocalizationRequestSiftType0
 from .matcher_spec import MatcherSpec
+from .matcher_spec_backend_options import MatcherSpecBackendOptions
 from .matcher_spec_matcher_options import MatcherSpecMatcherOptions
 from .matcher_spec_type import MatcherSpecType
 from .matches_request import MatchesRequest
@@ -75,12 +109,15 @@ from .one_shot_localize_response_spec import OneShotLocalizeResponseSpec
 from .one_shot_runtime_info import OneShotRuntimeInfo
 from .oneshot_features_v1_oneshot_features_post_type import OneshotFeaturesV1OneshotFeaturesPostType
 from .oneshot_localize_v1_oneshot_localize_post_type import OneshotLocalizeV1OneshotLocalizePostType
+from .page_backend_action_out import PageBackendActionOut
+from .page_backend_config_schema_out import PageBackendConfigSchemaOut
 from .page_dataset_out import PageDatasetOut
 from .page_image_out import PageImageOut
 from .page_job_out import PageJobOut
 from .page_project_out import PageProjectOut
 from .page_sub_model_out import PageSubModelOut
 from .pairs_spec import PairsSpec
+from .pairs_spec_backend_options import PairsSpecBackendOptions
 from .pairs_spec_retrieval_strategy import PairsSpecRetrievalStrategy
 from .pairs_spec_strategy import PairsSpecStrategy
 from .pipeline_request import PipelineRequest
@@ -114,6 +151,7 @@ from .snapshot_list_response_links_type_0 import SnapshotListResponseLinksType0
 from .spec_response import SpecResponse
 from .spec_server_info import SpecServerInfo
 from .spherical_spec import SphericalSpec
+from .spherical_spec_backend_options import SphericalSpecBackendOptions
 from .sub_model_out import SubModelOut
 from .sub_model_out_links_type_0 import SubModelOutLinksType0
 from .sub_model_out_rigidity_type_0 import SubModelOutRigidityType0
@@ -121,6 +159,8 @@ from .sub_model_out_summary_type_0 import SubModelOutSummaryType0
 from .task_out import TaskOut
 from .task_out_outputs_ref_type_0 import TaskOutOutputsRefType0
 from .task_out_status import TaskOutStatus
+from .task_progress_out import TaskProgressOut
+from .task_progress_out_status import TaskProgressOutStatus
 from .upload_entry_spec import UploadEntrySpec
 from .upload_init import UploadInit
 from .upload_out import UploadOut
@@ -130,12 +170,35 @@ from .validation_error import ValidationError
 from .validation_error_context import ValidationErrorContext
 from .verify_request import VerifyRequest
 from .verify_spec import VerifySpec
+from .verify_spec_backend_options import VerifySpecBackendOptions
 from .version_response import VersionResponse
 from .video_frames_request import VideoFramesRequest
 
 __all__ = (
     "ApiKeyOut",
+    "BackendActionOut",
+    "BackendActionOutInputSchemaType0",
+    "BackendActionOutLinksType0",
+    "BackendActionOutMetadata",
+    "BackendActionOutOutputSchemaType0",
+    "BackendActionOutSideEffects",
+    "BackendActionOutStability",
+    "BackendActionRunRequest",
+    "BackendActionRunRequestInputs",
+    "BackendActionValidateRequest",
+    "BackendActionValidateRequestInputs",
+    "BackendActionValidateResponse",
+    "BackendActionValidateResponseNormalizedInputs",
+    "BackendActionValidationErrorOut",
+    "BackendConfigSchemaOut",
+    "BackendConfigSchemaOutDefaults",
+    "BackendConfigSchemaOutLinksType0",
+    "BackendConfigSchemaOutMetadata",
+    "BackendConfigSchemaOutOptionSchemaType0",
     "BackendInfoOut",
+    "BackendOut",
+    "BackendOutLinksType0",
+    "BackendOutRuntimeVersions",
     "BackendVersion",
     "BackendVersionRuntimeVersions",
     "BatchCreateImagesRequest",
@@ -154,16 +217,19 @@ __all__ = (
     "DatasetPatchRigConfigType0",
     "FeaturesRequest",
     "FeaturesSpec",
+    "FeaturesSpecBackendOptions",
     "FeaturesSpecExtractorOptions",
     "FeaturesSpecType",
     "FinalizeV1UploadsUploadIdFinalizePostPayload",
     "GlobalSpec",
     "GlobalSpecBackend",
+    "GlobalSpecBackendOptions",
     "GlobalSpecFormulation",
     "GpsCoord",
     "HTTPValidationError",
     "HealthResponse",
     "HierarchicalSpec",
+    "HierarchicalSpecBackendOptions",
     "ImageCreate",
     "ImageCreateExifType0",
     "ImageExifResponse",
@@ -172,8 +238,10 @@ __all__ = (
     "ImageObservationsResponse",
     "ImageOut",
     "ImageOutLinksType0",
+    "ImagePairRef",
     "ImuMeasurement",
     "IncrementalSpec",
+    "IncrementalSpecBackendOptions",
     "IssueKeyBody",
     "IssueKeyResponse",
     "JobAcceptedResponse",
@@ -183,6 +251,10 @@ __all__ = (
     "JobOut",
     "JobOutLinksType0",
     "JobOutStatus",
+    "JobProgressOut",
+    "JobProgressOutLatestEventType0",
+    "JobProgressOutStatus",
+    "JobProgressOutTaskCounts",
     "KaptureImportRequest",
     "Link",
     "ListV1JobsGetStatusType0",
@@ -190,6 +262,7 @@ __all__ = (
     "LocalizationRequest",
     "LocalizationRequestSiftType0",
     "MatcherSpec",
+    "MatcherSpecBackendOptions",
     "MatcherSpecMatcherOptions",
     "MatcherSpecType",
     "MatchesRequest",
@@ -205,12 +278,15 @@ __all__ = (
     "OneShotRuntimeInfo",
     "OneshotFeaturesV1OneshotFeaturesPostType",
     "OneshotLocalizeV1OneshotLocalizePostType",
+    "PageBackendActionOut",
+    "PageBackendConfigSchemaOut",
     "PageDatasetOut",
     "PageImageOut",
     "PageJobOut",
     "PageProjectOut",
     "PageSubModelOut",
     "PairsSpec",
+    "PairsSpecBackendOptions",
     "PairsSpecRetrievalStrategy",
     "PairsSpecStrategy",
     "PipelineRequest",
@@ -242,6 +318,7 @@ __all__ = (
     "SpecResponse",
     "SpecServerInfo",
     "SphericalSpec",
+    "SphericalSpecBackendOptions",
     "SubModelOut",
     "SubModelOutLinksType0",
     "SubModelOutRigidityType0",
@@ -249,6 +326,8 @@ __all__ = (
     "TaskOut",
     "TaskOutOutputsRefType0",
     "TaskOutStatus",
+    "TaskProgressOut",
+    "TaskProgressOutStatus",
     "UploadEntrySpec",
     "UploadInit",
     "UploadOut",
@@ -258,6 +337,7 @@ __all__ = (
     "ValidationErrorContext",
     "VerifyRequest",
     "VerifySpec",
+    "VerifySpecBackendOptions",
     "VersionResponse",
     "VideoFramesRequest",
 )

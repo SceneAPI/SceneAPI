@@ -75,7 +75,7 @@ def test_unsupported_capability_raises_501_shaped_error() -> None:
     with pytest.raises(CapabilityUnavailableError) as exc:
         backend.match(database_path=Path("/tmp/db"), mode="exhaustive", options={})
     assert exc.value.status_code == 501
-    assert exc.value.extras["capability"] == "matches.exhaustive"
+    assert exc.value.extras["capability"] == "pairs.exhaustive"
 
 
 def test_capabilities_endpoint_picks_up_swapped_backend() -> None:

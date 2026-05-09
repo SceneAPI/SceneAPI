@@ -11,7 +11,7 @@ T = TypeVar("T", bound="FeaturesSpecExtractorOptions")
 
 @_attrs_define
 class FeaturesSpecExtractorOptions:
-    """ """
+    """Deprecated compatibility alias for backend-specific extractor options. Prefer backend_options."""
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 

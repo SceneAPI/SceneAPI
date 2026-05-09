@@ -123,6 +123,11 @@ or custom forks live in their own packages, implement
 `register_backend("name", MyBackend)`. Adding a new backend is purely
 additive: no schema, endpoint, or worker-task signature changes.
 
+Reference implementations MAY also expose backend-native action
+catalogs. These are not portable capability flags: action ids such as
+`colmap.feature_extractor` describe tool-specific extensions and MUST
+NOT be advertised as canonical sfmapi capabilities.
+
 ---
 
 ## 3. Conventions
@@ -275,11 +280,13 @@ content-type: application/json
     "events.sse":                true,
     "spec.read":                 true,
 
-    "features.extract":          true,
-    "matches.exhaustive":        true,
-    "matches.sequential":        true,
-    "matches.spatial":           true,
-    "matches.vocabtree":         true,
+    "features.extract.sift":     true,
+    "pairs.exhaustive":          true,
+    "pairs.sequential":          true,
+    "pairs.spatial":             true,
+    "pairs.vocabtree":           true,
+    "pairs.explicit":            true,
+    "matchers.nn-mutual":        true,
     "matches.verify":            true,
 
     "map.incremental":           true,
@@ -675,7 +682,7 @@ A dataset with no registered images **MUST** be rejected with 422
 
 | Method | Path                                                | Body                                                | Returns |
 |--------|-----------------------------------------------------|-----------------------------------------------------|---------|
-| POST   | `/v1/projects/{pid}/pipelines/{recipe}`             | `{dataset_id, spec, features?, matches?, verify?}`  | 202 + LRO |
+| POST   | `/v1/projects/{pid}/pipelines/{recipe}`             | `{dataset_id, spec, features?, pairs?, matcher?, verify?}` | 202 + LRO |
 
 `recipe ∈ {incremental, global, hierarchical, spherical}` and
 `spec.kind` **MUST** match `recipe` or the request **MUST** be rejected
@@ -882,9 +889,11 @@ on `GET /v1/capabilities` to learn which the backend supports.
 {
   "version": 1,
   "type":    "sift" | "superpoint" | "aliked" | "disk" | "r2d2" | "d2net",
+  "provider": "colmap",
   "max_num_features": 8192,
   "use_gpu":          true,
-  "extractor_options": { /* extractor-specific overrides */ }
+  "backend_options":  { /* provider-specific overrides */ },
+  "extractor_options": { /* deprecated compatibility alias */ }
 }
 ```
 
@@ -904,13 +913,19 @@ Pair selection and per-pair matching are independent shapes
 {
   "version": 1,
   "strategy": "exhaustive" | "sequential" | "spatial" |
-              "vocabtree" | "retrieval" | "from_poses",
+              "vocabtree" | "retrieval" | "from_poses" | "explicit",
+  "provider":           "hloc",
   "overlap":            10,                 // sequential
   "vocab_tree_path":    "...",              // vocabtree
   "retrieval_strategy": "dhash" | "vlad" | "netvlad",
   "retrieval_k":        20,
   "overlap_distance_m": 5.0,                // spatial / from_poses
-  "max_angle_deg":      45.0
+  "max_angle_deg":      45.0,
+  "image_pairs": [
+    {"image_name1": "a.jpg", "image_name2": "b.jpg"}
+  ],
+  "pairs_blob_sha": "..."                   // explicit; pair list upload,
+  "backend_options": { /* provider-specific pair-selection options */ }
 }
 ```
 
@@ -920,17 +935,30 @@ Pair selection and per-pair matching are independent shapes
   "version": 1,
   "type":    "nn-mutual" | "nn-ratio" | "superglue" | "lightglue" |
              "loftr" | "mast3r",
+  "provider":        "hloc",
   "use_gpu":         true,
   "cross_check":     true,
   "max_ratio":       0.8,
   "max_distance":    0.7,
-  "matcher_options": { /* matcher-specific overrides */ }
+  "backend_options": { /* provider-specific matcher options */ },
+  "matcher_options": { /* deprecated compatibility alias */ }
 }
 ```
 
 Capability flags: `pairs.{strategy}` and `matchers.{type}`. The
+optional `provider` fields disambiguate implementations only when a
+deployment has multiple providers for the same portable capability
+(for example COLMAP SIFT and hloc SuperPoint/SuperGlue). For
+`strategy="explicit"`, exactly one of `image_pairs` or
+`pairs_blob_sha` is required; `pairs_blob_sha` references a finalized
+upload containing newline-delimited `image1 image2` rows. The
 match-stage request body is `{pairs: PairsSpec, matcher: MatcherSpec}`;
 the legacy combined `MatchesSpec` shape was retired.
+
+Portable sfmapi knobs stay as top-level fields. Backend-specific
+knobs go in `backend_options` and SHOULD be discovered from
+`GET /v1/backend/config-schemas` when that reference endpoint is
+available.
 
 #### 6.9.9 Modern export formats [Extension: `export.<format>`]
 
@@ -1056,7 +1084,40 @@ against the reconstruction's largest sealed snapshot. The task's
 Servers **MUST** return 404 when `recon_id` is unknown and 422 when
 `blob_sha` is missing or the wrong length (must be 64 hex chars).
 
-### 6.10 Admin [Reference-only]
+### 6.10 Backend extensions [Reference-only]
+
+This route group is shipped by the reference implementation for
+backend-native tools and option schemas that are useful to expose but
+are not part of the portable sfmapi standard. Conformance test suites
+MUST NOT require these endpoints.
+
+| Method | Path | Body / Query | Returns |
+|--------|------|--------------|---------|
+| GET | `/v1/backend` | - | active backend identity, runtime versions, extension links |
+| GET | `/v1/backend/actions` | `?page_token=&page_size=&include_schemas=false` | `Page<BackendAction>` |
+| GET | `/v1/backend/actions/{action_id}` | - | `BackendAction` with schemas |
+| POST | `/v1/backend/actions/{action_id}:validate` | `{inputs}` | validation result |
+| POST | `/v1/backend/actions/{action_id}:run` | `{project_id, inputs}` | 202 + `JobAcceptedResponse` |
+| GET | `/v1/backend/config-schemas` | `?page_token=&page_size=&include_schemas=true` | `Page<BackendConfigSchema>` |
+| GET | `/v1/backend/config-schemas/{config_id}` | - | `BackendConfigSchema` |
+
+Action ids SHOULD be stable dot-namespaced strings, such as
+`colmap.feature_extractor`. Clients MUST treat ids as opaque and
+URL-encode them when used as path segments. List responses SHOULD omit
+schemas by default; clients can pass `include_schemas=true` or fetch
+one action to build forms. `:run` creates a normal Job and uses the
+canonical accepted-job envelope with optional `action_id` and `backend`
+fields.
+
+Config schema ids are stable dot-namespaced strings, such as
+`colmap.features.sift`. Each schema applies to a portable stage
+(`features`, `pairs`, `matcher`, `verify`, `mapping`, or
+`bundle_adjustment`), an optional portable capability, and an optional
+provider. They describe valid keys inside `backend_options`; runtime
+paths such as databases, image roots, and output directories are still
+server-managed.
+
+### 6.11 Admin [Reference-only]
 
 This route group is shipped by the reference implementation for
 operator convenience but is **NOT** part of the spec. Auth is a
@@ -1342,23 +1403,31 @@ SSE clients **SHOULD** use `Last-Event-ID` to resume.
 // FeaturesSpec
 {
   "version": 1,
+  "type":                  "sift",
+  "provider":              null,
   "sift_max_num_features": 8192,
   "sift_first_octave":     -1,
   "use_gpu":               true,
-  "seed":                  0
+  "seed":                  0,
+  "backend_options":       {}
 }
 
 // PairsSpec — see §6.9.8.
 {
   "version":            1,
   "strategy":           "exhaustive" | "sequential" | "spatial" |
-                        "vocabtree" | "retrieval" | "from_poses",
+                        "vocabtree" | "retrieval" | "from_poses" | "explicit",
+  "provider":           null,
   "overlap":            10,
   "vocab_tree_path":    null,
   "retrieval_strategy": "vlad",
   "retrieval_k":        20,
   "overlap_distance_m": null,
-  "max_angle_deg":      null
+  "max_angle_deg":      null,
+  "image_pairs":        null,
+  "pairs_blob_sha":     null,
+  "pairs_blob_format":  "image_name_pairs_txt",
+  "backend_options":    {}
 }
 
 // MatcherSpec — see §6.9.8.
@@ -1366,25 +1435,29 @@ SSE clients **SHOULD** use `Last-Event-ID` to resume.
   "version":         1,
   "type":            "nn-mutual" | "nn-ratio" | "superglue" | "lightglue" |
                      "loftr" | "mast3r",
+  "provider":        null,
   "use_gpu":         true,
   "cross_check":     true,
   "max_ratio":       0.8,
   "max_distance":    0.7,
+  "backend_options": {},
   "matcher_options": {}
 }
 
 // VerifySpec
 {
   "version":          1,
+  "provider":         null,
   "use_gpu":          true,
-  "min_inlier_ratio": 0.25
+  "min_inlier_ratio": 0.25,
+  "backend_options":  {}
 }
 
 // PipelineSpec is a discriminated union on `kind`:
-{ "kind": "incremental",  "version": 1, "min_num_matches": 15, ... }
-{ "kind": "global",       "version": 1, "backend": "AUTO", ... }
-{ "kind": "hierarchical", "version": 1, "cluster_max_size": 100, ... }
-{ "kind": "spherical",    "version": 1, "panorama": true, ... }
+{ "kind": "incremental",  "version": 1, "provider": null, "backend_options": {}, "min_num_matches": 15, ... }
+{ "kind": "global",       "version": 1, "provider": null, "backend_options": {}, "backend": "AUTO", ... }
+{ "kind": "hierarchical", "version": 1, "provider": null, "backend_options": {}, "cluster_max_size": 100, ... }
+{ "kind": "spherical",    "version": 1, "provider": null, "backend_options": {}, "panorama": true, ... }
 ```
 
 ---
@@ -1491,7 +1564,8 @@ A *conforming server* **MUST** implement at minimum:
 A *conforming server* **MAY** additionally implement:
 
 - §6.8 pipeline recipes.
-- §6.10 admin / api-keys.
+- §6.10 backend actions and backend config schemas.
+- §6.11 admin / api-keys.
 - `local`/`s3` source kinds.
 - WebSocket peek+cancel.
 - Mask sets / segmentation (not yet specified).

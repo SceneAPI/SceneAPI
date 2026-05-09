@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -22,8 +23,23 @@ from app.core.config import get_settings
 from app.core.errors import SfmApiError
 from app.core.ids import new_id
 from app.core.logging import bind_request_context, configure_logging, get_logger
+from app.core.profiling import RequestProfilingMiddleware
 
 REQUEST_ID_HEADER = "X-Request-ID"
+
+
+def _request_validation_errors_for_wire(exc: RequestValidationError) -> list[dict[str, Any]]:
+    errors: list[dict[str, Any]] = []
+    for error in exc.errors():
+        item = dict(error)
+        ctx = item.get("ctx")
+        if isinstance(ctx, dict):
+            item["ctx"] = {
+                str(key): str(value) if isinstance(value, BaseException) else value
+                for key, value in ctx.items()
+            }
+        errors.append(item)
+    return errors
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
@@ -90,6 +106,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         register_backend("stub", StubBackend)
         os.environ.setdefault("SFMAPI_BACKEND", "stub")
         log.info("sfmapi.ephemeral_bootstrapped", workspace=str(settings.workspace_root))
+    if settings.warm_capabilities:
+        try:
+            from app.core.capabilities import detect_capabilities
+
+            detect_capabilities()
+            log.info("sfmapi.capabilities_warmed")
+        except Exception as exc:
+            log.warning("sfmapi.capabilities_warm_failed", error=str(exc))
     try:
         yield
     finally:
@@ -109,10 +133,29 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    app_lifespan = lifespan
+    mcp_app = None
+    if settings.mcp_api_enabled():
+        from app.mcp.server import create_mcp_server
+
+        mount_path = settings.normalized_mcp_mount_path()
+        mcp_asgi = create_mcp_server(
+            include_index_route=False,
+            endpoint_hint=mount_path,
+        ).http_app(path="/")
+        mcp_app = mcp_asgi
+
+        @asynccontextmanager
+        async def combined_lifespan(app: FastAPI) -> AsyncIterator[None]:
+            async with lifespan(app), mcp_asgi.lifespan(app):
+                yield
+
+        app_lifespan = combined_lifespan
+
     app = FastAPI(
         title="sfmapi",
         version=__version__,
-        lifespan=lifespan,
+        lifespan=app_lifespan,
     )
 
     origins = settings.cors_origin_list()
@@ -130,8 +173,12 @@ def create_app() -> FastAPI:
                 "Location",
                 "Link",
                 REQUEST_ID_HEADER,
+                "Server-Timing",
             ],
         )
+
+    if settings.profile_requests:
+        app.add_middleware(RequestProfilingMiddleware)
 
     # Request correlation must be the outermost user middleware so
     # the bound context covers every handler / exception handler and
@@ -160,7 +207,7 @@ def create_app() -> FastAPI:
         ``errors`` key so machine-readable consumers (form-validators,
         OpenAPI explorers) can still surface them per-field.
         """
-        errors = list(exc.errors())
+        errors = _request_validation_errors_for_wire(exc)
         # Build a short human summary so the ``detail`` field is not
         # an empty string. Take up to three field problems and join.
         first = errors[:3]
@@ -186,6 +233,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     from app.api.v1 import (
         admin,
+        backend,
         capabilities,
         datasets,
         images,
@@ -203,6 +251,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(projects.router, prefix="/v1")
+    app.include_router(backend.router, prefix="/v1")
     app.include_router(uploads.router, prefix="/v1")
     app.include_router(datasets.router, prefix="/v1")
     app.include_router(datasets.spherical_router, prefix="/v1")
@@ -220,6 +269,8 @@ def create_app() -> FastAPI:
     app.include_router(capabilities.router, prefix="/v1")
     app.include_router(oneshot.router, prefix="/v1")
     app.include_router(ws_jobs.router)
+    if mcp_app is not None:
+        app.mount(mount_path, mcp_app)
     return app
 
 

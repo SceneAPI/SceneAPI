@@ -51,6 +51,18 @@ flowchart LR
   `JobAcceptedResponse{job_id, task_ids[], …}` and a
   `Location: /v1/jobs/{id}` header. Cancel via `POST
   /v1/jobs/{jid}:cancel` (AIP-136 colon verb), not `DELETE`.
+  Poll `/v1/jobs/{jid}` for lifecycle state, `/v1/jobs/{jid}/progress`
+  for dashboard-friendly progress, or `/v1/jobs/{jid}/events` for the
+  full event stream.
+- **Capabilities vs actions**: `/v1/capabilities` advertises portable
+  sfmapi feature flags only. Backend-native commands live in
+  `/v1/backend/actions`; action ids are stable dot-namespaced strings.
+  Treat action ids as opaque and URL-encode them when building path
+  requests.
+- **Portable vs backend-specific options**: stage specs keep portable
+  knobs at the top level. Provider-specific knobs go in
+  `backend_options` and are discoverable from
+  `/v1/backend/config-schemas`.
 - **Idempotency**: `Idempotency-Key` header on `POST /v1/uploads`
   (replay-safe).
 - **Caching**: sealed snapshot files emit strong `ETag` +
@@ -69,8 +81,55 @@ flowchart LR
 | GET | `/version` | sfmapi + backend SHAs |
 | GET | `/spec` | Spec discovery envelope |
 | GET | `/v1/capabilities` | Backend feature flags (dot-notated names) |
+| GET | `/v1/backend` | Active backend identity, runtime versions, action links, and config-schema links |
 | GET | `/openapi.json` | OpenAPI 3.1 document |
 | GET | `/metrics` | Prometheus exposition |
+
+## Backend actions
+
+Backend actions expose backend-native tools, such as COLMAP or OpenMVG
+commands, without turning those tool names into portable sfmapi
+capabilities.
+
+| Method | Path | Body / Query | Returns |
+|---|---|---|---|
+| GET | `/v1/backend` | - | `BackendOut` |
+| GET | `/v1/backend/actions` | `?page_token=&page_size=&include_schemas=false` | `Page<BackendAction>` |
+| GET | `/v1/backend/actions/{action_id}` | - | `BackendAction` with schemas |
+| POST | `/v1/backend/actions/{action_id}:validate` | `{inputs}` | `BackendActionValidateResponse` |
+| POST | `/v1/backend/actions/{action_id}:run` | `{project_id, inputs}` | 202 + `JobAcceptedResponse` |
+| GET | `/v1/backend/config-schemas` | `?page_token=&page_size=&include_schemas=true` | `Page<BackendConfigSchema>` |
+| GET | `/v1/backend/config-schemas/{config_id}` | - | `BackendConfigSchema` |
+
+`GET /v1/backend/actions` omits `input_schema` and `output_schema` by
+default so catalog reads stay small. Pass `include_schemas=true`, or
+read one action, when a UI needs form fields. `:run` enqueues a normal
+`backend_action` job, returns `Location: /v1/jobs/{id}`, and includes
+optional `action_id` and `backend` fields in the accepted-job body.
+When `SFMAPI_MCP_MODE=local` or `SFMAPI_MCP_ENABLED=true` mounts MCP
+into the API process, `GET /v1/backend` also advertises `_links.mcp`
+and `_links.mcp_status`.
+
+Backend config schemas describe valid keys for `backend_options` on
+portable stage specs. They are scoped by `stage`, optional
+`capability`, and optional `provider`. sfmapi validates unknown keys
+and basic JSON types before queuing a job when the active backend
+publishes a matching schema; otherwise the options pass through and
+the backend validates them.
+
+Example feature extraction request:
+
+```json
+{
+  "spec": {
+    "type": "sift",
+    "max_num_features": 8192,
+    "backend_options": {
+      "SiftExtraction.peak_threshold": 0.01
+    }
+  }
+}
+```
 
 ## Projects
 
@@ -127,6 +186,28 @@ present.
 | POST | `/v1/datasets/{did}/features` | `{spec: FeaturesSpec}` | 202 + `JobAccepted` |
 | POST | `/v1/datasets/{did}/matches` | `{pairs: PairsSpec, matcher: MatcherSpec}` | 202 + `JobAccepted` |
 | POST | `/v1/datasets/{did}/verify` | `{spec: VerifySpec}` | 202 + `JobAccepted` |
+
+`PairsSpec` and `MatcherSpec` are independent. A deployment can select
+pairs with hloc-style retrieval and still match with a COLMAP or learned
+matcher. Use optional `provider` only when two installed providers expose
+the same portable capability.
+
+Explicit pair lists are portable:
+
+```json
+{
+  "pairs": {
+    "strategy": "explicit",
+    "image_pairs": [{"image_name1": "a.jpg", "image_name2": "b.jpg"}]
+  },
+  "matcher": {"type": "superglue", "provider": "hloc"}
+}
+```
+
+For large hloc/COLMAP pair files, upload the text file through
+`/v1/uploads`, finalize it, then pass
+`{"strategy": "explicit", "pairs_blob_sha": "<sha256>"}`. The file
+format is one `image1 image2` pair per line.
 
 ## Pipelines (recipe sugar)
 
@@ -190,6 +271,7 @@ Bytes are tempfile'd then deleted; no DB row is created. Capped at
 |---|---|---|---|
 | GET | `/v1/jobs` | `?page_token=&page_size=&status=` | `Page<JobOut>` |
 | GET | `/v1/jobs/{jid}` | — | `JobDetail` |
+| GET | `/v1/jobs/{jid}/progress` | — | `JobProgressOut` |
 | POST | `/v1/jobs/{jid}:cancel` | `?force=true` (optional) | `JobOut` |
 | POST | `/v1/jobs/{jid}:resume` | — | 202 + `JobOut` |
 | GET | `/v1/jobs/{jid}/events` | `Last-Event-ID` (optional) | SSE stream of `ProgressEvent` |
@@ -197,6 +279,32 @@ Bytes are tempfile'd then deleted; no DB row is created. Capped at
 
 `?status=` filters on the closed `JobStatus` set: `pending |
 running | succeeded | failed | cancelled | cancelled_dirty`.
+
+### Progress snapshots
+
+`GET /v1/jobs/{jid}/progress` is a compact polling view over durable
+task rows plus the latest persisted `ProgressEvent` records. It is
+intended for CLIs and dashboards that do not want to hold an SSE
+connection open.
+
+```bash
+curl -s "$BASE/v1/jobs/$JOB_ID/progress" \
+  | jq '{status, progress, current_task_kind, current_phase}'
+```
+
+Important fields:
+
+| Field | Meaning |
+|---|---|
+| `progress` | Best-effort fraction from `0.0` to `1.0`; terminal tasks count as complete |
+| `task_counts` | Count of tasks by lifecycle status |
+| `current_task_id` / `current_task_kind` | Running task when present, otherwise next pending task |
+| `current_phase` | Latest reported phase, such as `matching` or `global_positioning` |
+| `latest_event_id` | Durable cursor shared with the SSE stream |
+| `tasks[]` | Per-task status, progress, latest event kind, elapsed time, and optional `current` / `total` |
+
+Progress is telemetry. Clients should not use exact percentages for
+scheduling decisions; use `status` to decide whether work is terminal.
 
 ## Admin
 

@@ -66,11 +66,11 @@ def sync_detailed(
 
     Soft-delete: the row stays for audit, ``revoked_at`` is stamped
     and ``revoked=true`` shipped on the next read. Subsequent auth
-    attempts with that key will fail. Idempotent — revoking an
+    attempts with that key will fail. Idempotent; revoking an
     already-revoked key is a 200 no-op.
 
-    See WARNING on ``POST /v1/admin/api-keys`` — this route is
-    unauthenticated when ``auth_mode=none`` (the dev default).
+    See WARNING on ``POST /v1/admin/api-keys``; this route is an
+    operator route and must be protected by deployment infrastructure.
 
     Args:
         api_key_id (str):
@@ -105,11 +105,11 @@ def sync(
 
     Soft-delete: the row stays for audit, ``revoked_at`` is stamped
     and ``revoked=true`` shipped on the next read. Subsequent auth
-    attempts with that key will fail. Idempotent — revoking an
+    attempts with that key will fail. Idempotent; revoking an
     already-revoked key is a 200 no-op.
 
-    See WARNING on ``POST /v1/admin/api-keys`` — this route is
-    unauthenticated when ``auth_mode=none`` (the dev default).
+    See WARNING on ``POST /v1/admin/api-keys``; this route is an
+    operator route and must be protected by deployment infrastructure.
 
     Args:
         api_key_id (str):
@@ -139,11 +139,11 @@ async def asyncio_detailed(
 
     Soft-delete: the row stays for audit, ``revoked_at`` is stamped
     and ``revoked=true`` shipped on the next read. Subsequent auth
-    attempts with that key will fail. Idempotent — revoking an
+    attempts with that key will fail. Idempotent; revoking an
     already-revoked key is a 200 no-op.
 
-    See WARNING on ``POST /v1/admin/api-keys`` — this route is
-    unauthenticated when ``auth_mode=none`` (the dev default).
+    See WARNING on ``POST /v1/admin/api-keys``; this route is an
+    operator route and must be protected by deployment infrastructure.
 
     Args:
         api_key_id (str):
@@ -176,11 +176,11 @@ async def asyncio(
 
     Soft-delete: the row stays for audit, ``revoked_at`` is stamped
     and ``revoked=true`` shipped on the next read. Subsequent auth
-    attempts with that key will fail. Idempotent — revoking an
+    attempts with that key will fail. Idempotent; revoking an
     already-revoked key is a 200 no-op.
 
-    See WARNING on ``POST /v1/admin/api-keys`` — this route is
-    unauthenticated when ``auth_mode=none`` (the dev default).
+    See WARNING on ``POST /v1/admin/api-keys``; this route is an
+    operator route and must be protected by deployment infrastructure.
 
     Args:
         api_key_id (str):

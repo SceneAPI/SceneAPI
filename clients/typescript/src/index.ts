@@ -44,6 +44,7 @@ export type {
   FeatureType,
   FeaturesSpec,
   PairStrategy,
+  ImagePairRef,
   PairsSpec,
   MatcherType,
   MatcherSpec,

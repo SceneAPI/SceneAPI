@@ -53,6 +53,7 @@ Phase = Literal[
     "segment",
     "export",
     "vlad_index",
+    "backend_action",
 ]
 
 

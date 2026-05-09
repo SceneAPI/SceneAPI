@@ -10,6 +10,7 @@ from ..models.matcher_spec_type import MatcherSpecType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.matcher_spec_backend_options import MatcherSpecBackendOptions
     from ..models.matcher_spec_matcher_options import MatcherSpecMatcherOptions
 
 
@@ -28,19 +29,26 @@ class MatcherSpec:
         Attributes:
             version (Literal[1] | Unset):  Default: 1.
             type_ (MatcherSpecType | Unset):  Default: MatcherSpecType.NN_MUTUAL.
+            provider (None | str | Unset): Optional backend implementation selector when more than one registered provider
+                can run the same matcher type.
             use_gpu (bool | Unset):  Default: True.
             cross_check (bool | Unset):  Default: True.
             max_ratio (float | Unset):  Default: 0.8.
             max_distance (float | Unset):  Default: 0.7.
-            matcher_options (MatcherSpecMatcherOptions | Unset):
+            backend_options (MatcherSpecBackendOptions | Unset): Backend-specific matcher options. Discover supported keys
+                with GET /v1/backend/config-schemas.
+            matcher_options (MatcherSpecMatcherOptions | Unset): Deprecated compatibility alias for backend-specific matcher
+                options. Prefer backend_options.
     """
 
     version: Literal[1] | Unset = 1
     type_: MatcherSpecType | Unset = MatcherSpecType.NN_MUTUAL
+    provider: None | str | Unset = UNSET
     use_gpu: bool | Unset = True
     cross_check: bool | Unset = True
     max_ratio: float | Unset = 0.8
     max_distance: float | Unset = 0.7
+    backend_options: MatcherSpecBackendOptions | Unset = UNSET
     matcher_options: MatcherSpecMatcherOptions | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -51,6 +59,12 @@ class MatcherSpec:
         if not isinstance(self.type_, Unset):
             type_ = self.type_.value
 
+        provider: None | str | Unset
+        if isinstance(self.provider, Unset):
+            provider = UNSET
+        else:
+            provider = self.provider
+
         use_gpu = self.use_gpu
 
         cross_check = self.cross_check
@@ -58,6 +72,10 @@ class MatcherSpec:
         max_ratio = self.max_ratio
 
         max_distance = self.max_distance
+
+        backend_options: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.backend_options, Unset):
+            backend_options = self.backend_options.to_dict()
 
         matcher_options: dict[str, Any] | Unset = UNSET
         if not isinstance(self.matcher_options, Unset):
@@ -70,6 +88,8 @@ class MatcherSpec:
             field_dict["version"] = version
         if type_ is not UNSET:
             field_dict["type"] = type_
+        if provider is not UNSET:
+            field_dict["provider"] = provider
         if use_gpu is not UNSET:
             field_dict["use_gpu"] = use_gpu
         if cross_check is not UNSET:
@@ -78,6 +98,8 @@ class MatcherSpec:
             field_dict["max_ratio"] = max_ratio
         if max_distance is not UNSET:
             field_dict["max_distance"] = max_distance
+        if backend_options is not UNSET:
+            field_dict["backend_options"] = backend_options
         if matcher_options is not UNSET:
             field_dict["matcher_options"] = matcher_options
 
@@ -85,6 +107,7 @@ class MatcherSpec:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.matcher_spec_backend_options import MatcherSpecBackendOptions
         from ..models.matcher_spec_matcher_options import MatcherSpecMatcherOptions
 
         d = dict(src_dict)
@@ -99,6 +122,15 @@ class MatcherSpec:
         else:
             type_ = MatcherSpecType(_type_)
 
+        def _parse_provider(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        provider = _parse_provider(d.pop("provider", UNSET))
+
         use_gpu = d.pop("use_gpu", UNSET)
 
         cross_check = d.pop("cross_check", UNSET)
@@ -106,6 +138,13 @@ class MatcherSpec:
         max_ratio = d.pop("max_ratio", UNSET)
 
         max_distance = d.pop("max_distance", UNSET)
+
+        _backend_options = d.pop("backend_options", UNSET)
+        backend_options: MatcherSpecBackendOptions | Unset
+        if isinstance(_backend_options, Unset):
+            backend_options = UNSET
+        else:
+            backend_options = MatcherSpecBackendOptions.from_dict(_backend_options)
 
         _matcher_options = d.pop("matcher_options", UNSET)
         matcher_options: MatcherSpecMatcherOptions | Unset
@@ -117,10 +156,12 @@ class MatcherSpec:
         matcher_spec = cls(
             version=version,
             type_=type_,
+            provider=provider,
             use_gpu=use_gpu,
             cross_check=cross_check,
             max_ratio=max_ratio,
             max_distance=max_distance,
+            backend_options=backend_options,
             matcher_options=matcher_options,
         )
 

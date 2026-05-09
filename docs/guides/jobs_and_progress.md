@@ -76,6 +76,71 @@ sinks:
 The SSE endpoint streams from the DB (cursor on `event_id`) and
 forwards new events live until the client disconnects.
 
+## Choosing a progress endpoint
+
+Use the three job reads for different purposes:
+
+| Endpoint | Use when |
+|---|---|
+| `GET /v1/jobs/{id}` | You need canonical lifecycle state, task outputs, or final errors |
+| `GET /v1/jobs/{id}/progress` | You need a small polling response for a CLI, web UI, or dashboard |
+| `GET /v1/jobs/{id}/events` | You need every phase, metric, warning, log line, or snapshot event |
+
+For polling clients, `GET /v1/jobs/{id}/progress` returns the current
+job status, task counts, active task, latest event, and a best-effort
+`progress` fraction. Use it for CLIs and dashboards that need a
+snapshot rather than a live stream.
+
+The progress fraction is computed from task state plus the latest
+`phase_progress` event for each task. Terminal tasks count as `1.0`.
+Running tasks use `current / total` when the backend reports both
+values. Pending tasks and tasks with no measurable total count as
+`0.0`. This makes the field stable for UI display without making it a
+scheduler guarantee.
+
+Example snapshot:
+
+```json
+{
+  "job_id": "01J...",
+  "recipe": "global",
+  "status": "running",
+  "progress": 0.42,
+  "total_tasks": 4,
+  "completed_tasks": 2,
+  "task_counts": {"succeeded": 2, "running": 1, "pending": 1},
+  "current_task_kind": "match",
+  "current_phase": "matching",
+  "latest_event_id": 182,
+  "tasks": [
+    {"kind": "extract", "status": "succeeded", "progress": 1.0},
+    {"kind": "match", "status": "running", "progress": 0.68}
+  ]
+}
+```
+
+## Backend-reported progress
+
+Backends may opt in to fine-grained percentages by accepting an
+optional `progress` keyword on long-running methods. Workers pass this
+reporter only when the method signature supports it, then persist the
+reported `phase_progress` events. Report counts (`current` / `total`)
+where possible; the API derives the `0.0` to `1.0` fraction from the
+latest durable event.
+
+Good totals are domain-specific:
+
+| Stage | Useful total |
+|---|---|
+| Feature extraction | Number of input images |
+| Exhaustive matching | Number of image pairs, `n * (n - 1) / 2` |
+| Sequential matching | Number of selected neighboring pairs |
+| Geometric verification | Number of candidate match pairs |
+| Mapping | Registered images or backend-specific milestones when available |
+
+Backend progress must remain best-effort. A reporter failure should be
+logged or ignored by the backend, not fail the reconstruction job.
+
 ```{eval-rst}
 .. automodule:: app.schemas.progress_event
    :members:

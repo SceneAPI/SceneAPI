@@ -15,8 +15,8 @@ from app.core.tenancy import current_tenant
 from app.db.models import JobEvent, Task
 from app.db.session import get_db
 from app.schemas.api.common import Page, to_out
-from app.schemas.api.jobs import JobDetail, JobOut, JobStatus, TaskOut
-from app.services import job_service
+from app.schemas.api.jobs import JobDetail, JobOut, JobProgressOut, JobStatus, TaskOut
+from app.services import job_progress_service, job_service
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -77,6 +77,27 @@ async def get(
     )
     return JobDetail.model_validate(j).model_copy(
         update={"tasks": [to_out(TaskOut, t) for t in tasks]}
+    )
+
+
+@router.get("/{job_id}/progress", response_model=JobProgressOut)
+async def progress(
+    job_id: str,
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
+) -> JobProgressOut:
+    """Return a compact progress snapshot for a job.
+
+    This is the polling counterpart to ``GET /v1/jobs/{job_id}/events``.
+    It always works from durable state: task lifecycle rows plus the
+    latest persisted progress events. ``progress`` is a best-effort
+    fraction, so clients should treat it as UI telemetry rather than a
+    scheduling guarantee.
+    """
+    return await job_progress_service.get_job_progress(
+        session,
+        tenant_id=tenant_id,
+        job_id=job_id,
     )
 
 

@@ -64,3 +64,30 @@ build metadata.
 | `SFMAPI_UPLOAD_EXPIRY_HOURS` | 24 | Open uploads GC'd after this |
 | `SFMAPI_BACKEND` | unset | Registered backend name to select at startup |
 | `SFMAPI_RUNTIME_VERSION_ID` | `unknown` | Extra cache-key salt exposed in `/v1/version` |
+| `SFMAPI_PROFILE_REQUESTS` | false | Enable per-request cProfile instrumentation |
+| `SFMAPI_PROFILE_MIN_MS` | 0 | Only log profiles for requests at/above this duration |
+| `SFMAPI_PROFILE_TOP_N` | 20 | Number of profiler rows included in each profile log |
+| `SFMAPI_PROFILE_SORT_BY` | `cumulative` | pstats sort key: `cumulative`, `tottime`, `time`, or `calls` |
+| `SFMAPI_PROFILE_DIR` | unset | Optional directory for raw `.prof` request dumps |
+| `SFMAPI_WARM_CAPABILITIES` | false | Probe and cache `/v1/capabilities` during startup |
+| `SFMAPI_MCP_MODE` | `off` | MCP mode: `off`, `local`, `stdio`, or `http`; `local` mounts MCP into the API process |
+| `SFMAPI_MCP_ENABLED` | false | Backward-compatible alias for mounting the optional FastMCP adapter into the API process |
+| `SFMAPI_MCP_MOUNT_PATH` | `/mcp` | Mount path for the MCP endpoint and status routes |
+| `SFMAPI_MCP_TENANT_ID` | unset | Required MCP tenant scope when `SFMAPI_AUTH_MODE=api_key` |
+
+## Request profiling
+
+Enable request profiling only during diagnosis:
+
+```bash
+SFMAPI_PROFILE_REQUESTS=true \
+SFMAPI_PROFILE_MIN_MS=100 \
+SFMAPI_PROFILE_DIR=./profiles \
+uv run uvicorn app.main:app
+```
+
+Profiled responses include a `Server-Timing: app;dur=<ms>` header.
+Requests at or above `SFMAPI_PROFILE_MIN_MS` emit a structured
+`request.profiled` log with the top functions from `cProfile`; when
+`SFMAPI_PROFILE_DIR` is set, the same threshold controls raw `.prof`
+dumps. Inspect dumps with `python -m pstats ./profiles/<file>.prof`.

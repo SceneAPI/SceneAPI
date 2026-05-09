@@ -57,11 +57,11 @@ def sync_detailed(
 
      List every API key on file (active + revoked).
 
-    Raw-key material is NEVER returned — use :func:`issue` and capture
+    Raw-key material is NEVER returned; use :func:`issue` and capture
     the value at creation time. Ordered by ``created_at`` ascending.
 
-    See WARNING on ``POST /v1/admin/api-keys`` — this route is
-    unauthenticated when ``auth_mode=none`` (the dev default).
+    See WARNING on ``POST /v1/admin/api-keys``; this route is an
+    operator route and must be protected by deployment infrastructure.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -88,11 +88,11 @@ def sync(
 
      List every API key on file (active + revoked).
 
-    Raw-key material is NEVER returned — use :func:`issue` and capture
+    Raw-key material is NEVER returned; use :func:`issue` and capture
     the value at creation time. Ordered by ``created_at`` ascending.
 
-    See WARNING on ``POST /v1/admin/api-keys`` — this route is
-    unauthenticated when ``auth_mode=none`` (the dev default).
+    See WARNING on ``POST /v1/admin/api-keys``; this route is an
+    operator route and must be protected by deployment infrastructure.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -115,11 +115,11 @@ async def asyncio_detailed(
 
      List every API key on file (active + revoked).
 
-    Raw-key material is NEVER returned — use :func:`issue` and capture
+    Raw-key material is NEVER returned; use :func:`issue` and capture
     the value at creation time. Ordered by ``created_at`` ascending.
 
-    See WARNING on ``POST /v1/admin/api-keys`` — this route is
-    unauthenticated when ``auth_mode=none`` (the dev default).
+    See WARNING on ``POST /v1/admin/api-keys``; this route is an
+    operator route and must be protected by deployment infrastructure.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -144,11 +144,11 @@ async def asyncio(
 
      List every API key on file (active + revoked).
 
-    Raw-key material is NEVER returned — use :func:`issue` and capture
+    Raw-key material is NEVER returned; use :func:`issue` and capture
     the value at creation time. Ordered by ``created_at`` ascending.
 
-    See WARNING on ``POST /v1/admin/api-keys`` — this route is
-    unauthenticated when ``auth_mode=none`` (the dev default).
+    See WARNING on ``POST /v1/admin/api-keys``; this route is an
+    operator route and must be protected by deployment infrastructure.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
