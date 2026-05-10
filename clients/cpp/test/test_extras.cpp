@@ -122,10 +122,20 @@ static void TestSpecs() {
   sfmapi::MatcherSpec ms;
   ms.type = sfmapi::kMatcherLightGlue;
   ms.backend_options["LightGlue.depth_confidence"] = 0.9;
+  sfmapi::ArtifactRef features_ref;
+  features_ref.artifact_id = "01HZARTIFACT000000000000";
+  features_ref.kind = "features.database";
+  ms.input_artifacts["features"] = features_ref;
   auto ms_json = sfmapi::Json::Parse(ms.ToJsonString());
   CHECK(ms_json["type"].as_string() == "lightglue", "matcher.type");
   CHECK(ms_json["backend_options"]["LightGlue.depth_confidence"].as_number() == 0.9,
         "matcher.backend_options");
+  CHECK(ms_json["input_artifacts"]["features"]["artifact_id"].as_string() ==
+            "01HZARTIFACT000000000000",
+        "matcher input_artifacts artifact_id");
+  CHECK(ms_json["input_artifacts"]["features"]["kind"].as_string() ==
+            "features.database",
+        "matcher input_artifacts kind");
 
   sfmapi::BundleAdjustmentSpec ba;
   ba.mode = sfmapi::kBaModeFeaturemetric;
@@ -149,6 +159,48 @@ static void TestSpecs() {
   CHECK(sp_json["panorama"].as_bool() == true, "sp.panorama default");
 
   std::printf("  specs ToJson OK\n");
+}
+
+static void TestArtifactDecoders() {
+  auto make_json = [](int status, std::string body) {
+    sfmapi::HttpResponse r;
+    r.status = status;
+    r.headers["content-type"] = "application/json";
+    r.body.assign(body.begin(), body.end());
+    return r;
+  };
+
+  auto kind_resp = make_json(
+      200,
+      R"({"items":[{"kind":"features.database","title":"Feature database","description":"COLMAP database","durable":true}],"next_page_token":null})");
+  auto kinds = sfmapi::Client::ParseArtifactKindPage(kind_resp);
+  CHECK(kinds.items.size() == 1, "artifact kind page item");
+  CHECK(kinds.items[0].kind == "features.database", "artifact kind");
+  CHECK(kinds.items[0].durable, "artifact kind durable");
+
+  auto artifact_resp = make_json(
+      200,
+      R"({"artifact_id":"01HZARTIFACT000000000000","job_id":"01HZJOB000000000000000000","task_id":"01HZTASK0000000000000000A","recon_id":null,"dataset_id":"01HZDATASET0000000000000","kind":"features.database","name":"database","uri":"file:///tmp/database.db","media_type":"application/vnd.sqlite3","summary":{"num_images":2},"metadata":{"backend":"colmap"},"created_at":"2026-05-10T00:00:00Z","_links":{"self":{"href":"/v1/artifacts/01HZARTIFACT000000000000"}}})");
+  auto artifact = sfmapi::Client::ParseStageArtifact(artifact_resp);
+  CHECK(artifact.artifact_id == "01HZARTIFACT000000000000", "artifact_id");
+  CHECK(artifact.kind == "features.database", "artifact kind");
+  CHECK(artifact.dataset_id == "01HZDATASET0000000000000", "artifact dataset");
+  CHECK(artifact.uri == "file:///tmp/database.db", "artifact uri");
+  CHECK(artifact.summary_json.find("num_images") != std::string::npos,
+        "artifact summary json");
+  CHECK(artifact.metadata_json.find("colmap") != std::string::npos,
+        "artifact metadata json");
+  CHECK(artifact.links_json.find("/v1/artifacts/") != std::string::npos,
+        "artifact links json");
+
+  auto artifact_page = make_json(
+      200,
+      R"({"items":[{"artifact_id":"01HZARTIFACT000000000000","job_id":"01HZJOB000000000000000000","task_id":"01HZTASK0000000000000000A","kind":"matches.raw","created_at":"2026-05-10T00:00:00Z"}],"next_page_token":"next"})");
+  auto page = sfmapi::Client::ParseStageArtifactPage(artifact_page);
+  CHECK(page.items.size() == 1, "artifact page item");
+  CHECK(page.items[0].kind == "matches.raw", "artifact page kind");
+  CHECK(page.next_page_token == "next", "artifact page token");
+  std::printf("  artifact decoders OK\n");
 }
 
 // ---- sse.hpp -----------------------------------------------------------
@@ -392,6 +444,7 @@ int main() {
   TestJsonErrors();
   TestJsonBuilder();
   TestSpecs();
+  TestArtifactDecoders();
   TestSseParse();
   TestSseCrLf();
   TestUploadFile();

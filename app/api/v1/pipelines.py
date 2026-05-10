@@ -6,7 +6,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1._helpers import accepted_response
@@ -14,6 +14,7 @@ from app.core.errors import ValidationError
 from app.core.tenancy import current_tenant
 from app.db.session import get_db
 from app.orchestrator.scheduler import submit_job_dag
+from app.schemas.api.artifacts import ArtifactInputMap
 from app.schemas.api.jobs import JobAcceptedResponse
 from app.schemas.pipeline_spec import (
     FeaturesSpec,
@@ -26,7 +27,7 @@ from app.schemas.pipeline_spec import (
     SphericalSpec,
     VerifySpec,
 )
-from app.services import dataset_service, sfm_stage_service
+from app.services import artifact_service, dataset_service, sfm_stage_service
 
 router = APIRouter(
     prefix="/projects/{project_id}/pipelines",
@@ -48,6 +49,14 @@ class PipelineRequest(BaseModel):
     matcher: MatcherSpec = MatcherSpec()
     verify: VerifySpec = VerifySpec()
     spec: PipelineSpec
+    input_artifacts: ArtifactInputMap = Field(
+        default_factory=dict,
+        description=(
+            "Optional role-keyed artifact references shared by the recipe. "
+            "Stage-local input_artifacts on features, pairs, matcher, verify, "
+            "or spec are merged with this map."
+        ),
+    )
 
 
 _RECIPE_TO_KIND = {
@@ -95,6 +104,14 @@ async def run_recipe(
         "pairs": body.pairs.model_dump(mode="json"),
         "matcher": body.matcher.model_dump(mode="json"),
     }
+    input_artifacts = {
+        **body.features.input_artifacts,
+        **body.pairs.input_artifacts,
+        **body.matcher.input_artifacts,
+        **body.verify.input_artifacts,
+        **body.spec.input_artifacts,
+        **body.input_artifacts,
+    }
     sfm_stage_service.validate_recipe_stage_configs(
         features_spec=features_spec,
         matches_spec=matches_spec,
@@ -111,6 +128,12 @@ async def run_recipe(
     pose_priors = await sfm_stage_service.collect_pose_priors_by_name(
         session, tenant_id=tenant_id, dataset_id=d.dataset_id
     )
+    resolved_artifacts = await artifact_service.resolve_input_artifacts(
+        session,
+        tenant_id=tenant_id,
+        dataset_id=d.dataset_id,
+        input_artifacts=input_artifacts,
+    )
     nodes = sfm_stage_service.build_recipe_dag(
         project_id=project_id,
         dataset_id=d.dataset_id,
@@ -122,6 +145,7 @@ async def run_recipe(
         verify_spec=verify_spec,
         pipeline_spec=spec_dict,
         pose_priors=pose_priors or None,
+        input_artifacts=resolved_artifacts,
     )
     job_id, tasks = await submit_job_dag(
         session,

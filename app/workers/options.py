@@ -16,6 +16,7 @@ _STRUCTURED_OPTION_KEYS = {
     "matcher_options",
     "legacy_options",
     "portable",
+    "input_artifacts",
 }
 
 

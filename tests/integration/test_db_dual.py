@@ -37,11 +37,12 @@ async def test_tables_exist_with_tenant_id(db_setup) -> None:
         "image",
         "upload",
         "runtime_version",
+        "stage_artifact",
     }
     have = set(info["__tables__"]["names"])
     assert expected.issubset(have), have
 
-    for table in {"project", "image_source", "dataset", "image", "upload"}:
+    for table in {"project", "image_source", "dataset", "image", "upload", "stage_artifact"}:
         cols = info[table]
         assert "tenant_id" in cols, f"{table} missing tenant_id"
         assert cols["tenant_id"]["nullable"] is False, f"{table}.tenant_id must be NOT NULL"

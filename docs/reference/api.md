@@ -184,8 +184,8 @@ present.
 | Method | Path | Body | Returns |
 |---|---|---|---|
 | POST | `/v1/datasets/{did}/features` | `{spec: FeaturesSpec}` | 202 + `JobAccepted` |
-| POST | `/v1/datasets/{did}/matches` | `{pairs: PairsSpec, matcher: MatcherSpec}` | 202 + `JobAccepted` |
-| POST | `/v1/datasets/{did}/verify` | `{spec: VerifySpec}` | 202 + `JobAccepted` |
+| POST | `/v1/datasets/{did}/matches` | `{pairs: PairsSpec, matcher: MatcherSpec, input_artifacts?}` | 202 + `JobAccepted` |
+| POST | `/v1/datasets/{did}/verify` | `{spec: VerifySpec, input_artifacts?}` | 202 + `JobAccepted` |
 
 `PairsSpec` and `MatcherSpec` are independent. A deployment can select
 pairs with hloc-style retrieval and still match with a COLMAP or learned
@@ -209,27 +209,71 @@ For large hloc/COLMAP pair files, upload the text file through
 `{"strategy": "explicit", "pairs_blob_sha": "<sha256>"}`. The file
 format is one `image1 image2` pair per line.
 
+Use `input_artifacts` to select a previous stage output, for example
+`{"features": {"artifact_id": "...", "kind": "features.database"}}`
+when matching against a specific feature database.
+
 ## Pipelines (recipe sugar)
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| POST | `/v1/projects/{pid}/pipelines/{recipe}` | `{dataset_id, features?, pairs?, matcher?, verify?, spec: PipelineSpec}` | 202 + `JobAccepted` |
+| POST | `/v1/projects/{pid}/pipelines/{recipe}` | `{dataset_id, features?, pairs?, matcher?, verify?, spec: PipelineSpec, input_artifacts?}` | 202 + `JobAccepted` |
 
 `recipe ∈ {incremental, global, hierarchical, spherical}` and
 `spec.kind` MUST match.
 
 ## Reconstructions / submodels / snapshots
 
-| Method | Path | Returns |
-|---|---|---|
-| GET | `/v1/reconstructions/{rid}` | `Reconstruction` |
-| GET | `/v1/reconstructions/{rid}/submodels` | `Page<SubModel>` |
-| GET | `/v1/submodels/{smid}` | `SubModel` |
-| GET | `/v1/reconstructions/{rid}/snapshots` | `SnapshotListResponse` |
-| GET | `/v1/reconstructions/{rid}/snapshots/{seq}/{name}` | file bytes |
-| GET | `/v1/reconstructions/{rid}/two_view_geometries.json` | JSON |
-| GET | `/v1/reconstructions/{rid}/correspondence_graph.json` | JSON |
+| Method | Path | Query / Body | Returns |
+|---|---|---|---|
+| GET | `/v1/reconstructions/{rid}` | - | `Reconstruction` |
+| GET | `/v1/reconstructions/{rid}/artifacts` | `?page_token=&page_size=&kind=&task_id=&name=` | `Page<StageArtifact>` |
+| GET | `/v1/reconstructions/{rid}/submodels` | `?page_token=&page_size=` | `Page<SubModel>` |
+| GET | `/v1/submodels/{smid}` | - | `SubModel` |
+| GET | `/v1/reconstructions/{rid}/snapshots` | - | `SnapshotListResponse` |
+| GET | `/v1/reconstructions/{rid}/snapshots/{seq}/{name}` | `?download=true` | file bytes |
+| GET | `/v1/reconstructions/{rid}/snapshots/{seq}/submodels/{idx}/{name}` | `?download=true` | component file bytes |
+| GET | `/v1/reconstructions/{rid}/two_view_geometries.json` | - | JSON |
+| GET | `/v1/reconstructions/{rid}/correspondence_graph.json` | - | JSON |
 | POST | `/v1/reconstructions:merge` | `MergeRequest` | 202 + `JobAccepted` |
+
+Mapping jobs persist one `SubModel` per disconnected component. The
+root snapshot file routes expose the largest/default model; use the
+submodel snapshot route for a specific component.
+
+Stage artifacts are typed outputs produced by worker stages. They are
+the selection surface for ambiguous pipelines, for example when a job
+produces both COLMAP SIFT matches and hloc/LightGlue matches, or when
+verification emits several candidate pair sets.
+
+## Artifacts
+
+| Method | Path | Query | Returns |
+|---|---|---|---|
+| GET | `/v1/artifacts/kinds` | - | `Page<ArtifactKind>` |
+| GET | `/v1/artifacts/{artifact_id}` | - | `StageArtifact` |
+| GET | `/v1/artifacts/{artifact_id}/content` | `?download=true` | file bytes |
+
+`StageArtifact.uri` is metadata, not a portability contract. Use
+`/content` for local server-managed file artifacts. Remote URIs and
+paths outside sfmapi-managed storage are not dereferenced by the API.
+
+Stage submissions can pass selected artifacts through
+`input_artifacts`, for example:
+
+```json
+{
+  "input_artifacts": {
+    "verified_matches": {
+      "artifact_id": "01HZ...",
+      "kind": "matches.verified_database"
+    }
+  }
+}
+```
+
+Core roles validate expected kinds before job creation. Unknown
+backend-specific roles are allowed if they use the same dot-key syntax.
 
 `{name}` is one of `cameras.json | images.json | rigs.json |
 frames.json | pose_graph.json | summary.json | points.bin |
@@ -270,6 +314,7 @@ Bytes are tempfile'd then deleted; no DB row is created. Capped at
 | Method | Path | Body | Returns |
 |---|---|---|---|
 | GET | `/v1/jobs` | `?page_token=&page_size=&status=` | `Page<JobOut>` |
+| GET | `/v1/jobs/{jid}/artifacts` | `?page_token=&page_size=&kind=&task_id=&name=` | `Page<StageArtifact>` |
 | GET | `/v1/jobs/{jid}` | — | `JobDetail` |
 | GET | `/v1/jobs/{jid}/progress` | — | `JobProgressOut` |
 | POST | `/v1/jobs/{jid}:cancel` | `?force=true` (optional) | `JobOut` |

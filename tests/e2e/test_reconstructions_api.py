@@ -4,7 +4,7 @@ import pytest
 
 from app.core.hashing import canonical_json, content_address
 from app.core.ids import new_id
-from app.db.models import Reconstruction, RuntimeVersion, SubModel
+from app.db.models import Job, Reconstruction, RuntimeVersion, StageArtifact, SubModel, Task
 from app.storage.snapshots import SnapshotStore
 
 pytestmark = pytest.mark.e2e
@@ -58,6 +58,8 @@ async def test_get_reconstruction_and_list_submodels(client, session, tmp_path) 
         recon_id=rid,
         idx=0,
         summary_json={"num_reg_images": 4, "num_points3D": 100},
+        snapshot_seq=1,
+        sealed_path="/tmp/snapshot/0",
     )
     session.add(sm)
     await session.commit()
@@ -74,6 +76,10 @@ async def test_get_reconstruction_and_list_submodels(client, session, tmp_path) 
     assert len(page["items"]) == 1
     assert page["items"][0]["summary"]["num_reg_images"] == 4
     assert page["items"][0]["_links"]["self"]["href"].startswith("/v1/submodels/")
+    assert (
+        page["items"][0]["_links"]["cameras"]["href"]
+        == f"/v1/reconstructions/{rid}/snapshots/1/submodels/0/cameras.json"
+    )
 
 
 async def test_snapshot_endpoints_serve_sealed_files(client, session) -> None:
@@ -109,3 +115,101 @@ async def test_snapshot_endpoints_serve_sealed_files(client, session) -> None:
 
     missing = await client.get(f"/v1/reconstructions/{rid}/snapshots/1/does_not_exist.json")
     assert missing.status_code == 404
+
+
+async def test_submodel_snapshot_endpoint_serves_component_files(client, session) -> None:
+    from app.core.config import get_settings
+    from app.core.paths import Paths
+
+    pid, _did, rid = await _seed_recon(session, None)
+    await session.commit()
+
+    paths = Paths(get_settings())
+    rec_root = paths.reconstruction_root("default", pid, rid)
+    rec_root.mkdir(parents=True, exist_ok=True)
+    src = rec_root / "live"
+    (src / "0").mkdir(parents=True)
+    (src / "1").mkdir(parents=True)
+    (src / "0" / "cameras.json").write_text('{"component":0}', encoding="utf-8")
+    (src / "1" / "cameras.json").write_text('{"component":1}', encoding="utf-8")
+
+    store = SnapshotStore(rec_root)
+    store.seal(seq=1, source_dir=src, summary={"models": [{"idx": 0}, {"idx": 1}]})
+
+    component = await client.get(f"/v1/reconstructions/{rid}/snapshots/1/submodels/1/cameras.json")
+    assert component.status_code == 200
+    assert component.json() == {"component": 1}
+
+    missing = await client.get(f"/v1/reconstructions/{rid}/snapshots/1/submodels/2/cameras.json")
+    assert missing.status_code == 404
+
+
+async def test_artifact_endpoints_list_typed_outputs(client, session) -> None:
+    from app.core.config import get_settings
+
+    pid, did, rid = await _seed_recon(session, None)
+    job = Job(tenant_id="default", project_id=pid, recipe="test", status="succeeded")
+    session.add(job)
+    await session.flush()
+    task = Task(
+        tenant_id="default",
+        job_id=job.job_id,
+        kind="match",
+        inputs_hash="i" * 64,
+        params_hash="p" * 64,
+        runtime_version_id="rv",
+        cache_key="c" * 64,
+        status="succeeded",
+    )
+    session.add(task)
+    await session.flush()
+    artifact_file = get_settings().workspace_root / "artifacts" / "two_view_geometries.json"
+    artifact_file.parent.mkdir(parents=True, exist_ok=True)
+    artifact_file.write_text('{"pairs":[]}', encoding="utf-8")
+    artifact = StageArtifact(
+        tenant_id="default",
+        job_id=job.job_id,
+        task_id=task.task_id,
+        recon_id=rid,
+        dataset_id=did,
+        kind="matches.two_view_geometries",
+        name="hloc-lightglue-verified",
+        uri=str(artifact_file),
+        media_type="application/json",
+        summary_json={"num_verified_pairs": 12},
+    )
+    session.add(artifact)
+    await session.commit()
+
+    by_job = await client.get(f"/v1/jobs/{job.job_id}/artifacts")
+    assert by_job.status_code == 200
+    assert by_job.json()["items"][0]["kind"] == "matches.two_view_geometries"
+    assert by_job.json()["items"][0]["_links"]["self"]["href"] == (
+        f"/v1/artifacts/{artifact.artifact_id}"
+    )
+
+    filtered = await client.get(
+        f"/v1/jobs/{job.job_id}/artifacts",
+        params={"kind": "reconstruction.snapshot"},
+    )
+    assert filtered.status_code == 200
+    assert filtered.json()["items"] == []
+
+    by_recon = await client.get(f"/v1/reconstructions/{rid}/artifacts")
+    assert by_recon.status_code == 200
+    item = by_recon.json()["items"][0]
+    assert item["name"] == "hloc-lightglue-verified"
+    assert item["summary"]["num_verified_pairs"] == 12
+    assert item["_links"]["reconstruction"]["href"] == f"/v1/reconstructions/{rid}"
+
+    kinds = await client.get("/v1/artifacts/kinds")
+    assert kinds.status_code == 200
+    assert "matches.two_view_geometries" in {row["kind"] for row in kinds.json()["items"]}
+
+    detail = await client.get(f"/v1/artifacts/{artifact.artifact_id}")
+    assert detail.status_code == 200
+    assert detail.json()["artifact_id"] == artifact.artifact_id
+
+    content = await client.get(f"/v1/artifacts/{artifact.artifact_id}/content")
+    assert content.status_code == 200
+    assert content.json() == {"pairs": []}

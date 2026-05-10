@@ -1,6 +1,8 @@
 """Contains all the data models used in inputs/outputs"""
 
 from .api_key_out import ApiKeyOut
+from .artifact_kind_out import ArtifactKindOut
+from .artifact_ref import ArtifactRef
 from .backend_action_out import BackendActionOut
 from .backend_action_out_input_schema_type_0 import BackendActionOutInputSchemaType0
 from .backend_action_out_links_type_0 import BackendActionOutLinksType0
@@ -48,6 +50,7 @@ from .features_request import FeaturesRequest
 from .features_spec import FeaturesSpec
 from .features_spec_backend_options import FeaturesSpecBackendOptions
 from .features_spec_extractor_options import FeaturesSpecExtractorOptions
+from .features_spec_input_artifacts import FeaturesSpecInputArtifacts
 from .features_spec_type import FeaturesSpecType
 from .finalize_v1_uploads_upload_id_finalize_post_payload import (
     FinalizeV1UploadsUploadIdFinalizePostPayload,
@@ -56,10 +59,12 @@ from .global_spec import GlobalSpec
 from .global_spec_backend import GlobalSpecBackend
 from .global_spec_backend_options import GlobalSpecBackendOptions
 from .global_spec_formulation import GlobalSpecFormulation
+from .global_spec_input_artifacts import GlobalSpecInputArtifacts
 from .gps_coord import GpsCoord
 from .health_response import HealthResponse
 from .hierarchical_spec import HierarchicalSpec
 from .hierarchical_spec_backend_options import HierarchicalSpecBackendOptions
+from .hierarchical_spec_input_artifacts import HierarchicalSpecInputArtifacts
 from .http_validation_error import HTTPValidationError
 from .image_create import ImageCreate
 from .image_create_exif_type_0 import ImageCreateExifType0
@@ -73,6 +78,7 @@ from .image_pair_ref import ImagePairRef
 from .imu_measurement import ImuMeasurement
 from .incremental_spec import IncrementalSpec
 from .incremental_spec_backend_options import IncrementalSpecBackendOptions
+from .incremental_spec_input_artifacts import IncrementalSpecInputArtifacts
 from .issue_key_body import IssueKeyBody
 from .issue_key_response import IssueKeyResponse
 from .job_accepted_response import JobAcceptedResponse
@@ -94,9 +100,11 @@ from .localization_request import LocalizationRequest
 from .localization_request_sift_type_0 import LocalizationRequestSiftType0
 from .matcher_spec import MatcherSpec
 from .matcher_spec_backend_options import MatcherSpecBackendOptions
+from .matcher_spec_input_artifacts import MatcherSpecInputArtifacts
 from .matcher_spec_matcher_options import MatcherSpecMatcherOptions
 from .matcher_spec_type import MatcherSpecType
 from .matches_request import MatchesRequest
+from .matches_request_input_artifacts import MatchesRequestInputArtifacts
 from .merge_request import MergeRequest
 from .merge_request_sim_3_aligners_type_0_item import MergeRequestSim3AlignersType0Item
 from .one_shot_features_payload import OneShotFeaturesPayload
@@ -109,18 +117,22 @@ from .one_shot_localize_response_spec import OneShotLocalizeResponseSpec
 from .one_shot_runtime_info import OneShotRuntimeInfo
 from .oneshot_features_v1_oneshot_features_post_type import OneshotFeaturesV1OneshotFeaturesPostType
 from .oneshot_localize_v1_oneshot_localize_post_type import OneshotLocalizeV1OneshotLocalizePostType
+from .page_artifact_kind_out import PageArtifactKindOut
 from .page_backend_action_out import PageBackendActionOut
 from .page_backend_config_schema_out import PageBackendConfigSchemaOut
 from .page_dataset_out import PageDatasetOut
 from .page_image_out import PageImageOut
 from .page_job_out import PageJobOut
 from .page_project_out import PageProjectOut
+from .page_stage_artifact_out import PageStageArtifactOut
 from .page_sub_model_out import PageSubModelOut
 from .pairs_spec import PairsSpec
 from .pairs_spec_backend_options import PairsSpecBackendOptions
+from .pairs_spec_input_artifacts import PairsSpecInputArtifacts
 from .pairs_spec_retrieval_strategy import PairsSpecRetrievalStrategy
 from .pairs_spec_strategy import PairsSpecStrategy
 from .pipeline_request import PipelineRequest
+from .pipeline_request_input_artifacts import PipelineRequestInputArtifacts
 from .point_observation_row import PointObservationRow
 from .point_visibility_response import PointVisibilityResponse
 from .pose_prior import PosePrior
@@ -152,6 +164,11 @@ from .spec_response import SpecResponse
 from .spec_server_info import SpecServerInfo
 from .spherical_spec import SphericalSpec
 from .spherical_spec_backend_options import SphericalSpecBackendOptions
+from .spherical_spec_input_artifacts import SphericalSpecInputArtifacts
+from .stage_artifact_out import StageArtifactOut
+from .stage_artifact_out_links_type_0 import StageArtifactOutLinksType0
+from .stage_artifact_out_metadata_type_0 import StageArtifactOutMetadataType0
+from .stage_artifact_out_summary_type_0 import StageArtifactOutSummaryType0
 from .sub_model_out import SubModelOut
 from .sub_model_out_links_type_0 import SubModelOutLinksType0
 from .sub_model_out_rigidity_type_0 import SubModelOutRigidityType0
@@ -169,13 +186,17 @@ from .upload_source_spec import UploadSourceSpec
 from .validation_error import ValidationError
 from .validation_error_context import ValidationErrorContext
 from .verify_request import VerifyRequest
+from .verify_request_input_artifacts import VerifyRequestInputArtifacts
 from .verify_spec import VerifySpec
 from .verify_spec_backend_options import VerifySpecBackendOptions
+from .verify_spec_input_artifacts import VerifySpecInputArtifacts
 from .version_response import VersionResponse
 from .video_frames_request import VideoFramesRequest
 
 __all__ = (
     "ApiKeyOut",
+    "ArtifactKindOut",
+    "ArtifactRef",
     "BackendActionOut",
     "BackendActionOutInputSchemaType0",
     "BackendActionOutLinksType0",
@@ -219,17 +240,20 @@ __all__ = (
     "FeaturesSpec",
     "FeaturesSpecBackendOptions",
     "FeaturesSpecExtractorOptions",
+    "FeaturesSpecInputArtifacts",
     "FeaturesSpecType",
     "FinalizeV1UploadsUploadIdFinalizePostPayload",
     "GlobalSpec",
     "GlobalSpecBackend",
     "GlobalSpecBackendOptions",
     "GlobalSpecFormulation",
+    "GlobalSpecInputArtifacts",
     "GpsCoord",
     "HTTPValidationError",
     "HealthResponse",
     "HierarchicalSpec",
     "HierarchicalSpecBackendOptions",
+    "HierarchicalSpecInputArtifacts",
     "ImageCreate",
     "ImageCreateExifType0",
     "ImageExifResponse",
@@ -242,6 +266,7 @@ __all__ = (
     "ImuMeasurement",
     "IncrementalSpec",
     "IncrementalSpecBackendOptions",
+    "IncrementalSpecInputArtifacts",
     "IssueKeyBody",
     "IssueKeyResponse",
     "JobAcceptedResponse",
@@ -263,9 +288,11 @@ __all__ = (
     "LocalizationRequestSiftType0",
     "MatcherSpec",
     "MatcherSpecBackendOptions",
+    "MatcherSpecInputArtifacts",
     "MatcherSpecMatcherOptions",
     "MatcherSpecType",
     "MatchesRequest",
+    "MatchesRequestInputArtifacts",
     "MergeRequest",
     "MergeRequestSim3AlignersType0Item",
     "OneShotFeaturesPayload",
@@ -278,18 +305,22 @@ __all__ = (
     "OneShotRuntimeInfo",
     "OneshotFeaturesV1OneshotFeaturesPostType",
     "OneshotLocalizeV1OneshotLocalizePostType",
+    "PageArtifactKindOut",
     "PageBackendActionOut",
     "PageBackendConfigSchemaOut",
     "PageDatasetOut",
     "PageImageOut",
     "PageJobOut",
     "PageProjectOut",
+    "PageStageArtifactOut",
     "PageSubModelOut",
     "PairsSpec",
     "PairsSpecBackendOptions",
+    "PairsSpecInputArtifacts",
     "PairsSpecRetrievalStrategy",
     "PairsSpecStrategy",
     "PipelineRequest",
+    "PipelineRequestInputArtifacts",
     "PointObservationRow",
     "PointVisibilityResponse",
     "PosePrior",
@@ -319,6 +350,11 @@ __all__ = (
     "SpecServerInfo",
     "SphericalSpec",
     "SphericalSpecBackendOptions",
+    "SphericalSpecInputArtifacts",
+    "StageArtifactOut",
+    "StageArtifactOutLinksType0",
+    "StageArtifactOutMetadataType0",
+    "StageArtifactOutSummaryType0",
     "SubModelOut",
     "SubModelOutLinksType0",
     "SubModelOutRigidityType0",
@@ -336,8 +372,10 @@ __all__ = (
     "ValidationError",
     "ValidationErrorContext",
     "VerifyRequest",
+    "VerifyRequestInputArtifacts",
     "VerifySpec",
     "VerifySpecBackendOptions",
+    "VerifySpecInputArtifacts",
     "VersionResponse",
     "VideoFramesRequest",
 )

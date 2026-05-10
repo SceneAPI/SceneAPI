@@ -21,6 +21,9 @@ def run(task: Task) -> dict[str, Any]:
     inputs, spec = read_state(task)
     db_path = Path(inputs["database_path"])
     backend = get_backend()
+    options = stage_options(spec)
+    if inputs.get("input_artifacts"):
+        options["input_artifacts"] = inputs["input_artifacts"]
     progress = get_progress_reporter()
     if progress is not None:
         progress.phase_started("geometric_verification")
@@ -28,7 +31,7 @@ def run(task: Task) -> dict[str, Any]:
         backend.verify_matches,
         progress=progress,
         database_path=db_path,
-        options=stage_options(spec),
+        options=options,
     )
     if progress is not None:
         progress.phase_completed("geometric_verification")

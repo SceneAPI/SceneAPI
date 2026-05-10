@@ -19,4 +19,12 @@ if(SFMAPI_CPP_TESTS)
   add_executable(test_client test/test_client.cpp)
   target_link_libraries(test_client PRIVATE sfmapi_cpp)
   add_test(NAME test_client COMMAND test_client)
+
+  add_executable(test_contract test/test_contract.cpp)
+  target_link_libraries(test_contract PRIVATE sfmapi_cpp)
+  add_test(NAME test_contract COMMAND test_contract)
+
+  add_executable(test_extras test/test_extras.cpp)
+  target_link_libraries(test_extras PRIVATE sfmapi_cpp)
+  add_test(NAME test_extras COMMAND test_extras)
 endif()

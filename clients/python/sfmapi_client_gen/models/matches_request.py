@@ -9,6 +9,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.matcher_spec import MatcherSpec
+    from ..models.matches_request_input_artifacts import MatchesRequestInputArtifacts
     from ..models.pairs_spec import PairsSpec
 
 
@@ -32,10 +33,12 @@ class MatchesRequest:
                 ``nn-ratio`` adds Lowe's ratio test. ``superglue`` / ``lightglue``
                 are learned matchers. ``loftr`` is semi-dense (no separate
                 extractor — set ``FeaturesSpec.type`` to a placeholder).
+            input_artifacts (MatchesRequestInputArtifacts | Unset):
     """
 
     pairs: PairsSpec | Unset = UNSET
     matcher: MatcherSpec | Unset = UNSET
+    input_artifacts: MatchesRequestInputArtifacts | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         pairs: dict[str, Any] | Unset = UNSET
@@ -46,6 +49,10 @@ class MatchesRequest:
         if not isinstance(self.matcher, Unset):
             matcher = self.matcher.to_dict()
 
+        input_artifacts: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.input_artifacts, Unset):
+            input_artifacts = self.input_artifacts.to_dict()
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update({})
@@ -53,12 +60,15 @@ class MatchesRequest:
             field_dict["pairs"] = pairs
         if matcher is not UNSET:
             field_dict["matcher"] = matcher
+        if input_artifacts is not UNSET:
+            field_dict["input_artifacts"] = input_artifacts
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.matcher_spec import MatcherSpec
+        from ..models.matches_request_input_artifacts import MatchesRequestInputArtifacts
         from ..models.pairs_spec import PairsSpec
 
         d = dict(src_dict)
@@ -76,9 +86,17 @@ class MatchesRequest:
         else:
             matcher = MatcherSpec.from_dict(_matcher)
 
+        _input_artifacts = d.pop("input_artifacts", UNSET)
+        input_artifacts: MatchesRequestInputArtifacts | Unset
+        if isinstance(_input_artifacts, Unset):
+            input_artifacts = UNSET
+        else:
+            input_artifacts = MatchesRequestInputArtifacts.from_dict(_input_artifacts)
+
         matches_request = cls(
             pairs=pairs,
             matcher=matcher,
+            input_artifacts=input_artifacts,
         )
 
         return matches_request

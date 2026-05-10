@@ -134,6 +134,82 @@ For `pairs.strategy="explicit"`, the worker materializes either inline
 `backend.match(...)`. The pair-list text format is one `image1 image2`
 row per line.
 
+## Stage output artifacts
+
+Backend methods should return a dict. For simple COLMAP-compatible
+backends, legacy keys such as `database_path`, `correspondence_graph_path`,
+`two_view_geometries_path`, `snapshot_path`, and `models` are enough;
+sfmapi infers `StageArtifact` rows from them.
+
+For richer backends, return an explicit `artifacts` list so clients can
+choose among multiple outputs without guessing:
+
+```python
+return {
+    "database_path": str(database_path),
+    "artifacts": [
+        {
+            "kind": "matches.raw",
+            "name": "hloc-lightglue",
+            "uri": str(matches_path),
+            "summary": {"num_pairs": 12000, "num_matches": 2400000},
+            "metadata": {"provider": "hloc", "feature_set": "superpoint"},
+        },
+        {
+            "kind": "matches.raw",
+            "name": "colmap-sift",
+            "uri": str(colmap_matches_path),
+            "summary": {"num_pairs": 9000, "num_matches": 1800000},
+            "metadata": {"provider": "colmap", "feature_set": "sift"},
+        },
+    ],
+}
+```
+
+Artifact `kind` values are dot-notated identifiers. Reserved core kinds
+include `features.database`, `matches.database`,
+`matches.verified_database`, `matches.correspondence_graph`,
+`matches.two_view_geometries`, `reconstruction.snapshot`, and
+`reconstruction.submodel`. Use public stage names, not internal worker
+names such as `extract` or `verify`. Keep extension names stable and
+namespaced, for example `hloc.matches.lightglue`.
+
+Invalid artifact descriptors fail the task with a clear validation
+error. Clients discover outputs with `GET /v1/jobs/{job_id}/artifacts`,
+`GET /v1/reconstructions/{recon_id}/artifacts`, or
+`GET /v1/artifacts/{artifact_id}`. List endpoints support exact
+`kind`, `task_id`, and `name` filters. `GET /v1/artifacts/kinds`
+returns the reserved core vocabulary.
+
+## Stage input artifacts
+
+Clients can pass artifacts back into later stages through
+`input_artifacts`, a role-keyed map of artifact references. Core roles
+are `features`, `pairs`, `matches`, `verified_matches`, `snapshot`, and
+`submodel`; backend-specific roles may use the same dot-key syntax.
+
+```json
+{
+  "input_artifacts": {
+    "features": {
+      "artifact_id": "01HZ...",
+      "kind": "features.database"
+    }
+  }
+}
+```
+
+sfmapi validates tenant scope, optional dataset scope, expected kind,
+and core role compatibility before a job is created. For database
+artifacts, sfmapi also routes the selected artifact URI into the
+downstream worker's `database_path`. All resolved artifact descriptors
+are passed to the backend in `options["input_artifacts"]` so mixed
+backends can consume richer formats without adding portable fields.
+
+Artifact rows are created for new task completions. Pre-release
+databases are not backfilled automatically; rerun the stage if an older
+job needs typed artifact rows.
+
 ## Backend config schemas
 
 Backends can publish JSON Schemas for their `backend_options` through

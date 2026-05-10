@@ -22,6 +22,37 @@
 namespace sfmapi {
 
 // ====================================================================
+//  Stage artifact inputs
+// ====================================================================
+
+struct ArtifactRef {
+  std::string artifact_id;
+  std::optional<std::string> kind;
+
+  Json ToJson() const {
+    Json::Object o{{"artifact_id", artifact_id}};
+    if (kind) {
+      o["kind"] = *kind;
+    }
+    return Json(std::move(o));
+  }
+};
+
+using ArtifactInputMap = std::map<std::string, ArtifactRef>;
+
+inline void AddInputArtifacts(Json::Object& o,
+                              const ArtifactInputMap& input_artifacts) {
+  if (input_artifacts.empty()) {
+    return;
+  }
+  Json::Object refs;
+  for (const auto& kv : input_artifacts) {
+    refs[kv.first] = kv.second.ToJson();
+  }
+  o["input_artifacts"] = Json(std::move(refs));
+}
+
+// ====================================================================
 //  Local-feature extractor
 // ====================================================================
 
@@ -42,6 +73,7 @@ struct FeaturesSpec {
   int seed = 0;
   Json::Object backend_options;
   Json::Object extractor_options;
+  ArtifactInputMap input_artifacts;
 
   Json ToJson() const {
     Json::Object o{
@@ -60,6 +92,7 @@ struct FeaturesSpec {
     if (!extractor_options.empty()) {
       o["extractor_options"] = Json(extractor_options);
     }
+    AddInputArtifacts(o, input_artifacts);
     return Json(std::move(o));
   }
 
@@ -88,6 +121,7 @@ struct PairsSpec {
   std::optional<double> overlap_distance_m;
   std::optional<double> max_angle_deg;
   Json::Object backend_options;
+  ArtifactInputMap input_artifacts;
 
   Json ToJson() const {
     Json::Object o{
@@ -102,6 +136,7 @@ struct PairsSpec {
     if (overlap_distance_m) o["overlap_distance_m"] = *overlap_distance_m;
     if (max_angle_deg) o["max_angle_deg"] = *max_angle_deg;
     if (!backend_options.empty()) o["backend_options"] = Json(backend_options);
+    AddInputArtifacts(o, input_artifacts);
     return Json(std::move(o));
   }
   std::string ToJsonString() const { return ToJson().Dump(); }
@@ -128,6 +163,7 @@ struct MatcherSpec {
   double max_distance = 0.7;
   Json::Object backend_options;
   Json::Object matcher_options;
+  ArtifactInputMap input_artifacts;
 
   Json ToJson() const {
     Json::Object o{
@@ -147,6 +183,7 @@ struct MatcherSpec {
     if (!matcher_options.empty()) {
       o["matcher_options"] = Json(matcher_options);
     }
+    AddInputArtifacts(o, input_artifacts);
     return Json(std::move(o));
   }
   std::string ToJsonString() const { return ToJson().Dump(); }
@@ -162,6 +199,7 @@ struct VerifySpec {
   bool use_gpu = true;
   double min_inlier_ratio = 0.25;
   Json::Object backend_options;
+  ArtifactInputMap input_artifacts;
 
   Json ToJson() const {
     Json::Object o{
@@ -175,6 +213,7 @@ struct VerifySpec {
     if (!backend_options.empty()) {
       o["backend_options"] = Json(backend_options);
     }
+    AddInputArtifacts(o, input_artifacts);
     return Json(std::move(o));
   }
   std::string ToJsonString() const { return ToJson().Dump(); }
@@ -241,6 +280,7 @@ struct IncrementalSpec {
   int max_num_models = 50;
   int min_num_matches = 15;
   bool extract_colors = true;
+  ArtifactInputMap input_artifacts;
 
   Json ToJson() const {
     Json::Object o{
@@ -268,6 +308,7 @@ struct IncrementalSpec {
       Json::Array p{init_image_pair->first, init_image_pair->second};
       o["init_image_pair"] = Json(std::move(p));
     }
+    AddInputArtifacts(o, input_artifacts);
     return Json(std::move(o));
   }
   std::string ToJsonString() const { return ToJson().Dump(); }
@@ -282,6 +323,7 @@ struct GlobalSpec {
   std::string formulation = "AUTO";
   bool use_incremental_quality_fallback = true;
   Json::Object backend_options;
+  ArtifactInputMap input_artifacts;
 
   Json ToJson() const {
     Json::Object o{
@@ -298,6 +340,7 @@ struct GlobalSpec {
     if (!backend_options.empty()) {
       o["backend_options"] = Json(backend_options);
     }
+    AddInputArtifacts(o, input_artifacts);
     return Json(std::move(o));
   }
   std::string ToJsonString() const { return ToJson().Dump(); }
@@ -311,6 +354,7 @@ struct HierarchicalSpec {
   int cluster_max_size = 100;
   int cluster_overlap = 25;
   Json::Object backend_options;
+  ArtifactInputMap input_artifacts;
 
   Json ToJson() const {
     Json::Object o{
@@ -326,6 +370,7 @@ struct HierarchicalSpec {
     if (!backend_options.empty()) {
       o["backend_options"] = Json(backend_options);
     }
+    AddInputArtifacts(o, input_artifacts);
     return Json(std::move(o));
   }
   std::string ToJsonString() const { return ToJson().Dump(); }
@@ -338,6 +383,7 @@ struct SphericalSpec {
   int seed = 0;
   bool panorama = true;
   Json::Object backend_options;
+  ArtifactInputMap input_artifacts;
 
   Json ToJson() const {
     Json::Object o{
@@ -352,6 +398,7 @@ struct SphericalSpec {
     if (!backend_options.empty()) {
       o["backend_options"] = Json(backend_options);
     }
+    AddInputArtifacts(o, input_artifacts);
     return Json(std::move(o));
   }
   std::string ToJsonString() const { return ToJson().Dump(); }

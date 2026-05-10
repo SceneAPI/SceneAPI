@@ -43,6 +43,53 @@ For multi-instance / GPU-fleet deployments: switch
 `SFMAPI_QUEUE_BACKEND=arq`, point `SFMAPI_DB_URL` at Postgres, and
 run real workers. See `deploy/helm/` for a reference Helm chart.
 
+## MCP / agent setup
+
+sfmapi can expose a curated, read-only FastMCP adapter for agents to
+inspect server state, backend capabilities, backend action schemas,
+projects, jobs, progress, typed stage artifacts, reconstructions, and
+snapshots.
+
+Install the optional dependency and mount MCP into the API process:
+
+```bash
+uv sync --extra mcp
+uv run sfmapi serve --mcp local --host 127.0.0.1 --port 8000
+```
+
+The MCP endpoint is `http://127.0.0.1:8000/mcp`, with a local status
+page at `http://127.0.0.1:8000/mcp/status`. Register it with Codex:
+
+```bash
+codex mcp add sfmapi_colmap --url http://127.0.0.1:8000/mcp
+codex mcp list
+```
+
+Or register it with Claude Code:
+
+```bash
+claude mcp add --transport http sfmapi_colmap http://127.0.0.1:8000/mcp
+claude mcp list
+```
+
+Use an underscore in the server name; it avoids shell and config
+parsing issues. Existing Codex sessions may need to be restarted before
+new MCP servers appear. Existing Claude Code sessions can check MCP
+status with `/mcp`.
+
+For backend packages that provide their own API launcher, enable the
+same local mount there, for example:
+
+```bash
+uv run sfmapi-colmap-api --backend colmap_cpp_native --mcp local
+```
+
+The MCP surface is intentionally read-only. Use the REST API or SDKs
+for uploads, project creation, pipeline submission, cancellation, and
+backend action execution. See the
+[MCP adapter guide](https://sfmapi.github.io/guides/mcp.html) for
+stdio mode, tenant scoping, and deployment notes.
+
 ## Layout
 
 ```

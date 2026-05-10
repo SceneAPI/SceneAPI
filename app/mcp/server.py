@@ -33,6 +33,8 @@ TOOL_TITLES: dict[str, str] = {
     "list_jobs": "List sfmapi jobs",
     "get_job": "Read an sfmapi job",
     "get_job_progress": "Read sfmapi job progress",
+    "list_artifacts": "List sfmapi artifacts",
+    "get_artifact": "Read an sfmapi artifact",
     "get_reconstruction": "Read an sfmapi reconstruction",
     "list_submodels": "List sfmapi submodels",
     "list_snapshots": "List sfmapi snapshots",
@@ -42,7 +44,9 @@ MCP_INSTRUCTIONS = """Read-only local adapter for sfmapi.
 
 Use these tools to inspect sfmapi server state, capabilities, backend
 action schemas, jobs, progress, reconstructions, submodels, and sealed
-snapshot metadata. The adapter does not create projects, upload images,
+snapshot metadata. It also lists typed stage artifacts so agents can
+inspect selected feature, match, verification, and snapshot outputs
+without scraping task payloads. The adapter does not create projects, upload images,
 submit pipelines, run backend actions, cancel work, resume work, or
 serve binary snapshot contents. Use the REST API or SDKs for mutations
 and bulk data transfer.
@@ -62,6 +66,9 @@ def _resource_names() -> list[str]:
         "sfmapi://tenants/{tenant_id}/projects",
         "sfmapi://tenants/{tenant_id}/jobs/{job_id}",
         "sfmapi://tenants/{tenant_id}/jobs/{job_id}/progress",
+        "sfmapi://tenants/{tenant_id}/jobs/{job_id}/artifacts",
+        "sfmapi://tenants/{tenant_id}/artifacts/{artifact_id}",
+        "sfmapi://tenants/{tenant_id}/reconstructions/{recon_id}/artifacts",
         "sfmapi://tenants/{tenant_id}/reconstructions/{recon_id}/snapshots",
     ]
 
@@ -186,6 +193,36 @@ def create_mcp_server(
         annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
         tags={"sfmapi", "jobs"},
     )(tool_impl.get_job_progress)
+
+    async def job_artifacts_resource(tenant_id: str, job_id: str) -> dict[str, Any]:
+        return await tool_impl.list_artifacts(tenant_id=tenant_id, job_id=job_id)
+
+    async def reconstruction_artifacts_resource(
+        tenant_id: str, recon_id: str
+    ) -> dict[str, Any]:
+        return await tool_impl.list_artifacts(tenant_id=tenant_id, recon_id=recon_id)
+
+    mcp.resource(
+        "sfmapi://tenants/{tenant_id}/jobs/{job_id}/artifacts",
+        title="sfmapi job artifacts",
+        mime_type="application/json",
+        annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
+        tags={"sfmapi", "jobs", "artifacts"},
+    )(job_artifacts_resource)
+    mcp.resource(
+        "sfmapi://tenants/{tenant_id}/artifacts/{artifact_id}",
+        title="sfmapi artifact",
+        mime_type="application/json",
+        annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
+        tags={"sfmapi", "artifacts"},
+    )(tool_impl.get_artifact)
+    mcp.resource(
+        "sfmapi://tenants/{tenant_id}/reconstructions/{recon_id}/artifacts",
+        title="sfmapi reconstruction artifacts",
+        mime_type="application/json",
+        annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
+        tags={"sfmapi", "reconstructions", "artifacts"},
+    )(reconstruction_artifacts_resource)
     mcp.resource(
         "sfmapi://tenants/{tenant_id}/reconstructions/{recon_id}/snapshots",
         title="sfmapi reconstruction snapshots",

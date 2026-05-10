@@ -8,6 +8,7 @@ short-circuit logic.
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,7 @@ from app.core.errors import NotFoundError
 from app.core.ids import new_id
 from app.db.models import Job, Task
 from app.orchestrator.dag import TaskNode
+from app.services import artifact_service
 
 
 async def create_job(
@@ -24,7 +26,7 @@ async def create_job(
     tenant_id: str,
     project_id: str,
     recipe: str,
-    spec: dict | None,
+    spec: dict[str, Any] | None,
 ) -> Job:
     j = Job(
         tenant_id=tenant_id,
@@ -103,6 +105,7 @@ async def materialize_dag(
     successful Task with the same `cache_key` exists, copies its
     `outputs_ref_json` and marks the new Task `succeeded` immediately."""
     out: list[Task] = []
+    cached_tasks: list[Task] = []
     for n in nodes:
         if not n.task_id:
             n.task_id = new_id()
@@ -120,20 +123,27 @@ async def materialize_dag(
             depends_on_json=list(n.depends_on),
             gpu_required=n.gpu_required,
         )
-        if cached is not None:
-            t.status = "succeeded"
-            t.outputs_ref_json = cached.outputs_ref_json
-        elif n.metadata:
+        if n.metadata:
             # Persist ``inputs`` / ``spec`` so the worker handler can
             # read them via ``app.workers._task_io.read_state``. Stored
             # in ``task_state_json`` (pre-execution carrier); the
             # dispatcher writes the actual result to ``outputs_ref_json``
             # post-execution. See ``L27`` in ``decisions.md`` for the
-            # split rationale.
+            # split rationale. Cached tasks still need this state so
+            # inferred StageArtifact rows keep the new job's resource
+            # pointers.
             t.task_state_json = dict(n.metadata)
+        if cached is not None:
+            t.status = "succeeded"
+            t.outputs_ref_json = cached.outputs_ref_json
+            cached_tasks.append(t)
         session.add(t)
         out.append(t)
     await session.flush()
+    for t in cached_tasks:
+        outputs = artifact_service.normalize_task_outputs(t, t.outputs_ref_json or {})
+        t.outputs_ref_json = outputs
+        await artifact_service.record_task_artifacts(session, task=t, outputs=outputs)
     return out
 
 

@@ -52,9 +52,16 @@ def _materialize_explicit_pairs(task: Task, pairs: dict[str, Any]) -> Path:
     return pairs_path
 
 
-def _match_options(task: Task, pairs: dict[str, Any], matcher: dict[str, Any]) -> dict[str, Any]:
+def _match_options(
+    task: Task,
+    pairs: dict[str, Any],
+    matcher: dict[str, Any],
+    input_artifacts: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     pairs = dict(pairs)
     matcher = dict(matcher)
+    pairs.pop("input_artifacts", None)
+    matcher.pop("input_artifacts", None)
 
     if pairs.get("strategy") == "explicit":
         pairs_path = _materialize_explicit_pairs(task, pairs)
@@ -67,12 +74,14 @@ def _match_options(task: Task, pairs: dict[str, Any], matcher: dict[str, Any]) -
     portable_pairs = {
         k: v
         for k, v in pairs.items()
-        if k not in {"provider", "image_pairs", "backend_options"} and v is not None
+        if k not in {"provider", "image_pairs", "backend_options", "input_artifacts"}
+        and v is not None
     }
     portable_matcher = {
         k: v
         for k, v in matcher.items()
-        if k not in {"provider", "backend_options", "matcher_options"} and v is not None
+        if k not in {"provider", "backend_options", "matcher_options", "input_artifacts"}
+        and v is not None
     }
     options = {
         **matcher_options,
@@ -96,6 +105,8 @@ def _match_options(task: Task, pairs: dict[str, Any], matcher: dict[str, Any]) -
     matcher["backend_options"] = matcher_backend_options
     options["pairs"] = pairs
     options["matcher"] = matcher
+    if input_artifacts:
+        options["input_artifacts"] = input_artifacts
     return options
 
 
@@ -105,6 +116,7 @@ def run(task: Task) -> dict[str, Any]:
     db_path = Path(inputs["database_path"])
     pairs = spec.get("pairs") or {}
     matcher = spec.get("matcher") or {}
+    input_artifacts = inputs.get("input_artifacts") or {}
     strategy = pairs.get("strategy", "exhaustive")
     backend = get_backend()
     progress = get_progress_reporter()
@@ -115,7 +127,7 @@ def run(task: Task) -> dict[str, Any]:
         progress=progress,
         database_path=db_path,
         mode=strategy,
-        options=_match_options(task, pairs, matcher),
+        options=_match_options(task, pairs, matcher, input_artifacts),
     )
     if progress is not None:
         progress.phase_completed("matching")

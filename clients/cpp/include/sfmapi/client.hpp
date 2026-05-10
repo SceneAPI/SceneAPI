@@ -299,6 +299,25 @@ class Client {
     return Get("/v1/jobs/" + job_id);
   }
 
+  HttpResponse ListJobArtifacts(
+      const std::string& job_id,
+      const std::string& kind = "",
+      const std::string& task_id = "",
+      const std::string& name = "",
+      const std::string& page_token = "",
+      int page_size = 0) const {
+    std::string path = "/v1/jobs/" + job_id + "/artifacts";
+    bool first = true;
+    AppendQueryParam(path, first, "kind", kind);
+    AppendQueryParam(path, first, "task_id", task_id);
+    AppendQueryParam(path, first, "name", name);
+    AppendQueryParam(path, first, "page_token", page_token);
+    if (page_size > 0) {
+      AppendQueryParam(path, first, "page_size", std::to_string(page_size));
+    }
+    return Get(path);
+  }
+
   /// Buffered SSE stream for ``GET /v1/jobs/{id}/events``. Returns
   /// the full response body as ``text/event-stream``; pass to
   /// :func:`ParseSseEvents` (from ``sfmapi/sse.hpp``) to decode.
@@ -349,6 +368,25 @@ class Client {
 
   HttpResponse GetReconstruction(const std::string& recon_id) const {
     return Get("/v1/reconstructions/" + recon_id);
+  }
+
+  HttpResponse ListReconstructionArtifacts(
+      const std::string& recon_id,
+      const std::string& kind = "",
+      const std::string& task_id = "",
+      const std::string& name = "",
+      const std::string& page_token = "",
+      int page_size = 0) const {
+    std::string path = "/v1/reconstructions/" + recon_id + "/artifacts";
+    bool first = true;
+    AppendQueryParam(path, first, "kind", kind);
+    AppendQueryParam(path, first, "task_id", task_id);
+    AppendQueryParam(path, first, "name", name);
+    AppendQueryParam(path, first, "page_token", page_token);
+    if (page_size > 0) {
+      AppendQueryParam(path, first, "page_size", std::to_string(page_size));
+    }
+    return Get(path);
   }
 
   HttpResponse ListSubmodels(const std::string& recon_id) const {
@@ -519,6 +557,30 @@ class Client {
   HttpResponse Spec() const { return Get("/spec"); }
   HttpResponse OpenApi() const { return Get("/openapi.json"); }
   HttpResponse Metrics() const { return Get("/metrics"); }
+
+  // --- stage artifacts -------------------------------------------
+
+  HttpResponse ListArtifactKinds(
+      const std::string& page_token = "",
+      int page_size = 0) const {
+    std::string path = "/v1/artifacts/kinds";
+    bool first = true;
+    AppendQueryParam(path, first, "page_token", page_token);
+    if (page_size > 0) {
+      AppendQueryParam(path, first, "page_size", std::to_string(page_size));
+    }
+    return Get(path);
+  }
+
+  HttpResponse GetArtifact(const std::string& artifact_id) const {
+    return Get("/v1/artifacts/" + artifact_id);
+  }
+
+  HttpResponse ReadArtifactContent(const std::string& artifact_id,
+                                   bool download = false) const {
+    return Get("/v1/artifacts/" + artifact_id + "/content" +
+               (download ? "?download=true" : ""));
+  }
 
   // --- projects (extended) ---------------------------------------
 
@@ -845,6 +907,71 @@ class Client {
     return out;
   }
 
+  static sfmapi::ArtifactKind ArtifactKindFromJson(const Json& j) {
+    sfmapi::ArtifactKind out;
+    if (j.contains("kind")) out.kind = j["kind"].as_string();
+    if (j.contains("title")) out.title = j["title"].as_string();
+    if (j.contains("description")) out.description = j["description"].as_string();
+    if (j.contains("durable")) out.durable = j["durable"].as_bool();
+    return out;
+  }
+
+  static sfmapi::ArtifactKind ParseArtifactKind(const HttpResponse& resp) {
+    return ArtifactKindFromJson(
+        Json::Parse(std::string(resp.body.begin(), resp.body.end())));
+  }
+
+  static Page<sfmapi::ArtifactKind> ParseArtifactKindPage(
+      const HttpResponse& resp) {
+    return ParsePage<sfmapi::ArtifactKind>(
+        resp, [](const Json& item) { return ArtifactKindFromJson(item); });
+  }
+
+  static sfmapi::StageArtifact StageArtifactFromJson(const Json& j) {
+    sfmapi::StageArtifact out;
+    if (j.contains("artifact_id")) out.artifact_id = j["artifact_id"].as_string();
+    if (j.contains("job_id")) out.job_id = j["job_id"].as_string();
+    if (j.contains("task_id")) out.task_id = j["task_id"].as_string();
+    if (j.contains("recon_id") && !j["recon_id"].is_null()) {
+      out.recon_id = j["recon_id"].as_string();
+    }
+    if (j.contains("dataset_id") && !j["dataset_id"].is_null()) {
+      out.dataset_id = j["dataset_id"].as_string();
+    }
+    if (j.contains("kind")) out.kind = j["kind"].as_string();
+    if (j.contains("name") && !j["name"].is_null()) {
+      out.name = j["name"].as_string();
+    }
+    if (j.contains("uri") && !j["uri"].is_null()) {
+      out.uri = j["uri"].as_string();
+    }
+    if (j.contains("media_type") && !j["media_type"].is_null()) {
+      out.media_type = j["media_type"].as_string();
+    }
+    if (j.contains("summary") && !j["summary"].is_null()) {
+      out.summary_json = j["summary"].Dump();
+    }
+    if (j.contains("metadata") && !j["metadata"].is_null()) {
+      out.metadata_json = j["metadata"].Dump();
+    }
+    if (j.contains("_links") && !j["_links"].is_null()) {
+      out.links_json = j["_links"].Dump();
+    }
+    if (j.contains("created_at")) out.created_at = j["created_at"].as_string();
+    return out;
+  }
+
+  static sfmapi::StageArtifact ParseStageArtifact(const HttpResponse& resp) {
+    return StageArtifactFromJson(
+        Json::Parse(std::string(resp.body.begin(), resp.body.end())));
+  }
+
+  static Page<sfmapi::StageArtifact> ParseStageArtifactPage(
+      const HttpResponse& resp) {
+    return ParsePage<sfmapi::StageArtifact>(
+        resp, [](const Json& item) { return StageArtifactFromJson(item); });
+  }
+
   // ----- generic JSON-body decoders for resource shapes ------------
   //  These are the C++ analogues of Python Pydantic validation +
   //  TypeScript interface assignment: read a JSON value and populate
@@ -1104,6 +1231,17 @@ class Client {
 
   static std::vector<std::uint8_t> ToBytes(const std::string& s) {
     return {s.begin(), s.end()};
+  }
+
+  static void AppendQueryParam(std::string& path, bool& first,
+                               const std::string& name,
+                               const std::string& value) {
+    if (value.empty()) {
+      return;
+    }
+    path += first ? "?" : "&";
+    first = false;
+    path += name + "=" + value;
   }
 
   static std::string JsonEscape(const std::string& s) {

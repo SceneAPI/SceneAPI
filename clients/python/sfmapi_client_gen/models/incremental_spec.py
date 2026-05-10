@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.incremental_spec_backend_options import IncrementalSpecBackendOptions
+    from ..models.incremental_spec_input_artifacts import IncrementalSpecInputArtifacts
 
 
 T = TypeVar("T", bound="IncrementalSpec")
@@ -27,6 +28,9 @@ class IncrementalSpec:
         snapshot_frames_freq (int | None | Unset):  Default: 50.
         backend_options (IncrementalSpecBackendOptions | Unset): Backend-specific mapping options. Discover supported
             keys with GET /v1/backend/config-schemas and keep portable settings in the top-level spec fields.
+        input_artifacts (IncrementalSpecInputArtifacts | Unset): Optional role-keyed input artifact references. Core
+            roles include verified_matches, snapshot, and submodel; backend-specific roles may use the same dot-key syntax
+            as artifact kinds.
         kind (Literal['incremental'] | Unset):  Default: 'incremental'.
         init_image_pair (list[str] | None | Unset):
         multiple_models (bool | Unset):  Default: True.
@@ -42,6 +46,7 @@ class IncrementalSpec:
     max_runtime_seconds: int | None | Unset = UNSET
     snapshot_frames_freq: int | None | Unset = 50
     backend_options: IncrementalSpecBackendOptions | Unset = UNSET
+    input_artifacts: IncrementalSpecInputArtifacts | Unset = UNSET
     kind: Literal["incremental"] | Unset = "incremental"
     init_image_pair: list[str] | None | Unset = UNSET
     multiple_models: bool | Unset = True
@@ -77,6 +82,10 @@ class IncrementalSpec:
         backend_options: dict[str, Any] | Unset = UNSET
         if not isinstance(self.backend_options, Unset):
             backend_options = self.backend_options.to_dict()
+
+        input_artifacts: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.input_artifacts, Unset):
+            input_artifacts = self.input_artifacts.to_dict()
 
         kind = self.kind
 
@@ -118,6 +127,8 @@ class IncrementalSpec:
             field_dict["snapshot_frames_freq"] = snapshot_frames_freq
         if backend_options is not UNSET:
             field_dict["backend_options"] = backend_options
+        if input_artifacts is not UNSET:
+            field_dict["input_artifacts"] = input_artifacts
         if kind is not UNSET:
             field_dict["kind"] = kind
         if init_image_pair is not UNSET:
@@ -138,6 +149,7 @@ class IncrementalSpec:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.incremental_spec_backend_options import IncrementalSpecBackendOptions
+        from ..models.incremental_spec_input_artifacts import IncrementalSpecInputArtifacts
 
         d = dict(src_dict)
         version = cast(Literal[1] | Unset, d.pop("version", UNSET))
@@ -179,6 +191,13 @@ class IncrementalSpec:
             backend_options = UNSET
         else:
             backend_options = IncrementalSpecBackendOptions.from_dict(_backend_options)
+
+        _input_artifacts = d.pop("input_artifacts", UNSET)
+        input_artifacts: IncrementalSpecInputArtifacts | Unset
+        if isinstance(_input_artifacts, Unset):
+            input_artifacts = UNSET
+        else:
+            input_artifacts = IncrementalSpecInputArtifacts.from_dict(_input_artifacts)
 
         kind = cast(Literal["incremental"] | Unset, d.pop("kind", UNSET))
         if kind != "incremental" and not isinstance(kind, Unset):
@@ -229,6 +248,7 @@ class IncrementalSpec:
             max_runtime_seconds=max_runtime_seconds,
             snapshot_frames_freq=snapshot_frames_freq,
             backend_options=backend_options,
+            input_artifacts=input_artifacts,
             kind=kind,
             init_image_pair=init_image_pair,
             multiple_models=multiple_models,

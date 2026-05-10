@@ -23,7 +23,7 @@ from app.core.errors import NotFoundError, ValidationError
 class BackendActionProvider(Protocol):
     """Optional structural protocol implemented by richer backends."""
 
-    def list_backend_actions(self) -> list[dict[str, Any]]: ...
+    def list_backend_actions(self, *, include_schemas: bool = False) -> list[dict[str, Any]]: ...
 
     def get_backend_action(self, action_id: str) -> dict[str, Any]: ...
 
@@ -217,7 +217,7 @@ def list_backend_actions(
 
     generic = getattr(backend, "list_backend_actions", None)
     if callable(generic):
-        for raw in generic():
+        for raw in _call_with_supported_kwargs(generic, include_schemas=include_schemas):
             actions.append(
                 _normalize_descriptor(raw, backend=backend, include_schema=include_schemas)
             )

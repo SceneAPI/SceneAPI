@@ -394,6 +394,32 @@ struct Upload {
   std::string expires_at;
 };
 
+struct ArtifactKind {
+  std::string kind;
+  std::string title;
+  std::string description;
+  bool durable = false;
+};
+
+struct StageArtifact {
+  std::string artifact_id;
+  std::string job_id;
+  std::string task_id;
+  std::string recon_id;
+  std::string dataset_id;
+  std::string kind;
+  std::string name;
+  std::string uri;
+  std::string media_type;
+  /// `summary_json`, `metadata_json`, and `links_json` are raw JSON
+  /// objects. Keep them as strings so consumers can decode with their
+  /// preferred JSON library.
+  std::string summary_json;
+  std::string metadata_json;
+  std::string links_json;
+  std::string created_at;
+};
+
 struct TaskRow {
   std::string task_id;
   std::string job_id;

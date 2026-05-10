@@ -132,7 +132,12 @@ class FakeColmapBackend(StubBackend):
 
 
 class GenericColmapBackend(FakeColmapBackend):
-    def list_backend_actions(self) -> list[dict[str, Any]]:
+    def list_backend_actions(self, *, include_schemas: bool = False) -> list[dict[str, Any]]:
+        input_schema = (
+            {"type": "object", "properties": {"from_generic": {"type": "boolean"}}}
+            if include_schemas
+            else None
+        )
         return [
             {
                 "action_id": "colmap.feature_extractor",
@@ -140,7 +145,8 @@ class GenericColmapBackend(FakeColmapBackend):
                 "stability": "backend_extension",
                 "side_effects": "write",
                 "required_capabilities": [],
-                "input_schema": {"type": "object", "properties": {}},
+                "input_schema": input_schema,
+                "metadata": {"include_schemas": include_schemas},
             }
         ]
 
@@ -291,3 +297,13 @@ def test_explicit_backend_action_descriptor_wins_over_colmap_compat_adapter() ->
         if item["action_id"] == "colmap.feature_extractor"
     ]
     assert len(actions) == 1
+    assert actions[0]["input_schema"] is None
+
+    actions_with_schema = [
+        item
+        for item in list_backend_actions(backend, include_schemas=True)
+        if item["action_id"] == "colmap.feature_extractor"
+    ]
+    assert len(actions_with_schema) == 1
+    assert actions_with_schema[0]["metadata"]["include_schemas"] is True
+    assert "from_generic" in actions_with_schema[0]["input_schema"]["properties"]

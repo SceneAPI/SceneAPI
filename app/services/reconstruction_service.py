@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
@@ -65,6 +66,82 @@ async def get_submodel(session: AsyncSession, *, tenant_id: str, submodel_id: st
     if sm is None:
         raise NotFoundError(f"SubModel {submodel_id} not found")
     return sm
+
+
+def _coerce_model_idx(value: Any, fallback: int) -> int:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return fallback
+    return fallback
+
+
+def _submodel_sealed_path(*, snapshot_path: str | None, idx: int, model_count: int) -> str | None:
+    if not snapshot_path:
+        return None
+    base = Path(snapshot_path)
+    return str(base / str(idx)) if model_count > 1 else str(base)
+
+
+async def mark_reconstruction_status(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    recon_id: str,
+    status: str,
+) -> None:
+    """Update a reconstruction lifecycle state if the row still exists."""
+    result = await session.execute(
+        select(Reconstruction).where(
+            Reconstruction.tenant_id == tenant_id, Reconstruction.recon_id == recon_id
+        )
+    )
+    r = result.scalar_one_or_none()
+    if r is not None:
+        r.status = status
+
+
+async def record_mapping_result(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    recon_id: str,
+    models: list[dict[str, Any]],
+    snapshot_seq: int | None,
+    snapshot_path: str | None,
+) -> None:
+    """Replace SubModel rows with the components emitted by a map task.
+
+    Backends return one summary per disconnected mapping component. The
+    snapshot writer seals those component files under the same sequence;
+    this function makes the resource layer reflect that output.
+    """
+    r = await get_reconstruction(session, tenant_id=tenant_id, recon_id=recon_id)
+    await session.execute(
+        delete(SubModel).where(SubModel.tenant_id == tenant_id, SubModel.recon_id == recon_id)
+    )
+    model_count = len(models)
+    for position, summary in enumerate(models):
+        idx = _coerce_model_idx(summary.get("idx"), position)
+        session.add(
+            SubModel(
+                tenant_id=tenant_id,
+                recon_id=recon_id,
+                idx=idx,
+                summary_json=summary,
+                snapshot_seq=snapshot_seq,
+                sealed_path=_submodel_sealed_path(
+                    snapshot_path=snapshot_path,
+                    idx=idx,
+                    model_count=model_count,
+                ),
+            )
+        )
+    r.status = "succeeded"
+    await session.flush()
 
 
 def list_snapshot_seqs(paths: Paths, tenant_id: str, project_id: str, recon_id: str) -> list[int]:

@@ -2,17 +2,22 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Any
+
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1._helpers import accepted_response
+from app.api.v1.artifacts import artifact_links
 from app.core.errors import NotFoundError, ValidationError
 from app.core.http import file_etag, if_none_match_hit, not_modified, weak_etag
 from app.core.paths import Paths
 from app.core.tenancy import current_tenant
 from app.db.session import get_db
+from app.schemas.api.artifacts import StageArtifactOut
 from app.schemas.api.common import Link, Page, to_out
 from app.schemas.api.jobs import JobAcceptedResponse
 from app.schemas.api.reconstructions import (
@@ -22,7 +27,7 @@ from app.schemas.api.reconstructions import (
     SnapshotListResponse,
     SubModelOut,
 )
-from app.services import reconstruction_service, sfm_stage_service
+from app.services import artifact_service, reconstruction_service, sfm_stage_service
 from app.storage import observations as obs_store
 from app.storage import tiles as tiles_store
 
@@ -34,6 +39,7 @@ def _recon_links(recon_id: str) -> dict[str, Link]:
         "self": Link(href=f"/v1/reconstructions/{recon_id}"),
         "submodels": Link(href=f"/v1/reconstructions/{recon_id}/submodels"),
         "snapshots": Link(href=f"/v1/reconstructions/{recon_id}/snapshots"),
+        "artifacts": Link(href=f"/v1/reconstructions/{recon_id}/artifacts"),
         "two_view_geometries": Link(
             href=f"/v1/reconstructions/{recon_id}/two_view_geometries.json"
         ),
@@ -43,11 +49,27 @@ def _recon_links(recon_id: str) -> dict[str, Link]:
     }
 
 
-def _submodel_links(sm) -> dict[str, Link]:
-    return {
+def _submodel_links(sm: Any) -> dict[str, Link]:
+    links = {
         "self": Link(href=f"/v1/submodels/{sm.submodel_id}"),
         "reconstruction": Link(href=f"/v1/reconstructions/{sm.recon_id}"),
     }
+    if sm.snapshot_seq is not None:
+        base = f"/v1/reconstructions/{sm.recon_id}/snapshots/{sm.snapshot_seq}/submodels/{sm.idx}"
+        links.update(
+            {
+                "snapshot": Link(href=base),
+                "points": Link(href=f"{base}/points.bin"),
+                "preview": Link(href=f"{base}/points_preview.bin"),
+                "cameras": Link(href=f"{base}/cameras.json"),
+                "images": Link(href=f"{base}/images.json"),
+                "rigs": Link(href=f"{base}/rigs.json"),
+                "frames": Link(href=f"{base}/frames.json"),
+                "pose_graph": Link(href=f"{base}/pose_graph.json"),
+                "summary": Link(href=f"{base}/summary.json"),
+            }
+        )
+    return links
 
 
 class MergeRequest(BaseModel):
@@ -57,7 +79,7 @@ class MergeRequest(BaseModel):
 
     target_recon_id: str
     source_recon_ids: list[str] = Field(..., min_length=1)
-    sim3_aligners: list[dict] | None = None
+    sim3_aligners: list[dict[str, Any]] | None = None
 
 
 @router.get("/reconstructions/{recon_id}", response_model=ReconstructionOut)
@@ -104,6 +126,43 @@ async def list_submodels(
     return Page[SubModelOut](items=items, next_page_token=next_page_token)
 
 
+@router.get("/reconstructions/{recon_id}/artifacts", response_model=Page[StageArtifactOut])
+async def list_reconstruction_artifacts(
+    recon_id: str,
+    page_token: str | None = Query(default=None),
+    page_size: int = Query(default=100, ge=1, le=500),
+    kind: str | None = Query(
+        default=None,
+        description="Optional exact artifact kind filter, e.g. reconstruction.snapshot.",
+    ),
+    task_id: str | None = Query(default=None, description="Optional producing task id filter."),
+    name: str | None = Query(default=None, description="Optional exact artifact name filter."),
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
+) -> Page[StageArtifactOut]:
+    """List all typed stage artifacts attached to a reconstruction.
+
+    Use this when a pipeline produces multiple candidate outputs, such
+    as dual matchers, alternate verified pair sets, or several mapping
+    components.
+    """
+    await reconstruction_service.get_reconstruction(session, tenant_id=tenant_id, recon_id=recon_id)
+    rows, next_page_token = await artifact_service.list_reconstruction_artifacts(
+        session,
+        tenant_id=tenant_id,
+        recon_id=recon_id,
+        page_size=page_size,
+        page_token=page_token,
+        kind=kind,
+        task_id=task_id,
+        name=name,
+    )
+    return Page(
+        items=[to_out(StageArtifactOut, row, links=artifact_links(row)) for row in rows],
+        next_page_token=next_page_token,
+    )
+
+
 @router.get(
     "/reconstructions/{recon_id}/snapshots",
     response_model=SnapshotListResponse,
@@ -127,7 +186,7 @@ async def list_snapshots(
     paths = Paths()
     seqs = reconstruction_service.list_snapshot_seqs(paths, tenant_id, r.project_id, r.recon_id)
 
-    def _links_for(seq: int) -> dict:
+    def _links_for(seq: int) -> dict[str, dict[str, str]]:
         base = f"/v1/reconstructions/{recon_id}/snapshots/{seq}"
         return {
             "self": {"href": base},
@@ -149,6 +208,31 @@ async def list_snapshots(
             "latest": (_links_for(seqs[-1]) if seqs else None),
         },
     )
+
+
+def _serve_snapshot_file(
+    target: Path,
+    *,
+    name: str,
+    request: Request,
+    download: bool = False,
+) -> Response:
+    etag = file_etag(target)
+    if if_none_match_hit(request, etag):
+        return not_modified(etag)
+
+    media_type = (
+        "application/x-sfm-points-v1"
+        if name.endswith(".bin")
+        else ("application/json" if name.endswith(".json") else "application/octet-stream")
+    )
+    headers = {
+        "ETag": etag,
+        "Cache-Control": "public, max-age=31536000, immutable",
+    }
+    if download:
+        headers["Content-Disposition"] = f'attachment; filename="{name}"'
+    return FileResponse(target, media_type=media_type, filename=name, headers=headers)
 
 
 @router.get("/reconstructions/{recon_id}/snapshots/{seq}/{name}")
@@ -176,25 +260,43 @@ async def read_snapshot_file(
     target = snap_dir / name
     if not target.is_file():
         raise NotFoundError(f"snapshot file not found: {name}")
-    etag = file_etag(target)
-    if if_none_match_hit(request, etag):
-        return not_modified(etag)
-
-    media_type = (
-        "application/x-sfm-points-v1"
-        if name.endswith(".bin")
-        else ("application/json" if name.endswith(".json") else "application/octet-stream")
-    )
-    headers = {
-        "ETag": etag,
-        "Cache-Control": "public, max-age=31536000, immutable",
-    }
-    if download:
-        headers["Content-Disposition"] = f'attachment; filename="{name}"'
-    return FileResponse(target, media_type=media_type, filename=name, headers=headers)
+    return _serve_snapshot_file(target, name=name, request=request, download=download)
 
 
-async def _resolve_snapshot_dir(session, *, tenant_id: str, recon_id: str, seq: int):
+@router.get("/reconstructions/{recon_id}/snapshots/{seq}/submodels/{idx}/{name}")
+async def read_submodel_snapshot_file(
+    recon_id: str,
+    seq: int,
+    idx: int,
+    name: str,
+    request: Request,
+    download: bool = Query(default=False, description="Force Content-Disposition: attachment"),
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
+) -> Response:
+    """Serve one sealed-snapshot file for a specific disconnected component.
+
+    Multi-model mapping snapshots store component sidecars under
+    ``submodels/{idx}`` links backed by ``snapshots/{seq}/{idx}/``. A
+    single-model snapshot may only have files at the snapshot root; in
+    that case ``idx=0`` falls back to the root files.
+    """
+    if "/" in name or ".." in name:
+        raise NotFoundError("invalid snapshot file name")
+    snap_dir = await _resolve_snapshot_dir(session, tenant_id=tenant_id, recon_id=recon_id, seq=seq)
+    target = snap_dir / str(idx) / name
+    if not target.is_file() and idx == 0:
+        fallback = snap_dir / name
+        if fallback.is_file():
+            target = fallback
+    if not target.is_file():
+        raise NotFoundError(f"submodel snapshot file not found: {idx}/{name}")
+    return _serve_snapshot_file(target, name=name, request=request, download=download)
+
+
+async def _resolve_snapshot_dir(
+    session: AsyncSession, *, tenant_id: str, recon_id: str, seq: int
+) -> Path:
     r = await reconstruction_service.get_reconstruction(
         session, tenant_id=tenant_id, recon_id=recon_id
     )

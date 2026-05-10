@@ -11,6 +11,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.matcher_spec_backend_options import MatcherSpecBackendOptions
+    from ..models.matcher_spec_input_artifacts import MatcherSpecInputArtifacts
     from ..models.matcher_spec_matcher_options import MatcherSpecMatcherOptions
 
 
@@ -37,6 +38,8 @@ class MatcherSpec:
             max_distance (float | Unset):  Default: 0.7.
             backend_options (MatcherSpecBackendOptions | Unset): Backend-specific matcher options. Discover supported keys
                 with GET /v1/backend/config-schemas.
+            input_artifacts (MatcherSpecInputArtifacts | Unset): Optional role-keyed input artifact references. Use role
+                'features' to select a feature artifact produced by another backend.
             matcher_options (MatcherSpecMatcherOptions | Unset): Deprecated compatibility alias for backend-specific matcher
                 options. Prefer backend_options.
     """
@@ -49,6 +52,7 @@ class MatcherSpec:
     max_ratio: float | Unset = 0.8
     max_distance: float | Unset = 0.7
     backend_options: MatcherSpecBackendOptions | Unset = UNSET
+    input_artifacts: MatcherSpecInputArtifacts | Unset = UNSET
     matcher_options: MatcherSpecMatcherOptions | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -77,6 +81,10 @@ class MatcherSpec:
         if not isinstance(self.backend_options, Unset):
             backend_options = self.backend_options.to_dict()
 
+        input_artifacts: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.input_artifacts, Unset):
+            input_artifacts = self.input_artifacts.to_dict()
+
         matcher_options: dict[str, Any] | Unset = UNSET
         if not isinstance(self.matcher_options, Unset):
             matcher_options = self.matcher_options.to_dict()
@@ -100,6 +108,8 @@ class MatcherSpec:
             field_dict["max_distance"] = max_distance
         if backend_options is not UNSET:
             field_dict["backend_options"] = backend_options
+        if input_artifacts is not UNSET:
+            field_dict["input_artifacts"] = input_artifacts
         if matcher_options is not UNSET:
             field_dict["matcher_options"] = matcher_options
 
@@ -108,6 +118,7 @@ class MatcherSpec:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.matcher_spec_backend_options import MatcherSpecBackendOptions
+        from ..models.matcher_spec_input_artifacts import MatcherSpecInputArtifacts
         from ..models.matcher_spec_matcher_options import MatcherSpecMatcherOptions
 
         d = dict(src_dict)
@@ -146,6 +157,13 @@ class MatcherSpec:
         else:
             backend_options = MatcherSpecBackendOptions.from_dict(_backend_options)
 
+        _input_artifacts = d.pop("input_artifacts", UNSET)
+        input_artifacts: MatcherSpecInputArtifacts | Unset
+        if isinstance(_input_artifacts, Unset):
+            input_artifacts = UNSET
+        else:
+            input_artifacts = MatcherSpecInputArtifacts.from_dict(_input_artifacts)
+
         _matcher_options = d.pop("matcher_options", UNSET)
         matcher_options: MatcherSpecMatcherOptions | Unset
         if isinstance(_matcher_options, Unset):
@@ -162,6 +180,7 @@ class MatcherSpec:
             max_ratio=max_ratio,
             max_distance=max_distance,
             backend_options=backend_options,
+            input_artifacts=input_artifacts,
             matcher_options=matcher_options,
         )
 

@@ -11,12 +11,14 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.artifacts import artifact_links
 from app.core.tenancy import current_tenant
 from app.db.models import JobEvent, Task
 from app.db.session import get_db
+from app.schemas.api.artifacts import StageArtifactOut
 from app.schemas.api.common import Page, to_out
 from app.schemas.api.jobs import JobDetail, JobOut, JobProgressOut, JobStatus, TaskOut
-from app.services import job_progress_service, job_service
+from app.services import artifact_service, job_progress_service, job_service
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -77,6 +79,44 @@ async def get(
     )
     return JobDetail.model_validate(j).model_copy(
         update={"tasks": [to_out(TaskOut, t) for t in tasks]}
+    )
+
+
+@router.get("/{job_id}/artifacts", response_model=Page[StageArtifactOut])
+async def list_artifacts(
+    job_id: str,
+    page_token: str | None = Query(default=None),
+    page_size: int = Query(default=100, ge=1, le=500),
+    kind: str | None = Query(
+        default=None,
+        description="Optional exact artifact kind filter, e.g. matches.verified_database.",
+    ),
+    task_id: str | None = Query(default=None, description="Optional producing task id filter."),
+    name: str | None = Query(default=None, description="Optional exact artifact name filter."),
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
+) -> Page[StageArtifactOut]:
+    """List typed artifacts produced by a job's tasks.
+
+    Backends may produce multiple feature sets, match sets, verified
+    pair sets, snapshots, or provider-specific sidecars. This endpoint
+    is the stable discovery surface; task ``outputs_ref`` remains a
+    compatibility payload for polling clients.
+    """
+    await job_service.get_job(session, tenant_id=tenant_id, job_id=job_id)
+    rows, next_page_token = await artifact_service.list_job_artifacts(
+        session,
+        tenant_id=tenant_id,
+        job_id=job_id,
+        page_size=page_size,
+        page_token=page_token,
+        kind=kind,
+        task_id=task_id,
+        name=name,
+    )
+    return Page(
+        items=[to_out(StageArtifactOut, row, links=artifact_links(row)) for row in rows],
+        next_page_token=next_page_token,
     )
 
 

@@ -16,6 +16,7 @@ soon as any prefix is reused.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,14 +31,19 @@ from app.core.paths import Paths
 from app.db.models import Blob, Dataset, Image, ImageSource, Reconstruction
 from app.orchestrator.dag import TaskNode, hash_inputs, hash_params
 from app.orchestrator.scheduler import submit_job_dag
-from app.services import dataset_service, reconstruction_service, runtime_version_service
+from app.services import (
+    artifact_service,
+    dataset_service,
+    reconstruction_service,
+    runtime_version_service,
+)
 
 
 def _stage_node(
     *,
     kind: str,
-    inputs: dict,
-    spec: dict,
+    inputs: dict[str, Any],
+    spec: dict[str, Any],
     depends_on: list[str] | None = None,
 ) -> TaskNode:
     """Cache-key parity is the reason this is shared: a single-stage
@@ -74,10 +80,10 @@ async def _submit_single_stage(
     project_id: str,
     recipe: str,
     kind: str,
-    inputs: dict,
-    spec: dict,
+    inputs: dict[str, Any],
+    spec: dict[str, Any],
     inline: bool = False,
-) -> tuple[str, list]:
+) -> tuple[str, list[Any]]:
     """Single-task Job submit — every ``submit_*`` calls this with its
     pre-computed ``inputs`` / ``spec``.
 
@@ -106,7 +112,7 @@ async def ensure_reconstruction(
     *,
     tenant_id: str,
     dataset: Dataset,
-    spec: dict,
+    spec: dict[str, Any],
 ) -> Reconstruction:
     rv = await runtime_version_service.ensure_runtime_version(session)
     snap_hash = dataset.manifest_hash or ""
@@ -139,7 +145,7 @@ async def ensure_reconstruction(
 
 async def derive_materialization(
     session: AsyncSession, *, tenant_id: str, dataset: Dataset
-) -> dict:
+) -> dict[str, Any]:
     """Return a manifest the worker uses to realize the dataset on disk.
 
     Shape::
@@ -168,7 +174,7 @@ async def derive_materialization(
             "dataset has no images registered; add some with "
             f"POST /v1/datasets/{dataset.dataset_id}/images first"
         )
-    out: dict = {
+    out: dict[str, Any] = {
         "kind": src.kind,
         "image_list": image_list,
     }
@@ -197,14 +203,25 @@ def reconstruction_database_path(tenant_id: str, project_id: str, recon_id: str)
     return str(paths.reconstruction_root(tenant_id, project_id, recon_id) / "database.db")
 
 
-def _stage_backend_options(spec: dict, *, stage: str) -> dict:
+def _stage_backend_options(spec: dict[str, Any], *, stage: str) -> dict[str, Any]:
     options = spec.get("backend_options") or {}
     if not isinstance(options, dict):
         raise ValidationError(f"{stage}.backend_options must be an object")
     return options
 
 
-def validate_features_config(spec: dict) -> None:
+def _merge_spec_input_artifacts(*sources: object) -> dict[str, object]:
+    merged: dict[str, object] = {}
+    for source in sources:
+        if source is None:
+            continue
+        if not isinstance(source, dict):
+            raise ValidationError("input_artifacts must be an object")
+        merged.update(source)
+    return merged
+
+
+def validate_features_config(spec: dict[str, Any]) -> None:
     feature_type = str(spec.get("type") or "sift")
     backend_config.validate_backend_options(
         stage="features",
@@ -214,7 +231,7 @@ def validate_features_config(spec: dict) -> None:
     )
 
 
-def validate_matches_config(spec: dict) -> None:
+def validate_matches_config(spec: dict[str, Any]) -> None:
     pairs = spec.get("pairs", {})
     matcher = spec.get("matcher", {})
     if not isinstance(pairs, dict):
@@ -237,7 +254,7 @@ def validate_matches_config(spec: dict) -> None:
     )
 
 
-def validate_verify_config(spec: dict) -> None:
+def validate_verify_config(spec: dict[str, Any]) -> None:
     backend_config.validate_backend_options(
         stage="verify",
         capability="matches.verify",
@@ -246,7 +263,7 @@ def validate_verify_config(spec: dict) -> None:
     )
 
 
-def validate_mapping_config(spec: dict) -> None:
+def validate_mapping_config(spec: dict[str, Any]) -> None:
     kind = str(spec.get("kind") or "incremental")
     backend_config.validate_backend_options(
         stage="mapping",
@@ -258,10 +275,10 @@ def validate_mapping_config(spec: dict) -> None:
 
 def validate_recipe_stage_configs(
     *,
-    features_spec: dict,
-    matches_spec: dict,
-    verify_spec: dict,
-    pipeline_spec: dict,
+    features_spec: dict[str, Any],
+    matches_spec: dict[str, Any],
+    verify_spec: dict[str, Any],
+    pipeline_spec: dict[str, Any],
 ) -> None:
     validate_features_config(features_spec)
     validate_matches_config(matches_spec)
@@ -274,9 +291,10 @@ async def submit_features(
     *,
     tenant_id: str,
     dataset_id: str,
-    spec: dict,
+    spec: dict[str, Any],
+    input_artifacts: dict[str, Any] | None = None,
     inline: bool = False,
-) -> tuple[str, list]:
+) -> tuple[str, list[Any]]:
     validate_features_config(spec)
     d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=dataset_id)
     r = await ensure_reconstruction(session, tenant_id=tenant_id, dataset=d, spec=spec)
@@ -290,6 +308,14 @@ async def submit_features(
         "materialization": materialization,
         "database_path": db_path,
     }
+    resolved_artifacts = await artifact_service.resolve_input_artifacts(
+        session,
+        tenant_id=tenant_id,
+        dataset_id=d.dataset_id,
+        input_artifacts=input_artifacts or spec.get("input_artifacts"),
+    )
+    if resolved_artifacts:
+        inputs["input_artifacts"] = resolved_artifacts
     return await _submit_single_stage(
         session,
         tenant_id=tenant_id,
@@ -307,7 +333,7 @@ async def _resolve_database_path(
     *,
     tenant_id: str,
     dataset: Dataset,
-    spec: dict,
+    spec: dict[str, Any],
 ) -> tuple[Reconstruction, str]:
     r = await ensure_reconstruction(session, tenant_id=tenant_id, dataset=dataset, spec={})
     return r, reconstruction_database_path(tenant_id, dataset.project_id, r.recon_id)
@@ -318,9 +344,10 @@ async def submit_matches(
     *,
     tenant_id: str,
     dataset_id: str,
-    spec: dict,
+    spec: dict[str, Any],
+    input_artifacts: dict[str, Any] | None = None,
     inline: bool = False,
-) -> tuple[str, list]:
+) -> tuple[str, list[Any]]:
     validate_matches_config(spec)
     d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=dataset_id)
     pairs = spec.get("pairs", {})
@@ -330,12 +357,33 @@ async def submit_matches(
         raise ValidationError("pairs.vocab_tree_path is required for pairs.strategy=vocabtree")
     await _validate_explicit_pairs(session, tenant_id=tenant_id, dataset=d, pairs=pairs)
     r, db_path = await _resolve_database_path(session, tenant_id=tenant_id, dataset=d, spec=spec)
-    inputs = {
+    resolved_artifacts = await artifact_service.resolve_input_artifacts(
+        session,
+        tenant_id=tenant_id,
+        dataset_id=d.dataset_id,
+        input_artifacts=input_artifacts
+        or _merge_spec_input_artifacts(
+            spec.get("input_artifacts"),
+            pairs.get("input_artifacts"),
+            (spec.get("matcher") or {}).get("input_artifacts")
+            if isinstance(spec.get("matcher"), dict)
+            else None,
+        ),
+    )
+    selected_db_path = artifact_service.database_path_from_input_artifacts(
+        resolved_artifacts,
+        roles=("features",),
+    )
+    if selected_db_path:
+        db_path = selected_db_path
+    inputs: dict[str, Any] = {
         "dataset_id": d.dataset_id,
         "recon_id": r.recon_id,
         "manifest_hash": d.manifest_hash,
         "database_path": db_path,
     }
+    if resolved_artifacts:
+        inputs["input_artifacts"] = resolved_artifacts
     return await _submit_single_stage(
         session,
         tenant_id=tenant_id,
@@ -353,7 +401,7 @@ async def _validate_explicit_pairs(
     *,
     tenant_id: str,
     dataset: Dataset,
-    pairs: dict,
+    pairs: dict[str, Any],
 ) -> None:
     if pairs.get("strategy") != "explicit":
         if pairs.get("image_pairs") or pairs.get("pairs_blob_sha"):
@@ -416,7 +464,7 @@ async def submit_render_cubemap(
     dataset_id: str,
     face_size: int | None = None,
     inline: bool = False,
-) -> tuple[str, list]:
+) -> tuple[str, list[Any]]:
     """Render every spherical panorama into 6 cubemap faces.
 
     Refuses if the dataset isn't ``is_spherical=true``. The output is a
@@ -435,7 +483,7 @@ async def submit_render_cubemap(
         "materialization": materialization,
         "dataset_dir": str(dataset_dir),
     }
-    spec: dict = {}
+    spec: dict[str, Any] = {}
     if face_size:
         spec["face_size"] = int(face_size)
     return await _submit_single_stage(
@@ -459,7 +507,7 @@ async def submit_video_frames(
     fps: float = 2.0,
     max_frames: int = 1000,
     inline: bool = False,
-) -> tuple[str, list]:
+) -> tuple[str, list[Any]]:
     """Extract keyframes from a worker-local video file."""
     require_capability("video.frame_extract")
     paths = Paths(get_settings())
@@ -485,13 +533,13 @@ async def submit_kapture_import(
     project_id: str,
     archive_path: str,
     inline: bool = False,
-) -> tuple[str, list]:
+) -> tuple[str, list[Any]]:
     """Parse a Kapture archive (extracted directory) into ``sensors``
     and ``records`` lists in the task result. The client follows up
     with a ``POST /v1/projects/{pid}/datasets`` of kind=``local``
     pointing at the returned ``image_root``."""
     require_capability("import.kapture")
-    spec: dict = {}
+    spec: dict[str, Any] = {}
     inputs = {"archive_path": archive_path}
     return await _submit_single_stage(
         session,
@@ -511,9 +559,9 @@ async def submit_merge_recons(
     tenant_id: str,
     target_recon_id: str,
     source_recon_ids: list[str],
-    sim3_aligners: list[dict] | None = None,
+    sim3_aligners: list[dict[str, Any]] | None = None,
     inline: bool = False,
-) -> tuple[str, list]:
+) -> tuple[str, list[Any]]:
     """Merge several reconstructions into ``target_recon_id``.
 
     All sources MUST belong to the same project as the target."""
@@ -558,7 +606,7 @@ async def submit_to_cubemap(
     tenant_id: str,
     recon_id: str,
     inline: bool = False,
-) -> tuple[str, list]:
+) -> tuple[str, list[Any]]:
     """Convert a spherical reconstruction to a cubemap rig (worker job).
 
     Refuses if the reconstruction's dataset isn't marked
@@ -585,7 +633,7 @@ async def submit_to_cubemap(
         "sparse_dir": str(sparse_dir),
         "image_root": image_root,
     }
-    spec: dict = {}
+    spec: dict[str, Any] = {}
     return await _submit_single_stage(
         session,
         tenant_id=tenant_id,
@@ -603,9 +651,9 @@ async def submit_georegister(
     *,
     tenant_id: str,
     recon_id: str,
-    sim3: dict,
+    sim3: dict[str, Any],
     inline: bool = False,
-) -> tuple[str, list]:
+) -> tuple[str, list[Any]]:
     """Apply a Sim(3) georegistration transform to a reconstruction."""
     require_capability("georegister.sim3")
     r = await reconstruction_service.get_reconstruction(
@@ -637,9 +685,9 @@ async def submit_localize(
     tenant_id: str,
     recon_id: str,
     blob_sha: str,
-    spec: dict | None = None,
+    spec: dict[str, Any] | None = None,
     inline: bool = False,
-) -> tuple[str, list]:
+) -> tuple[str, list[Any]]:
     """Localize a single query image (`blob_sha`) against `recon_id`."""
     require_capability("localize.from_memory")
     spec = spec or {}
@@ -669,9 +717,9 @@ async def submit_vlad_index(
     *,
     tenant_id: str,
     dataset_id: str,
-    spec: dict | None = None,
+    spec: dict[str, Any] | None = None,
     inline: bool = False,
-) -> tuple[str, list]:
+) -> tuple[str, list[Any]]:
     """Build a VLAD descriptor index for the dataset (worker job)."""
     require_capability("similarity.vlad")
     spec = spec or {}
@@ -711,18 +759,33 @@ async def submit_verify(
     *,
     tenant_id: str,
     dataset_id: str,
-    spec: dict,
+    spec: dict[str, Any],
+    input_artifacts: dict[str, Any] | None = None,
     inline: bool = False,
-) -> tuple[str, list]:
+) -> tuple[str, list[Any]]:
     validate_verify_config(spec)
     d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=dataset_id)
     r, db_path = await _resolve_database_path(session, tenant_id=tenant_id, dataset=d, spec=spec)
-    inputs = {
+    resolved_artifacts = await artifact_service.resolve_input_artifacts(
+        session,
+        tenant_id=tenant_id,
+        dataset_id=d.dataset_id,
+        input_artifacts=input_artifacts or spec.get("input_artifacts"),
+    )
+    selected_db_path = artifact_service.database_path_from_input_artifacts(
+        resolved_artifacts,
+        roles=("matches",),
+    )
+    if selected_db_path:
+        db_path = selected_db_path
+    inputs: dict[str, Any] = {
         "dataset_id": d.dataset_id,
         "recon_id": r.recon_id,
         "manifest_hash": d.manifest_hash,
         "database_path": db_path,
     }
+    if resolved_artifacts:
+        inputs["input_artifacts"] = resolved_artifacts
     return await _submit_single_stage(
         session,
         tenant_id=tenant_id,
@@ -737,7 +800,7 @@ async def submit_verify(
 
 async def collect_pose_priors_by_name(
     session: AsyncSession, *, tenant_id: str, dataset_id: str
-) -> dict[str, dict]:
+) -> dict[str, dict[str, Any]]:
     """Return ``{image_name: PosePrior dict}`` for every image in the
     dataset that has a non-null ``pose_prior_json``. Keyed by name so
     the worker can correlate with pycolmap's image-name primary key."""
@@ -758,13 +821,14 @@ def build_recipe_dag(
     project_id: str,
     dataset_id: str,
     recon_id: str,
-    materialization: dict,
+    materialization: dict[str, Any],
     database_path: str,
-    features_spec: dict,
-    matches_spec: dict,
-    verify_spec: dict,
-    pipeline_spec: dict,
-    pose_priors: dict[str, dict] | None = None,
+    features_spec: dict[str, Any],
+    matches_spec: dict[str, Any],
+    verify_spec: dict[str, Any],
+    pipeline_spec: dict[str, Any],
+    pose_priors: dict[str, dict[str, Any]] | None = None,
+    input_artifacts: dict[str, dict[str, Any]] | None = None,
 ) -> list[TaskNode]:
     """Stitch extract → match → verify → map into one DAG. Each TaskNode
     is hashed with the same shape as a single-stage submission, so a
@@ -775,6 +839,20 @@ def build_recipe_dag(
     when present they're forwarded into the map task's inputs so the
     worker can wire them into pycolmap's ``MappingInput``.
     """
+    input_artifacts = input_artifacts or {}
+    features_db_path = artifact_service.database_path_from_input_artifacts(
+        input_artifacts,
+        roles=("features",),
+    )
+    matches_db_path = artifact_service.database_path_from_input_artifacts(
+        input_artifacts,
+        roles=("matches",),
+    )
+    verified_db_path = artifact_service.database_path_from_input_artifacts(
+        input_artifacts,
+        roles=("verified_matches",),
+    )
+
     extract_inputs = {
         "project_id": project_id,
         "dataset_id": dataset_id,
@@ -782,6 +860,8 @@ def build_recipe_dag(
         "materialization": materialization,
         "database_path": database_path,
     }
+    if input_artifacts:
+        extract_inputs["input_artifacts"] = input_artifacts
     extract = _stage_node(kind="extract", inputs=extract_inputs, spec=features_spec)
 
     common_stage_inputs = {
@@ -791,13 +871,23 @@ def build_recipe_dag(
     }
     match = _stage_node(
         kind="match",
-        inputs={**common_stage_inputs, "depends_on": extract.task_id},
+        inputs={
+            **common_stage_inputs,
+            "database_path": features_db_path or database_path,
+            "depends_on": extract.task_id,
+            **({"input_artifacts": input_artifacts} if input_artifacts else {}),
+        },
         spec=matches_spec,
         depends_on=[extract.task_id],
     )
     verify = _stage_node(
         kind="verify",
-        inputs={**common_stage_inputs, "depends_on": match.task_id},
+        inputs={
+            **common_stage_inputs,
+            "database_path": matches_db_path or database_path,
+            "depends_on": match.task_id,
+            **({"input_artifacts": input_artifacts} if input_artifacts else {}),
+        },
         spec=verify_spec,
         depends_on=[match.task_id],
     )
@@ -805,12 +895,14 @@ def build_recipe_dag(
         "project_id": project_id,
         "recon_id": recon_id,
         "dataset_id": dataset_id,
-        "database_path": database_path,
+        "database_path": verified_db_path or database_path,
         "materialization": materialization,
         "depends_on": verify.task_id,
     }
     if pose_priors:
         map_inputs["pose_priors"] = pose_priors
+    if input_artifacts:
+        map_inputs["input_artifacts"] = input_artifacts
     map_node = _stage_node(
         kind="map", inputs=map_inputs, spec=pipeline_spec, depends_on=[verify.task_id]
     )

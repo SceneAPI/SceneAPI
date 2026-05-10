@@ -17,6 +17,7 @@ from app.core.config import get_settings
 from app.core.errors import TenantViolationError
 from app.db.models import Task
 from app.db.session import session_scope
+from app.schemas.api.artifacts import StageArtifactOut
 from app.schemas.api.backend_actions import BackendActionOut
 from app.schemas.api.common import Page, to_out
 from app.schemas.api.jobs import JobDetail, JobOut, JobStatus, TaskOut
@@ -27,6 +28,7 @@ from app.schemas.api.reconstructions import (
     SubModelOut,
 )
 from app.services import (
+    artifact_service,
     backend_action_service,
     job_progress_service,
     job_service,
@@ -179,6 +181,67 @@ async def get_job_progress(job_id: str, tenant_id: str | None = None) -> dict[st
     return _dump(progress)
 
 
+async def list_artifacts(
+    tenant_id: str | None = None,
+    job_id: str | None = None,
+    recon_id: str | None = None,
+    kind: str | None = None,
+    task_id: str | None = None,
+    name: str | None = None,
+    page_size: int = 100,
+    page_token: str | None = None,
+) -> dict[str, Any]:
+    """List typed stage artifacts for one job or reconstruction."""
+    if (job_id is None) == (recon_id is None):
+        raise ValueError("pass exactly one of job_id or recon_id")
+    resolved_tenant = resolve_tenant(tenant_id)
+    async with session_scope() as session:
+        if job_id is not None:
+            await job_service.get_job(session, tenant_id=resolved_tenant, job_id=job_id)
+            rows, next_page_token = await artifact_service.list_job_artifacts(
+                session,
+                tenant_id=resolved_tenant,
+                job_id=job_id,
+                page_size=_page_size(page_size),
+                page_token=page_token,
+                kind=kind,
+                task_id=task_id,
+                name=name,
+            )
+        else:
+            await reconstruction_service.get_reconstruction(
+                session,
+                tenant_id=resolved_tenant,
+                recon_id=str(recon_id),
+            )
+            rows, next_page_token = await artifact_service.list_reconstruction_artifacts(
+                session,
+                tenant_id=resolved_tenant,
+                recon_id=str(recon_id),
+                page_size=_page_size(page_size),
+                page_token=page_token,
+                kind=kind,
+                task_id=task_id,
+                name=name,
+            )
+    page = Page[StageArtifactOut](
+        items=[to_out(StageArtifactOut, row) for row in rows],
+        next_page_token=next_page_token,
+    )
+    return _dump(page)
+
+
+async def get_artifact(artifact_id: str, tenant_id: str | None = None) -> dict[str, Any]:
+    """Read one typed stage artifact by id."""
+    async with session_scope() as session:
+        artifact = await artifact_service.get_artifact(
+            session,
+            tenant_id=resolve_tenant(tenant_id),
+            artifact_id=artifact_id,
+        )
+    return _dump(to_out(StageArtifactOut, artifact))
+
+
 async def get_reconstruction(recon_id: str, tenant_id: str | None = None) -> dict[str, Any]:
     """Read one reconstruction metadata row."""
     async with session_scope() as session:
@@ -249,6 +312,8 @@ TOOLS = (
     list_jobs,
     get_job,
     get_job_progress,
+    list_artifacts,
+    get_artifact,
     get_reconstruction,
     list_submodels,
     list_snapshots,

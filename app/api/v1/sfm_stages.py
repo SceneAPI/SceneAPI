@@ -8,14 +8,17 @@ reconstruction.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1._helpers import accepted_response
 from app.core.tenancy import current_tenant
 from app.db.session import get_db
+from app.schemas.api.artifacts import ArtifactInputMap
 from app.schemas.api.jobs import JobAcceptedResponse
 from app.schemas.pipeline_spec import FeaturesSpec, MatcherSpec, PairsSpec, VerifySpec
 from app.services import sfm_stage_service
@@ -46,13 +49,15 @@ class MatchesRequest(_StageReqBase):
 
     pairs: PairsSpec = PairsSpec()
     matcher: MatcherSpec = MatcherSpec()
+    input_artifacts: ArtifactInputMap = Field(default_factory=dict)
 
 
 class VerifyRequest(_StageReqBase):
     spec: VerifySpec = VerifySpec()
+    input_artifacts: ArtifactInputMap = Field(default_factory=dict)
 
 
-def _job_response(job_id: str, tasks: list) -> JSONResponse:
+def _job_response(job_id: str, tasks: list[Any]) -> JSONResponse:
     return accepted_response(
         JobAcceptedResponse(job_id=job_id, task_ids=[t.task_id for t in tasks])
     )
@@ -116,6 +121,11 @@ async def matches(
             "pairs": body.pairs.model_dump(mode="json"),
             "matcher": body.matcher.model_dump(mode="json"),
         },
+        input_artifacts={
+            **body.pairs.input_artifacts,
+            **body.matcher.input_artifacts,
+            **body.input_artifacts,
+        },
     )
     return _job_response(job_id, tasks)
 
@@ -143,5 +153,6 @@ async def verify(
         tenant_id=tenant_id,
         dataset_id=dataset_id,
         spec=body.spec.model_dump(mode="json"),
+        input_artifacts={**body.spec.input_artifacts, **body.input_artifacts},
     )
     return _job_response(job_id, tasks)

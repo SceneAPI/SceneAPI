@@ -28,7 +28,7 @@ import asyncio
 import contextlib
 import os
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import select
 
@@ -40,6 +40,7 @@ from app.core.paths import Paths
 from app.db.models import Job, Task
 from app.db.session import get_session_factory
 from app.orchestrator.lease import now_utc, refresh_lease, try_acquire_lease
+from app.services import artifact_service, reconstruction_service
 from app.workers.progress import (
     WorkerProgressReporter,
     reset_progress_reporter,
@@ -84,6 +85,50 @@ def get_handlers() -> dict[str, Callable[..., Any]]:
     return _HANDLERS_CACHE
 
 
+def _task_recon_id(task: Task) -> str | None:
+    state = task.task_state_json or {}
+    inputs = state.get("inputs") or {}
+    recon_id = inputs.get("recon_id")
+    return str(recon_id) if recon_id else None
+
+
+async def _mark_task_reconstruction_status(session: Any, task: Task, status: str) -> None:
+    if task.kind != "map":
+        return
+    recon_id = _task_recon_id(task)
+    if recon_id is None:
+        return
+    await reconstruction_service.mark_reconstruction_status(
+        session,
+        tenant_id=task.tenant_id,
+        recon_id=recon_id,
+        status=status,
+    )
+
+
+async def _apply_task_success_side_effects(
+    session: Any, task: Task, outputs: dict[str, Any] | None
+) -> None:
+    if task.kind != "map":
+        return
+    recon_id = _task_recon_id(task)
+    if recon_id is None:
+        return
+    result = outputs or {}
+    models = result.get("models")
+    if not isinstance(models, list):
+        models = []
+    model_summaries = [cast(dict[str, Any], m) for m in models if isinstance(m, dict)]
+    await reconstruction_service.record_mapping_result(
+        session,
+        tenant_id=task.tenant_id,
+        recon_id=recon_id,
+        models=model_summaries,
+        snapshot_seq=result.get("snapshot_seq"),
+        snapshot_path=result.get("snapshot_path"),
+    )
+
+
 async def execute_task(task_id: str) -> dict[str, Any]:
     """Run one Task end-to-end. Queue-agnostic: any backend that can
     deliver a ``task_id`` can call this.
@@ -120,6 +165,7 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             return {"status": "busy"}
         task.status = "running"
         task.started_at = now_utc()
+        await _mark_task_reconstruction_status(session, task, "running")
         await session.commit()
 
     handler = get_handlers().get(task.kind)
@@ -132,6 +178,7 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             t.error_class = "UnknownTask"
             t.error_message = f"No handler for kind={task.kind}"
             t.finished_at = now_utc()
+            await _mark_task_reconstruction_status(session, t, "failed")
             await session.commit()
             await _maybe_finalize_job(session, t.job_id)
         return {"status": "failed"}
@@ -151,7 +198,8 @@ async def execute_task(task_id: str) -> dict[str, Any]:
     try:
         token = set_progress_reporter(reporter)
         try:
-            outputs = await asyncio.to_thread(handler, task)
+            raw_outputs = await asyncio.to_thread(handler, task)
+            outputs = artifact_service.normalize_task_outputs(task, raw_outputs)
         finally:
             reset_progress_reporter(token)
         async with factory() as session:
@@ -161,6 +209,8 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             t.status = "succeeded"
             t.outputs_ref_json = outputs or {}
             t.finished_at = now_utc()
+            await artifact_service.record_task_artifacts(session, task=t, outputs=outputs or {})
+            await _apply_task_success_side_effects(session, t, outputs or {})
             await session.commit()
             await _maybe_finalize_job(session, t.job_id)
         return {"status": "succeeded", "outputs": outputs}
@@ -173,6 +223,7 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             t.error_class = "PycolmapUnavailable"
             t.error_message = str(e)
             t.finished_at = now_utc()
+            await _mark_task_reconstruction_status(session, t, "failed")
             await session.commit()
             await _maybe_finalize_job(session, t.job_id)
         return {"status": "failed", "error": "pycolmap_unavailable"}
@@ -186,6 +237,7 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             t.error_class = type(e).__name__
             t.error_message = str(e)[:2000]
             t.finished_at = now_utc()
+            await _mark_task_reconstruction_status(session, t, "failed")
             await session.commit()
             await _maybe_finalize_job(session, t.job_id)
         return {"status": "failed", "error": str(e)}

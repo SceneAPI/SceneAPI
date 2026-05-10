@@ -28,6 +28,8 @@ from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.schemas.api.artifacts import ArtifactInputMap
+
 BackendOptions = dict[str, Any]
 """Backend-specific option bag.
 
@@ -59,6 +61,14 @@ class _SpecBase(BaseModel):
             "Backend-specific mapping options. Discover supported keys with "
             "GET /v1/backend/config-schemas and keep portable settings in "
             "the top-level spec fields."
+        ),
+    )
+    input_artifacts: ArtifactInputMap = Field(
+        default_factory=dict,
+        description=(
+            "Optional role-keyed input artifact references. Core roles include "
+            "verified_matches, snapshot, and submodel; backend-specific roles "
+            "may use the same dot-key syntax as artifact kinds."
         ),
     )
 
@@ -136,6 +146,13 @@ class FeaturesSpec(BaseModel):
         description=(
             "Backend-specific feature-extraction options. Discover supported "
             "keys with GET /v1/backend/config-schemas."
+        ),
+    )
+    input_artifacts: ArtifactInputMap = Field(
+        default_factory=dict,
+        description=(
+            "Optional role-keyed input artifact references for advanced or "
+            "backend-specific feature extraction flows."
         ),
     )
     extractor_options: BackendOptions = Field(
@@ -243,6 +260,13 @@ class PairsSpec(BaseModel):
             "with GET /v1/backend/config-schemas."
         ),
     )
+    input_artifacts: ArtifactInputMap = Field(
+        default_factory=dict,
+        description=(
+            "Optional role-keyed input artifact references. Use role 'pairs' "
+            "for a previously generated pair-selection artifact."
+        ),
+    )
 
     @model_validator(mode="after")
     def _validate_explicit_pairs(self) -> Self:
@@ -301,6 +325,13 @@ class MatcherSpec(BaseModel):
             "GET /v1/backend/config-schemas."
         ),
     )
+    input_artifacts: ArtifactInputMap = Field(
+        default_factory=dict,
+        description=(
+            "Optional role-keyed input artifact references. Use role 'features' "
+            "to select a feature artifact produced by another backend."
+        ),
+    )
     matcher_options: BackendOptions = Field(
         default_factory=dict,
         description=(
@@ -329,6 +360,13 @@ class VerifySpec(BaseModel):
         description=(
             "Backend-specific geometric-verification options. Discover "
             "supported keys with GET /v1/backend/config-schemas."
+        ),
+    )
+    input_artifacts: ArtifactInputMap = Field(
+        default_factory=dict,
+        description=(
+            "Optional role-keyed input artifact references. Use role 'matches' "
+            "to verify a specific match artifact."
         ),
     )
 

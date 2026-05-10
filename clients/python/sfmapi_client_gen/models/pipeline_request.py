@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from ..models.incremental_spec import IncrementalSpec
     from ..models.matcher_spec import MatcherSpec
     from ..models.pairs_spec import PairsSpec
+    from ..models.pipeline_request_input_artifacts import PipelineRequestInputArtifacts
     from ..models.spherical_spec import SphericalSpec
     from ..models.verify_spec import VerifySpec
 
@@ -55,6 +56,8 @@ class PipelineRequest:
                 are learned matchers. ``loftr`` is semi-dense (no separate
                 extractor — set ``FeaturesSpec.type`` to a placeholder).
             verify (VerifySpec | Unset):
+            input_artifacts (PipelineRequestInputArtifacts | Unset): Optional role-keyed artifact references shared by the
+                recipe. Stage-local input_artifacts on features, pairs, matcher, verify, or spec are merged with this map.
     """
 
     dataset_id: str
@@ -63,6 +66,7 @@ class PipelineRequest:
     pairs: PairsSpec | Unset = UNSET
     matcher: MatcherSpec | Unset = UNSET
     verify: VerifySpec | Unset = UNSET
+    input_artifacts: PipelineRequestInputArtifacts | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -98,6 +102,10 @@ class PipelineRequest:
         if not isinstance(self.verify, Unset):
             verify = self.verify.to_dict()
 
+        input_artifacts: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.input_artifacts, Unset):
+            input_artifacts = self.input_artifacts.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -114,6 +122,8 @@ class PipelineRequest:
             field_dict["matcher"] = matcher
         if verify is not UNSET:
             field_dict["verify"] = verify
+        if input_artifacts is not UNSET:
+            field_dict["input_artifacts"] = input_artifacts
 
         return field_dict
 
@@ -125,6 +135,7 @@ class PipelineRequest:
         from ..models.incremental_spec import IncrementalSpec
         from ..models.matcher_spec import MatcherSpec
         from ..models.pairs_spec import PairsSpec
+        from ..models.pipeline_request_input_artifacts import PipelineRequestInputArtifacts
         from ..models.spherical_spec import SphericalSpec
         from ..models.verify_spec import VerifySpec
 
@@ -194,6 +205,13 @@ class PipelineRequest:
         else:
             verify = VerifySpec.from_dict(_verify)
 
+        _input_artifacts = d.pop("input_artifacts", UNSET)
+        input_artifacts: PipelineRequestInputArtifacts | Unset
+        if isinstance(_input_artifacts, Unset):
+            input_artifacts = UNSET
+        else:
+            input_artifacts = PipelineRequestInputArtifacts.from_dict(_input_artifacts)
+
         pipeline_request = cls(
             dataset_id=dataset_id,
             spec=spec,
@@ -201,6 +219,7 @@ class PipelineRequest:
             pairs=pairs,
             matcher=matcher,
             verify=verify,
+            input_artifacts=input_artifacts,
         )
 
         pipeline_request.additional_properties = d

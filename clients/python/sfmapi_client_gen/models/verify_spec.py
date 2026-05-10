@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.verify_spec_backend_options import VerifySpecBackendOptions
+    from ..models.verify_spec_input_artifacts import VerifySpecInputArtifacts
 
 
 T = TypeVar("T", bound="VerifySpec")
@@ -26,6 +27,8 @@ class VerifySpec:
         min_inlier_ratio (float | Unset):  Default: 0.25.
         backend_options (VerifySpecBackendOptions | Unset): Backend-specific geometric-verification options. Discover
             supported keys with GET /v1/backend/config-schemas.
+        input_artifacts (VerifySpecInputArtifacts | Unset): Optional role-keyed input artifact references. Use role
+            'matches' to verify a specific match artifact.
     """
 
     version: Literal[1] | Unset = 1
@@ -33,6 +36,7 @@ class VerifySpec:
     use_gpu: bool | Unset = True
     min_inlier_ratio: float | Unset = 0.25
     backend_options: VerifySpecBackendOptions | Unset = UNSET
+    input_artifacts: VerifySpecInputArtifacts | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -52,6 +56,10 @@ class VerifySpec:
         if not isinstance(self.backend_options, Unset):
             backend_options = self.backend_options.to_dict()
 
+        input_artifacts: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.input_artifacts, Unset):
+            input_artifacts = self.input_artifacts.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -65,12 +73,15 @@ class VerifySpec:
             field_dict["min_inlier_ratio"] = min_inlier_ratio
         if backend_options is not UNSET:
             field_dict["backend_options"] = backend_options
+        if input_artifacts is not UNSET:
+            field_dict["input_artifacts"] = input_artifacts
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.verify_spec_backend_options import VerifySpecBackendOptions
+        from ..models.verify_spec_input_artifacts import VerifySpecInputArtifacts
 
         d = dict(src_dict)
         version = cast(Literal[1] | Unset, d.pop("version", UNSET))
@@ -97,12 +108,20 @@ class VerifySpec:
         else:
             backend_options = VerifySpecBackendOptions.from_dict(_backend_options)
 
+        _input_artifacts = d.pop("input_artifacts", UNSET)
+        input_artifacts: VerifySpecInputArtifacts | Unset
+        if isinstance(_input_artifacts, Unset):
+            input_artifacts = UNSET
+        else:
+            input_artifacts = VerifySpecInputArtifacts.from_dict(_input_artifacts)
+
         verify_spec = cls(
             version=version,
             provider=provider,
             use_gpu=use_gpu,
             min_inlier_ratio=min_inlier_ratio,
             backend_options=backend_options,
+            input_artifacts=input_artifacts,
         )
 
         verify_spec.additional_properties = d

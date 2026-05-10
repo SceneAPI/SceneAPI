@@ -218,6 +218,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/artifacts/kinds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Artifact Kinds
+         * @description List sfmapi's reserved core artifact kinds.
+         *
+         *     Backends may still emit namespaced extension kinds. The core list
+         *     gives clients stable semantics for portable stage inputs.
+         */
+        get: operations["list_artifact_kinds_v1_artifacts_kinds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/artifacts/{artifact_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Artifact
+         * @description Read one typed stage artifact by id.
+         */
+        get: operations["get_artifact_v1_artifacts__artifact_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/artifacts/{artifact_id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Artifact Content
+         * @description Serve content for local, server-managed file artifacts.
+         *
+         *     Remote object-store URIs and paths outside sfmapi's managed roots
+         *     are intentionally not dereferenced through this route.
+         */
+        get: operations["read_artifact_content_v1_artifacts__artifact_id__content_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/backend": {
         parameters: {
             query?: never;
@@ -842,6 +908,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/jobs/{job_id}/artifacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Artifacts
+         * @description List typed artifacts produced by a job's tasks.
+         *
+         *     Backends may produce multiple feature sets, match sets, verified
+         *     pair sets, snapshots, or provider-specific sidecars. This endpoint
+         *     is the stable discovery surface; task ``outputs_ref`` remains a
+         *     compatibility payload for polling clients.
+         */
+        get: operations["list_artifacts_v1_jobs__job_id__artifacts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/jobs/{job_id}/progress": {
         parameters: {
             query?: never;
@@ -1082,6 +1173,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/reconstructions/{recon_id}/artifacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Reconstruction Artifacts
+         * @description List all typed stage artifacts attached to a reconstruction.
+         *
+         *     Use this when a pipeline produces multiple candidate outputs, such
+         *     as dual matchers, alternate verified pair sets, or several mapping
+         *     components.
+         */
+        get: operations["list_reconstruction_artifacts_v1_reconstructions__recon_id__artifacts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/reconstructions/{recon_id}/snapshots": {
         parameters: {
             query?: never;
@@ -1124,6 +1239,31 @@ export interface paths {
          *     response carries an `ETag` and honors `If-None-Match`.
          */
         get: operations["read_snapshot_file_v1_reconstructions__recon_id__snapshots__seq___name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reconstructions/{recon_id}/snapshots/{seq}/submodels/{idx}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Submodel Snapshot File
+         * @description Serve one sealed-snapshot file for a specific disconnected component.
+         *
+         *     Multi-model mapping snapshots store component sidecars under
+         *     ``submodels/{idx}`` links backed by ``snapshots/{seq}/{idx}/``. A
+         *     single-model snapshot may only have files at the snapshot root; in
+         *     that case ``idx=0`` falls back to the root files.
+         */
+        get: operations["read_submodel_snapshot_file_v1_reconstructions__recon_id__snapshots__seq__submodels__idx___name__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1676,6 +1816,33 @@ export interface components {
             revoked: boolean;
         };
         /**
+         * ArtifactKindOut
+         * @description Documented core artifact kind.
+         */
+        ArtifactKindOut: {
+            /** Kind */
+            kind: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Durable */
+            durable: boolean;
+        };
+        /**
+         * ArtifactRef
+         * @description Reference to a stage artifact used as a downstream stage input.
+         */
+        ArtifactRef: {
+            /** Artifact Id */
+            artifact_id: string;
+            /**
+             * Kind
+             * @description Optional expected artifact kind. The request fails if it does not match.
+             */
+            kind?: string | null;
+        };
+        /**
          * BackendActionOut
          * @description Discoverable backend-native operation.
          *
@@ -2049,6 +2216,7 @@ export interface components {
              *       "use_gpu": true,
              *       "seed": 0,
              *       "backend_options": {},
+             *       "input_artifacts": {},
              *       "extractor_options": {}
              *     }
              */
@@ -2107,6 +2275,13 @@ export interface components {
                 [key: string]: unknown;
             };
             /**
+             * Input Artifacts
+             * @description Optional role-keyed input artifact references for advanced or backend-specific feature extraction flows.
+             */
+            input_artifacts?: {
+                [key: string]: components["schemas"]["ArtifactRef"];
+            };
+            /**
              * Extractor Options
              * @description Deprecated compatibility alias for backend-specific extractor options. Prefer backend_options.
              */
@@ -2149,6 +2324,13 @@ export interface components {
              */
             backend_options?: {
                 [key: string]: unknown;
+            };
+            /**
+             * Input Artifacts
+             * @description Optional role-keyed input artifact references. Core roles include verified_matches, snapshot, and submodel; backend-specific roles may use the same dot-key syntax as artifact kinds.
+             */
+            input_artifacts?: {
+                [key: string]: components["schemas"]["ArtifactRef"];
             };
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -2233,6 +2415,13 @@ export interface components {
              */
             backend_options?: {
                 [key: string]: unknown;
+            };
+            /**
+             * Input Artifacts
+             * @description Optional role-keyed input artifact references. Core roles include verified_matches, snapshot, and submodel; backend-specific roles may use the same dot-key syntax as artifact kinds.
+             */
+            input_artifacts?: {
+                [key: string]: components["schemas"]["ArtifactRef"];
             };
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -2413,6 +2602,13 @@ export interface components {
              */
             backend_options?: {
                 [key: string]: unknown;
+            };
+            /**
+             * Input Artifacts
+             * @description Optional role-keyed input artifact references. Core roles include verified_matches, snapshot, and submodel; backend-specific roles may use the same dot-key syntax as artifact kinds.
+             */
+            input_artifacts?: {
+                [key: string]: components["schemas"]["ArtifactRef"];
             };
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -2755,6 +2951,13 @@ export interface components {
                 [key: string]: unknown;
             };
             /**
+             * Input Artifacts
+             * @description Optional role-keyed input artifact references. Use role 'features' to select a feature artifact produced by another backend.
+             */
+            input_artifacts?: {
+                [key: string]: components["schemas"]["ArtifactRef"];
+            };
+            /**
              * Matcher Options
              * @description Deprecated compatibility alias for backend-specific matcher options. Prefer backend_options.
              */
@@ -2776,7 +2979,8 @@ export interface components {
              *       "retrieval_strategy": "vlad",
              *       "retrieval_k": 20,
              *       "pairs_blob_format": "image_name_pairs_txt",
-             *       "backend_options": {}
+             *       "backend_options": {},
+             *       "input_artifacts": {}
              *     }
              */
             pairs: components["schemas"]["PairsSpec"];
@@ -2789,10 +2993,15 @@ export interface components {
              *       "max_ratio": 0.8,
              *       "max_distance": 0.7,
              *       "backend_options": {},
+             *       "input_artifacts": {},
              *       "matcher_options": {}
              *     }
              */
             matcher: components["schemas"]["MatcherSpec"];
+            /** Input Artifacts */
+            input_artifacts?: {
+                [key: string]: components["schemas"]["ArtifactRef"];
+            };
         };
         /**
          * MergeRequest
@@ -2912,6 +3121,15 @@ export interface components {
             /** Ms */
             ms: number;
         };
+        /** Page[ArtifactKindOut] */
+        Page_ArtifactKindOut_: {
+            /** Items */
+            items: components["schemas"]["ArtifactKindOut"][];
+            /** Next Page Token */
+            next_page_token?: string | null;
+            /** Total */
+            total?: number | null;
+        };
         /** Page[BackendActionOut] */
         Page_BackendActionOut_: {
             /** Items */
@@ -2961,6 +3179,15 @@ export interface components {
         Page_ProjectOut_: {
             /** Items */
             items: components["schemas"]["ProjectOut"][];
+            /** Next Page Token */
+            next_page_token?: string | null;
+            /** Total */
+            total?: number | null;
+        };
+        /** Page[StageArtifactOut] */
+        Page_StageArtifactOut_: {
+            /** Items */
+            items: components["schemas"]["StageArtifactOut"][];
             /** Next Page Token */
             next_page_token?: string | null;
             /** Total */
@@ -3046,6 +3273,13 @@ export interface components {
             backend_options?: {
                 [key: string]: unknown;
             };
+            /**
+             * Input Artifacts
+             * @description Optional role-keyed input artifact references. Use role 'pairs' for a previously generated pair-selection artifact.
+             */
+            input_artifacts?: {
+                [key: string]: components["schemas"]["ArtifactRef"];
+            };
         };
         /**
          * PipelineRequest
@@ -3067,6 +3301,7 @@ export interface components {
              *       "use_gpu": true,
              *       "seed": 0,
              *       "backend_options": {},
+             *       "input_artifacts": {},
              *       "extractor_options": {}
              *     }
              */
@@ -3079,7 +3314,8 @@ export interface components {
              *       "retrieval_strategy": "vlad",
              *       "retrieval_k": 20,
              *       "pairs_blob_format": "image_name_pairs_txt",
-             *       "backend_options": {}
+             *       "backend_options": {},
+             *       "input_artifacts": {}
              *     }
              */
             pairs: components["schemas"]["PairsSpec"];
@@ -3092,6 +3328,7 @@ export interface components {
              *       "max_ratio": 0.8,
              *       "max_distance": 0.7,
              *       "backend_options": {},
+             *       "input_artifacts": {},
              *       "matcher_options": {}
              *     }
              */
@@ -3101,12 +3338,20 @@ export interface components {
              *       "version": 1,
              *       "use_gpu": true,
              *       "min_inlier_ratio": 0.25,
-             *       "backend_options": {}
+             *       "backend_options": {},
+             *       "input_artifacts": {}
              *     }
              */
             verify: components["schemas"]["VerifySpec"];
             /** Spec */
             spec: components["schemas"]["IncrementalSpec"] | components["schemas"]["GlobalSpec"] | components["schemas"]["HierarchicalSpec"] | components["schemas"]["SphericalSpec"];
+            /**
+             * Input Artifacts
+             * @description Optional role-keyed artifact references shared by the recipe. Stage-local input_artifacts on features, pairs, matcher, verify, or spec are merged with this map.
+             */
+            input_artifacts?: {
+                [key: string]: components["schemas"]["ArtifactRef"];
+            };
         };
         /**
          * PointObservationRow
@@ -3442,6 +3687,13 @@ export interface components {
                 [key: string]: unknown;
             };
             /**
+             * Input Artifacts
+             * @description Optional role-keyed input artifact references. Core roles include verified_matches, snapshot, and submodel; backend-specific roles may use the same dot-key syntax as artifact kinds.
+             */
+            input_artifacts?: {
+                [key: string]: components["schemas"]["ArtifactRef"];
+            };
+            /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
@@ -3451,6 +3703,51 @@ export interface components {
              * @default true
              */
             panorama: boolean;
+        };
+        /**
+         * StageArtifactOut
+         * @description A typed worker output persisted independently of task logs.
+         *
+         *     Unknown backends can emit multiple artifacts per stage. The API
+         *     stores them here so clients can list and select exact outputs
+         *     instead of guessing from the latest task dictionary.
+         */
+        StageArtifactOut: {
+            /** Links */
+            _links?: {
+                [key: string]: components["schemas"]["Link"] | null;
+            } | null;
+            /** Artifact Id */
+            artifact_id: string;
+            /** Job Id */
+            job_id: string;
+            /** Task Id */
+            task_id: string;
+            /** Recon Id */
+            recon_id?: string | null;
+            /** Dataset Id */
+            dataset_id?: string | null;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name?: string | null;
+            /** Uri */
+            uri?: string | null;
+            /** Media Type */
+            media_type?: string | null;
+            /** Summary */
+            summary?: {
+                [key: string]: unknown;
+            } | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * SubModelOut
@@ -3647,10 +3944,15 @@ export interface components {
              *       "version": 1,
              *       "use_gpu": true,
              *       "min_inlier_ratio": 0.25,
-             *       "backend_options": {}
+             *       "backend_options": {},
+             *       "input_artifacts": {}
              *     }
              */
             spec: components["schemas"]["VerifySpec"];
+            /** Input Artifacts */
+            input_artifacts?: {
+                [key: string]: components["schemas"]["ArtifactRef"];
+            };
         };
         /** VerifySpec */
         VerifySpec: {
@@ -3681,6 +3983,13 @@ export interface components {
              */
             backend_options?: {
                 [key: string]: unknown;
+            };
+            /**
+             * Input Artifacts
+             * @description Optional role-keyed input artifact references. Use role 'matches' to verify a specific match artifact.
+             */
+            input_artifacts?: {
+                [key: string]: components["schemas"]["ArtifactRef"];
             };
         };
         /** VersionResponse */
@@ -4026,6 +4335,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_artifact_kinds_v1_artifacts_kinds_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ArtifactKindOut_"];
+                };
+            };
+        };
+    };
+    get_artifact_v1_artifacts__artifact_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                artifact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageArtifactOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_artifact_content_v1_artifacts__artifact_id__content_get: {
+        parameters: {
+            query?: {
+                /** @description Force Content-Disposition: attachment */
+                download?: boolean;
+            };
+            header?: never;
+            path: {
+                artifact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -5121,6 +5515,46 @@ export interface operations {
             };
         };
     };
+    list_artifacts_v1_jobs__job_id__artifacts_get: {
+        parameters: {
+            query?: {
+                page_token?: string | null;
+                page_size?: number;
+                /** @description Optional exact artifact kind filter, e.g. matches.verified_database. */
+                kind?: string | null;
+                /** @description Optional producing task id filter. */
+                task_id?: string | null;
+                /** @description Optional exact artifact name filter. */
+                name?: string | null;
+            };
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_StageArtifactOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     progress_v1_jobs__job_id__progress_get: {
         parameters: {
             query?: never;
@@ -5388,6 +5822,46 @@ export interface operations {
             };
         };
     };
+    list_reconstruction_artifacts_v1_reconstructions__recon_id__artifacts_get: {
+        parameters: {
+            query?: {
+                page_token?: string | null;
+                page_size?: number;
+                /** @description Optional exact artifact kind filter, e.g. reconstruction.snapshot. */
+                kind?: string | null;
+                /** @description Optional producing task id filter. */
+                task_id?: string | null;
+                /** @description Optional exact artifact name filter. */
+                name?: string | null;
+            };
+            header?: never;
+            path: {
+                recon_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_StageArtifactOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_snapshots_v1_reconstructions__recon_id__snapshots_get: {
         parameters: {
             query?: never;
@@ -5429,6 +5903,43 @@ export interface operations {
             path: {
                 recon_id: string;
                 seq: number;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_submodel_snapshot_file_v1_reconstructions__recon_id__snapshots__seq__submodels__idx___name__get: {
+        parameters: {
+            query?: {
+                /** @description Force Content-Disposition: attachment */
+                download?: boolean;
+            };
+            header?: never;
+            path: {
+                recon_id: string;
+                seq: number;
+                idx: number;
                 name: string;
             };
             cookie?: never;

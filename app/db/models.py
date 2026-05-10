@@ -350,7 +350,7 @@ class Reconstruction(Base):
     dataset_snapshot_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     spec_json: Mapped[dict] = mapped_column(JSON, nullable=False)
     rv_id: Mapped[str] = mapped_column(String(ID_LEN), nullable=False)
-    status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending")
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="running")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )
@@ -376,6 +376,41 @@ class SubModel(Base):
     rigidity_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     sealed_path: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     snapshot_seq: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+
+class StageArtifact(Base):
+    __tablename__ = "stage_artifact"
+    __table_args__ = (
+        Index("ix_stage_artifact_tenant_id", "tenant_id"),
+        Index("ix_stage_artifact_job_id", "job_id"),
+        Index("ix_stage_artifact_task_id", "task_id"),
+        Index("ix_stage_artifact_recon_id", "recon_id"),
+        Index("ix_stage_artifact_kind", "kind"),
+    )
+
+    artifact_id: Mapped[str] = mapped_column(ULIDType, primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(String(ID_LEN), nullable=False, default="default")
+    job_id: Mapped[str] = mapped_column(
+        String(ID_LEN), ForeignKey("job.job_id", ondelete="CASCADE"), nullable=False
+    )
+    task_id: Mapped[str] = mapped_column(
+        String(ID_LEN), ForeignKey("task.task_id", ondelete="CASCADE"), nullable=False
+    )
+    recon_id: Mapped[str | None] = mapped_column(
+        String(ID_LEN), ForeignKey("reconstruction.recon_id", ondelete="CASCADE"), nullable=True
+    )
+    dataset_id: Mapped[str | None] = mapped_column(
+        String(ID_LEN), ForeignKey("dataset.dataset_id", ondelete="CASCADE"), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(96), nullable=False)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    uri: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    media_type: Mapped[str | None] = mapped_column(String(127), nullable=True)
+    summary_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )

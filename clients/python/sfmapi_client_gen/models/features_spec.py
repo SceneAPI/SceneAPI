@@ -12,6 +12,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.features_spec_backend_options import FeaturesSpecBackendOptions
     from ..models.features_spec_extractor_options import FeaturesSpecExtractorOptions
+    from ..models.features_spec_input_artifacts import FeaturesSpecInputArtifacts
 
 
 T = TypeVar("T", bound="FeaturesSpec")
@@ -39,6 +40,8 @@ class FeaturesSpec:
             seed (int | Unset):  Default: 0.
             backend_options (FeaturesSpecBackendOptions | Unset): Backend-specific feature-extraction options. Discover
                 supported keys with GET /v1/backend/config-schemas.
+            input_artifacts (FeaturesSpecInputArtifacts | Unset): Optional role-keyed input artifact references for advanced
+                or backend-specific feature extraction flows.
             extractor_options (FeaturesSpecExtractorOptions | Unset): Deprecated compatibility alias for backend-specific
                 extractor options. Prefer backend_options.
             sift_max_num_features (int | None | Unset):
@@ -52,6 +55,7 @@ class FeaturesSpec:
     use_gpu: bool | Unset = True
     seed: int | Unset = 0
     backend_options: FeaturesSpecBackendOptions | Unset = UNSET
+    input_artifacts: FeaturesSpecInputArtifacts | Unset = UNSET
     extractor_options: FeaturesSpecExtractorOptions | Unset = UNSET
     sift_max_num_features: int | None | Unset = UNSET
     sift_first_octave: int | None | Unset = UNSET
@@ -79,6 +83,10 @@ class FeaturesSpec:
         backend_options: dict[str, Any] | Unset = UNSET
         if not isinstance(self.backend_options, Unset):
             backend_options = self.backend_options.to_dict()
+
+        input_artifacts: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.input_artifacts, Unset):
+            input_artifacts = self.input_artifacts.to_dict()
 
         extractor_options: dict[str, Any] | Unset = UNSET
         if not isinstance(self.extractor_options, Unset):
@@ -113,6 +121,8 @@ class FeaturesSpec:
             field_dict["seed"] = seed
         if backend_options is not UNSET:
             field_dict["backend_options"] = backend_options
+        if input_artifacts is not UNSET:
+            field_dict["input_artifacts"] = input_artifacts
         if extractor_options is not UNSET:
             field_dict["extractor_options"] = extractor_options
         if sift_max_num_features is not UNSET:
@@ -126,6 +136,7 @@ class FeaturesSpec:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.features_spec_backend_options import FeaturesSpecBackendOptions
         from ..models.features_spec_extractor_options import FeaturesSpecExtractorOptions
+        from ..models.features_spec_input_artifacts import FeaturesSpecInputArtifacts
 
         d = dict(src_dict)
         version = cast(Literal[1] | Unset, d.pop("version", UNSET))
@@ -161,6 +172,13 @@ class FeaturesSpec:
         else:
             backend_options = FeaturesSpecBackendOptions.from_dict(_backend_options)
 
+        _input_artifacts = d.pop("input_artifacts", UNSET)
+        input_artifacts: FeaturesSpecInputArtifacts | Unset
+        if isinstance(_input_artifacts, Unset):
+            input_artifacts = UNSET
+        else:
+            input_artifacts = FeaturesSpecInputArtifacts.from_dict(_input_artifacts)
+
         _extractor_options = d.pop("extractor_options", UNSET)
         extractor_options: FeaturesSpecExtractorOptions | Unset
         if isinstance(_extractor_options, Unset):
@@ -194,6 +212,7 @@ class FeaturesSpec:
             use_gpu=use_gpu,
             seed=seed,
             backend_options=backend_options,
+            input_artifacts=input_artifacts,
             extractor_options=extractor_options,
             sift_max_num_features=sift_max_num_features,
             sift_first_octave=sift_first_octave,

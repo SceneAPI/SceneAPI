@@ -8,7 +8,9 @@ those options through the stable ``backend_options`` envelope.
 
 from __future__ import annotations
 
+import inspect
 import re
+from collections.abc import Callable
 from typing import Any, Protocol
 from urllib.parse import quote
 
@@ -20,7 +22,9 @@ from app.core.errors import NotFoundError, ValidationError
 class BackendConfigSchemaProvider(Protocol):
     """Optional structural protocol implemented by richer backends."""
 
-    def list_backend_config_schemas(self) -> list[dict[str, Any]]: ...
+    def list_backend_config_schemas(
+        self, *, include_schemas: bool = True
+    ) -> list[dict[str, Any]]: ...
 
 
 _STAGE_ORDER = {
@@ -79,6 +83,18 @@ def _link(config_id: str) -> dict[str, dict[str, str]]:
         "self": {"href": f"/v1/backend/config-schemas/{encoded}"},
         "collection": {"href": "/v1/backend/config-schemas"},
     }
+
+
+def _call_with_supported_kwargs(fn: Callable[..., Any], /, *args: Any, **kwargs: Any) -> Any:
+    """Call ``fn`` with only the optional kwargs its signature accepts."""
+    try:
+        signature = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return fn(*args, **kwargs)
+    if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()):
+        return fn(*args, **kwargs)
+    supported = {key: value for key, value in kwargs.items() if key in signature.parameters}
+    return fn(*args, **supported)
 
 
 def _infer_stage(capability: str | None) -> str:
@@ -221,7 +237,7 @@ def list_backend_config_schemas(
 
     generic = getattr(backend, "list_backend_config_schemas", None)
     if callable(generic):
-        for raw in generic():
+        for raw in _call_with_supported_kwargs(generic, include_schemas=include_schemas):
             rows.append(
                 _normalize_descriptor(raw, backend=backend, include_schema=include_schemas)
             )

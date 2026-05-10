@@ -135,6 +135,23 @@ void TestExtendedEndpoints() {
   c.GetSubmodel("s1");
   assert(mock->last_req.url == "http://x/v1/submodels/s1");
 
+  c.ListArtifactKinds("", 25);
+  assert(mock->last_req.url == "http://x/v1/artifacts/kinds?page_size=25");
+
+  c.GetArtifact("a1");
+  assert(mock->last_req.url == "http://x/v1/artifacts/a1");
+
+  c.ReadArtifactContent("a1", true);
+  assert(mock->last_req.url == "http://x/v1/artifacts/a1/content?download=true");
+
+  c.ListJobArtifacts("j1", "features.database", "", "", "tok", 50);
+  assert(mock->last_req.url ==
+         "http://x/v1/jobs/j1/artifacts?kind=features.database&page_token=tok&page_size=50");
+
+  c.ListReconstructionArtifacts("r1", "matches.raw", "t1", "matches");
+  assert(mock->last_req.url ==
+         "http://x/v1/reconstructions/r1/artifacts?kind=matches.raw&task_id=t1&name=matches");
+
   c.ReadImageObservations("r1", 5, "img1");
   assert(mock->last_req.url ==
          "http://x/v1/reconstructions/r1/snapshots/5/images/img1/observations");
@@ -493,6 +510,11 @@ void TestResourcePodStructsCompile() {
   img.byte_size = 1024;
   sfmapi::Upload u;
   u.expected_size = 1000;
+  sfmapi::ArtifactKind ak;
+  ak.kind = "features.database";
+  sfmapi::StageArtifact artifact;
+  artifact.artifact_id = "01HZARTIFACT000000000000";
+  artifact.kind = ak.kind;
   sfmapi::Job j;
   j.cancel_force = true;
   sfmapi::JobDetail jd;
@@ -510,6 +532,7 @@ void TestResourcePodStructsCompile() {
   assert(p.project_id == "01HG");
   assert(d.is_spherical);
   assert(img.byte_size == 1024);
+  assert(artifact.kind == "features.database");
   assert(jd.tasks.size() == 1);
   assert(page.items.size() == 1);
   assert(key.raw_key == "secret");

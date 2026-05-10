@@ -233,6 +233,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     from app.api.v1 import (
         admin,
+        artifacts,
         backend,
         capabilities,
         datasets,
@@ -251,6 +252,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(projects.router, prefix="/v1")
+    app.include_router(artifacts.router, prefix="/v1")
     app.include_router(backend.router, prefix="/v1")
     app.include_router(uploads.router, prefix="/v1")
     app.include_router(datasets.router, prefix="/v1")

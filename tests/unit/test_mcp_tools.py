@@ -12,7 +12,7 @@ import pytest
 from app.core.config import get_settings
 from app.core.errors import TenantViolationError
 from app.core.ids import new_id
-from app.db.models import JobEvent, Task
+from app.db.models import JobEvent, StageArtifact, Task
 from app.mcp import tools
 from app.services import job_service, project_service
 
@@ -80,6 +80,16 @@ async def _seed_project_job_and_progress(session) -> tuple[str, str, str]:
     )
     session.add(task)
     session.add(
+        StageArtifact(
+            tenant_id="default",
+            job_id=job.job_id,
+            task_id=task.task_id,
+            kind="matches.verified_database",
+            name="verified",
+            uri="database.db",
+        )
+    )
+    session.add(
         JobEvent(
             event_id=1,
             job_id=job.job_id,
@@ -114,6 +124,12 @@ async def test_mcp_tools_read_projects_jobs_and_progress(session) -> None:
     assert progress["progress"] == 0.25
     assert progress["current_phase"] == "matching"
     assert progress["tasks"][0]["current"] == 1
+
+    artifacts = await tools.list_artifacts(job_id=job_id, kind="matches.verified_database")
+    assert artifacts["items"][0]["name"] == "verified"
+
+    artifact = await tools.get_artifact(artifacts["items"][0]["artifact_id"])
+    assert artifact["kind"] == "matches.verified_database"
 
 
 @pytest.mark.unit
@@ -172,6 +188,7 @@ def test_create_mcp_server_registers_curated_tools(monkeypatch: pytest.MonkeyPat
     server = create_mcp_server(include_index_route=True, endpoint_hint="/agent")
 
     assert "get_job_progress" in server.tools
+    assert "list_artifacts" in server.tools
     assert "list_projects" in server.tools
     assert server.kwargs["strict_input_validation"] is False
     assert "read-only local adapter" in server.kwargs["instructions"].lower()
@@ -181,6 +198,7 @@ def test_create_mcp_server_registers_curated_tools(monkeypatch: pytest.MonkeyPat
     assert server.tools["get_job_progress"]["annotations"]["openWorldHint"] is False
     assert "sfmapi://version" in server.resources
     assert "sfmapi://tenants/{tenant_id}/jobs/{job_id}/progress" in server.resources
+    assert "sfmapi://tenants/{tenant_id}/jobs/{job_id}/artifacts" in server.resources
     assert server.resources["sfmapi://version"]["annotations"]["readOnlyHint"] is True
     assert ("/", ("GET",)) in server.routes
     assert ("/status", ("GET",)) in server.routes
@@ -261,6 +279,7 @@ async def test_real_fastmcp_lists_annotations_and_reads_resources(session) -> No
     templates = await server.list_resource_templates()
     template_uris = {template.uri_template for template in templates}
     assert "sfmapi://tenants/{tenant_id}/jobs/{job_id}/progress" in template_uris
+    assert "sfmapi://tenants/{tenant_id}/jobs/{job_id}/artifacts" in template_uris
 
     version = await server.read_resource("sfmapi://version")
     version_body = json.loads(version.contents[0].content)
@@ -273,6 +292,10 @@ async def test_real_fastmcp_lists_annotations_and_reads_resources(session) -> No
     progress = await server.read_resource(f"sfmapi://tenants/default/jobs/{job_id}/progress")
     progress_body = json.loads(progress.contents[0].content)
     assert progress_body["progress"] == 0.25
+
+    artifacts = await server.read_resource(f"sfmapi://tenants/default/jobs/{job_id}/artifacts")
+    artifacts_body = json.loads(artifacts.contents[0].content)
+    assert artifacts_body["items"][0]["kind"] == "matches.verified_database"
 
 
 @pytest.mark.unit
@@ -291,6 +314,10 @@ async def test_real_fastmcp_client_can_call_tool_and_read_resource(session) -> N
         result = await client.call_tool("get_job_progress", {"job_id": job_id})
         progress_body = json.loads(result.content[0].text)
         assert progress_body["progress"] == 0.25
+
+        artifacts_result = await client.call_tool("list_artifacts", {"job_id": job_id})
+        artifacts_body = json.loads(artifacts_result.content[0].text)
+        assert artifacts_body["items"][0]["name"] == "verified"
 
         resource = await client.read_resource(f"sfmapi://tenants/default/jobs/{job_id}/progress")
         resource_body = json.loads(resource[0].text)

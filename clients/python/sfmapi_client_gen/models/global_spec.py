@@ -12,6 +12,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.global_spec_backend_options import GlobalSpecBackendOptions
+    from ..models.global_spec_input_artifacts import GlobalSpecInputArtifacts
 
 
 T = TypeVar("T", bound="GlobalSpec")
@@ -29,6 +30,9 @@ class GlobalSpec:
         snapshot_frames_freq (int | None | Unset):  Default: 50.
         backend_options (GlobalSpecBackendOptions | Unset): Backend-specific mapping options. Discover supported keys
             with GET /v1/backend/config-schemas and keep portable settings in the top-level spec fields.
+        input_artifacts (GlobalSpecInputArtifacts | Unset): Optional role-keyed input artifact references. Core roles
+            include verified_matches, snapshot, and submodel; backend-specific roles may use the same dot-key syntax as
+            artifact kinds.
         kind (Literal['global'] | Unset):  Default: 'global'.
         backend (GlobalSpecBackend | Unset):  Default: GlobalSpecBackend.AUTO.
         formulation (GlobalSpecFormulation | Unset):  Default: GlobalSpecFormulation.AUTO.
@@ -41,6 +45,7 @@ class GlobalSpec:
     max_runtime_seconds: int | None | Unset = UNSET
     snapshot_frames_freq: int | None | Unset = 50
     backend_options: GlobalSpecBackendOptions | Unset = UNSET
+    input_artifacts: GlobalSpecInputArtifacts | Unset = UNSET
     kind: Literal["global"] | Unset = "global"
     backend: GlobalSpecBackend | Unset = GlobalSpecBackend.AUTO
     formulation: GlobalSpecFormulation | Unset = GlobalSpecFormulation.AUTO
@@ -74,6 +79,10 @@ class GlobalSpec:
         if not isinstance(self.backend_options, Unset):
             backend_options = self.backend_options.to_dict()
 
+        input_artifacts: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.input_artifacts, Unset):
+            input_artifacts = self.input_artifacts.to_dict()
+
         kind = self.kind
 
         backend: str | Unset = UNSET
@@ -101,6 +110,8 @@ class GlobalSpec:
             field_dict["snapshot_frames_freq"] = snapshot_frames_freq
         if backend_options is not UNSET:
             field_dict["backend_options"] = backend_options
+        if input_artifacts is not UNSET:
+            field_dict["input_artifacts"] = input_artifacts
         if kind is not UNSET:
             field_dict["kind"] = kind
         if backend is not UNSET:
@@ -115,6 +126,7 @@ class GlobalSpec:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.global_spec_backend_options import GlobalSpecBackendOptions
+        from ..models.global_spec_input_artifacts import GlobalSpecInputArtifacts
 
         d = dict(src_dict)
         version = cast(Literal[1] | Unset, d.pop("version", UNSET))
@@ -157,6 +169,13 @@ class GlobalSpec:
         else:
             backend_options = GlobalSpecBackendOptions.from_dict(_backend_options)
 
+        _input_artifacts = d.pop("input_artifacts", UNSET)
+        input_artifacts: GlobalSpecInputArtifacts | Unset
+        if isinstance(_input_artifacts, Unset):
+            input_artifacts = UNSET
+        else:
+            input_artifacts = GlobalSpecInputArtifacts.from_dict(_input_artifacts)
+
         kind = cast(Literal["global"] | Unset, d.pop("kind", UNSET))
         if kind != "global" and not isinstance(kind, Unset):
             raise ValueError(f"kind must match const 'global', got '{kind}'")
@@ -184,6 +203,7 @@ class GlobalSpec:
             max_runtime_seconds=max_runtime_seconds,
             snapshot_frames_freq=snapshot_frames_freq,
             backend_options=backend_options,
+            input_artifacts=input_artifacts,
             kind=kind,
             backend=backend,
             formulation=formulation,

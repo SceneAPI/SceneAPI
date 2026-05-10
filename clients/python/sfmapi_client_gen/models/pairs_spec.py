@@ -13,6 +13,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.image_pair_ref import ImagePairRef
     from ..models.pairs_spec_backend_options import PairsSpecBackendOptions
+    from ..models.pairs_spec_input_artifacts import PairsSpecInputArtifacts
 
 
 T = TypeVar("T", bound="PairsSpec")
@@ -44,6 +45,8 @@ class PairsSpec:
             pairs_blob_format (Literal['image_name_pairs_txt'] | Unset):  Default: 'image_name_pairs_txt'.
             backend_options (PairsSpecBackendOptions | Unset): Backend-specific pair-selection options. Discover supported
                 keys with GET /v1/backend/config-schemas.
+            input_artifacts (PairsSpecInputArtifacts | Unset): Optional role-keyed input artifact references. Use role
+                'pairs' for a previously generated pair-selection artifact.
     """
 
     version: Literal[1] | Unset = 1
@@ -59,6 +62,7 @@ class PairsSpec:
     pairs_blob_sha: None | str | Unset = UNSET
     pairs_blob_format: Literal["image_name_pairs_txt"] | Unset = "image_name_pairs_txt"
     backend_options: PairsSpecBackendOptions | Unset = UNSET
+    input_artifacts: PairsSpecInputArtifacts | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -124,6 +128,10 @@ class PairsSpec:
         if not isinstance(self.backend_options, Unset):
             backend_options = self.backend_options.to_dict()
 
+        input_artifacts: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.input_artifacts, Unset):
+            input_artifacts = self.input_artifacts.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -153,6 +161,8 @@ class PairsSpec:
             field_dict["pairs_blob_format"] = pairs_blob_format
         if backend_options is not UNSET:
             field_dict["backend_options"] = backend_options
+        if input_artifacts is not UNSET:
+            field_dict["input_artifacts"] = input_artifacts
 
         return field_dict
 
@@ -160,6 +170,7 @@ class PairsSpec:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.image_pair_ref import ImagePairRef
         from ..models.pairs_spec_backend_options import PairsSpecBackendOptions
+        from ..models.pairs_spec_input_artifacts import PairsSpecInputArtifacts
 
         d = dict(src_dict)
         version = cast(Literal[1] | Unset, d.pop("version", UNSET))
@@ -266,6 +277,13 @@ class PairsSpec:
         else:
             backend_options = PairsSpecBackendOptions.from_dict(_backend_options)
 
+        _input_artifacts = d.pop("input_artifacts", UNSET)
+        input_artifacts: PairsSpecInputArtifacts | Unset
+        if isinstance(_input_artifacts, Unset):
+            input_artifacts = UNSET
+        else:
+            input_artifacts = PairsSpecInputArtifacts.from_dict(_input_artifacts)
+
         pairs_spec = cls(
             version=version,
             strategy=strategy,
@@ -280,6 +298,7 @@ class PairsSpec:
             pairs_blob_sha=pairs_blob_sha,
             pairs_blob_format=pairs_blob_format,
             backend_options=backend_options,
+            input_artifacts=input_artifacts,
         )
 
         pairs_spec.additional_properties = d

@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.hierarchical_spec_backend_options import HierarchicalSpecBackendOptions
+    from ..models.hierarchical_spec_input_artifacts import HierarchicalSpecInputArtifacts
 
 
 T = TypeVar("T", bound="HierarchicalSpec")
@@ -27,6 +28,9 @@ class HierarchicalSpec:
         snapshot_frames_freq (int | None | Unset):  Default: 50.
         backend_options (HierarchicalSpecBackendOptions | Unset): Backend-specific mapping options. Discover supported
             keys with GET /v1/backend/config-schemas and keep portable settings in the top-level spec fields.
+        input_artifacts (HierarchicalSpecInputArtifacts | Unset): Optional role-keyed input artifact references. Core
+            roles include verified_matches, snapshot, and submodel; backend-specific roles may use the same dot-key syntax
+            as artifact kinds.
         kind (Literal['hierarchical'] | Unset):  Default: 'hierarchical'.
         cluster_max_size (int | Unset):  Default: 100.
         cluster_overlap (int | Unset):  Default: 25.
@@ -38,6 +42,7 @@ class HierarchicalSpec:
     max_runtime_seconds: int | None | Unset = UNSET
     snapshot_frames_freq: int | None | Unset = 50
     backend_options: HierarchicalSpecBackendOptions | Unset = UNSET
+    input_artifacts: HierarchicalSpecInputArtifacts | Unset = UNSET
     kind: Literal["hierarchical"] | Unset = "hierarchical"
     cluster_max_size: int | Unset = 100
     cluster_overlap: int | Unset = 25
@@ -70,6 +75,10 @@ class HierarchicalSpec:
         if not isinstance(self.backend_options, Unset):
             backend_options = self.backend_options.to_dict()
 
+        input_artifacts: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.input_artifacts, Unset):
+            input_artifacts = self.input_artifacts.to_dict()
+
         kind = self.kind
 
         cluster_max_size = self.cluster_max_size
@@ -91,6 +100,8 @@ class HierarchicalSpec:
             field_dict["snapshot_frames_freq"] = snapshot_frames_freq
         if backend_options is not UNSET:
             field_dict["backend_options"] = backend_options
+        if input_artifacts is not UNSET:
+            field_dict["input_artifacts"] = input_artifacts
         if kind is not UNSET:
             field_dict["kind"] = kind
         if cluster_max_size is not UNSET:
@@ -103,6 +114,7 @@ class HierarchicalSpec:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.hierarchical_spec_backend_options import HierarchicalSpecBackendOptions
+        from ..models.hierarchical_spec_input_artifacts import HierarchicalSpecInputArtifacts
 
         d = dict(src_dict)
         version = cast(Literal[1] | Unset, d.pop("version", UNSET))
@@ -145,6 +157,13 @@ class HierarchicalSpec:
         else:
             backend_options = HierarchicalSpecBackendOptions.from_dict(_backend_options)
 
+        _input_artifacts = d.pop("input_artifacts", UNSET)
+        input_artifacts: HierarchicalSpecInputArtifacts | Unset
+        if isinstance(_input_artifacts, Unset):
+            input_artifacts = UNSET
+        else:
+            input_artifacts = HierarchicalSpecInputArtifacts.from_dict(_input_artifacts)
+
         kind = cast(Literal["hierarchical"] | Unset, d.pop("kind", UNSET))
         if kind != "hierarchical" and not isinstance(kind, Unset):
             raise ValueError(f"kind must match const 'hierarchical', got '{kind}'")
@@ -160,6 +179,7 @@ class HierarchicalSpec:
             max_runtime_seconds=max_runtime_seconds,
             snapshot_frames_freq=snapshot_frames_freq,
             backend_options=backend_options,
+            input_artifacts=input_artifacts,
             kind=kind,
             cluster_max_size=cluster_max_size,
             cluster_overlap=cluster_overlap,

@@ -58,13 +58,16 @@ def run(task: Task) -> dict[str, Any]:
     if progress is not None:
         progress.phase_started("feature_extraction")
         progress.phase_progress("feature_extraction", current=0, total=total_images)
+    options = _feature_options(spec)
+    if inputs.get("input_artifacts"):
+        options["input_artifacts"] = inputs["input_artifacts"]
     summary = call_with_optional_progress(
         get_backend().extract_features,
         progress=progress,
         database_path=db_path,
         image_root=image_root,
         image_list=image_list,
-        options=_feature_options(spec),
+        options=options,
     )
     if progress is not None:
         progress.phase_progress("feature_extraction", current=total_images, total=total_images)

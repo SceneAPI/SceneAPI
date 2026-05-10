@@ -249,3 +249,64 @@ async def test_backend_progress_reporter_events_are_persisted(client, session) -
     assert body["status"] == "succeeded"
     assert body["progress"] == 1.0
     assert body["latest_event_id"] is not None
+
+
+async def test_matches_can_select_feature_artifact_as_input(client) -> None:
+    from app.adapters.registry import register_backend
+    from app.adapters.stub_backend import StubBackend
+
+    captured: dict[str, object] = {}
+
+    class ArtifactAwareBackend(StubBackend):
+        def extract_features(
+            self,
+            *,
+            database_path: Path,
+            image_root: Path,
+            image_list: list[str],
+            options: dict,
+            progress=None,
+        ) -> dict:
+            database_path.parent.mkdir(parents=True, exist_ok=True)
+            database_path.write_text("feature-db", encoding="utf-8")
+            return {"num_images": len(image_list), "num_keypoints": 12}
+
+        def match(self, *, database_path: Path, mode: str, options: dict) -> dict:
+            captured["database_path"] = str(database_path)
+            captured["mode"] = mode
+            captured["input_artifacts"] = options.get("input_artifacts")
+            return {"num_pairs": 1, "num_matches": 2}
+
+    register_backend("stub", ArtifactAwareBackend)
+
+    _, did = await _project_with_image(client, "p-artifact-input-flow")
+    features = await client.post(f"/v1/datasets/{did}/features", json={"spec": {}})
+    assert features.status_code == 202, features.text
+    feature_job_id = features.json()["job_id"]
+
+    artifacts = await client.get(
+        f"/v1/jobs/{feature_job_id}/artifacts",
+        params={"kind": "features.database"},
+    )
+    assert artifacts.status_code == 200, artifacts.text
+    feature_artifact = artifacts.json()["items"][0]
+
+    matches = await client.post(
+        f"/v1/datasets/{did}/matches",
+        json={
+            "pairs": {"strategy": "exhaustive"},
+            "matcher": {"type": "nn-mutual"},
+            "input_artifacts": {
+                "features": {
+                    "artifact_id": feature_artifact["artifact_id"],
+                    "kind": "features.database",
+                }
+            },
+        },
+    )
+    assert matches.status_code == 202, matches.text
+    assert captured["database_path"] == feature_artifact["uri"]
+    assert captured["mode"] == "exhaustive"
+    selected = captured["input_artifacts"]
+    assert isinstance(selected, dict)
+    assert selected["features"]["artifact_id"] == feature_artifact["artifact_id"]

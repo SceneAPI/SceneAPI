@@ -90,10 +90,103 @@ but new setups should prefer `SFMAPI_MCP_MODE=local`. When MCP is
 mounted into the API process, `GET /v1/backend` includes `_links.mcp`
 and `_links.mcp_status` so clients can discover the local adapter.
 
+Backend packages can expose the same API-process MCP mount from their
+own launchers. For example, with `sfmapi-colmap`:
+
+```bash
+uv run sfmapi-colmap-api \
+  --backend colmap_cpp_native \
+  --mcp local \
+  --host 127.0.0.1 \
+  --port 8000
+```
+
 Treat the API-process mount as a local or trusted-network convenience.
 For desktop agents, prefer stdio because it is not reachable by other
 processes over HTTP. Do not expose the MCP endpoint publicly without a
 dedicated authorization layer.
+
+## Use with Codex
+
+Codex can connect to sfmapi over streamable HTTP. Start the API with
+MCP mounted first, then register the endpoint:
+
+```bash
+uv run sfmapi serve --mcp local --host 127.0.0.1 --port 8000
+codex mcp add sfmapi_colmap --url http://127.0.0.1:8000/mcp
+codex mcp list
+codex mcp get sfmapi_colmap
+```
+
+Use a simple underscore name such as `sfmapi_colmap`. It is easier to
+quote across shells and avoids ambiguity in TOML dotted keys. The
+persisted Codex config looks like:
+
+```toml
+[mcp_servers.sfmapi_colmap]
+url = "http://127.0.0.1:8000/mcp"
+```
+
+Codex reads MCP configuration when a session starts. If you add the
+server while Codex is already running, restart that Codex session before
+expecting the tools to appear. For one-off non-interactive checks, pass
+the same server as a runtime config override:
+
+```bash
+codex -c "mcp_servers.sfmapi_colmap.url='http://127.0.0.1:8000/mcp'" \
+  exec "Use sfmapi_colmap to read sfmapi_version and sfmapi_capabilities."
+```
+
+Once connected, useful smoke-test tools are `sfmapi_version`,
+`sfmapi_capabilities`, and `list_backend_actions` with
+`include_schemas=true`.
+
+## Use with Claude Code
+
+Claude Code can connect to sfmapi's HTTP MCP endpoint directly. Start
+the API with MCP mounted, then add the server using Claude Code's HTTP
+MCP transport:
+
+```bash
+uv run sfmapi serve --mcp local --host 127.0.0.1 --port 8000
+claude mcp add --transport http sfmapi_colmap http://127.0.0.1:8000/mcp
+claude mcp list
+claude mcp get sfmapi_colmap
+```
+
+Use `/mcp` inside Claude Code to inspect server status and available
+tools. The default Claude Code scope is local to the current project
+for the current user. To make the server available across your own
+projects, add `--scope user`:
+
+```bash
+claude mcp add --transport http sfmapi_colmap \
+  --scope user \
+  http://127.0.0.1:8000/mcp
+```
+
+For a team-shared project config, use `--scope project` or create a
+`.mcp.json` file in the project root:
+
+```json
+{
+  "mcpServers": {
+    "sfmapi_colmap": {
+      "type": "http",
+      "url": "http://127.0.0.1:8000/mcp"
+    }
+  }
+}
+```
+
+Project-scoped MCP files are suitable only for non-secret local
+endpoints or endpoints that use environment-expanded headers. Keep the
+sfmapi MCP endpoint bound to loopback unless it is behind a dedicated
+authorization layer.
+
+See Claude Code's MCP documentation for the full set of scope,
+authentication, and project-file options:
+<https://docs.claude.com/en/docs/claude-code/mcp>.
 
 ## Tenant scope
 
@@ -117,6 +210,8 @@ and network boundaries must still be enforced by deployment.
 - `list_jobs`
 - `get_job`
 - `get_job_progress`
+- `list_artifacts`
+- `get_artifact`
 - `get_reconstruction`
 - `list_submodels`
 - `list_snapshots`
@@ -133,9 +228,15 @@ clients that prefer resource reads over tool calls:
 - `sfmapi://tenants/{tenant_id}/projects`
 - `sfmapi://tenants/{tenant_id}/jobs/{job_id}`
 - `sfmapi://tenants/{tenant_id}/jobs/{job_id}/progress`
+- `sfmapi://tenants/{tenant_id}/jobs/{job_id}/artifacts`
+- `sfmapi://tenants/{tenant_id}/artifacts/{artifact_id}`
+- `sfmapi://tenants/{tenant_id}/reconstructions/{recon_id}/artifacts`
 - `sfmapi://tenants/{tenant_id}/reconstructions/{recon_id}/snapshots`
 
 Backend action discovery is read-only. Mutation tools are not exposed
 yet. Use the REST API or SDKs for project creation, uploads, pipeline
 submission, backend action execution, cancellation, and resume until
 those MCP actions have explicit safety and auth rules.
+
+Artifact tools expose metadata only. Use REST `GET
+/v1/artifacts/{artifact_id}/content` or the SDKs for file transfer.

@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.spherical_spec_backend_options import SphericalSpecBackendOptions
+    from ..models.spherical_spec_input_artifacts import SphericalSpecInputArtifacts
 
 
 T = TypeVar("T", bound="SphericalSpec")
@@ -27,6 +28,9 @@ class SphericalSpec:
         snapshot_frames_freq (int | None | Unset):  Default: 50.
         backend_options (SphericalSpecBackendOptions | Unset): Backend-specific mapping options. Discover supported keys
             with GET /v1/backend/config-schemas and keep portable settings in the top-level spec fields.
+        input_artifacts (SphericalSpecInputArtifacts | Unset): Optional role-keyed input artifact references. Core roles
+            include verified_matches, snapshot, and submodel; backend-specific roles may use the same dot-key syntax as
+            artifact kinds.
         kind (Literal['spherical'] | Unset):  Default: 'spherical'.
         panorama (bool | Unset):  Default: True.
     """
@@ -37,6 +41,7 @@ class SphericalSpec:
     max_runtime_seconds: int | None | Unset = UNSET
     snapshot_frames_freq: int | None | Unset = 50
     backend_options: SphericalSpecBackendOptions | Unset = UNSET
+    input_artifacts: SphericalSpecInputArtifacts | Unset = UNSET
     kind: Literal["spherical"] | Unset = "spherical"
     panorama: bool | Unset = True
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -68,6 +73,10 @@ class SphericalSpec:
         if not isinstance(self.backend_options, Unset):
             backend_options = self.backend_options.to_dict()
 
+        input_artifacts: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.input_artifacts, Unset):
+            input_artifacts = self.input_artifacts.to_dict()
+
         kind = self.kind
 
         panorama = self.panorama
@@ -87,6 +96,8 @@ class SphericalSpec:
             field_dict["snapshot_frames_freq"] = snapshot_frames_freq
         if backend_options is not UNSET:
             field_dict["backend_options"] = backend_options
+        if input_artifacts is not UNSET:
+            field_dict["input_artifacts"] = input_artifacts
         if kind is not UNSET:
             field_dict["kind"] = kind
         if panorama is not UNSET:
@@ -97,6 +108,7 @@ class SphericalSpec:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.spherical_spec_backend_options import SphericalSpecBackendOptions
+        from ..models.spherical_spec_input_artifacts import SphericalSpecInputArtifacts
 
         d = dict(src_dict)
         version = cast(Literal[1] | Unset, d.pop("version", UNSET))
@@ -139,6 +151,13 @@ class SphericalSpec:
         else:
             backend_options = SphericalSpecBackendOptions.from_dict(_backend_options)
 
+        _input_artifacts = d.pop("input_artifacts", UNSET)
+        input_artifacts: SphericalSpecInputArtifacts | Unset
+        if isinstance(_input_artifacts, Unset):
+            input_artifacts = UNSET
+        else:
+            input_artifacts = SphericalSpecInputArtifacts.from_dict(_input_artifacts)
+
         kind = cast(Literal["spherical"] | Unset, d.pop("kind", UNSET))
         if kind != "spherical" and not isinstance(kind, Unset):
             raise ValueError(f"kind must match const 'spherical', got '{kind}'")
@@ -152,6 +171,7 @@ class SphericalSpec:
             max_runtime_seconds=max_runtime_seconds,
             snapshot_frames_freq=snapshot_frames_freq,
             backend_options=backend_options,
+            input_artifacts=input_artifacts,
             kind=kind,
             panorama=panorama,
         )

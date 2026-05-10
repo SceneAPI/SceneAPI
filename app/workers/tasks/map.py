@@ -75,6 +75,9 @@ def run(task: Task) -> dict[str, Any]:
 
     progress = get_progress_reporter()
     phase = MAPPING_PHASE_BY_KIND[kind]
+    options = stage_options(spec)
+    if inputs.get("input_artifacts"):
+        options["input_artifacts"] = inputs["input_artifacts"]
     if progress is not None:
         progress.phase_started(phase)
     summaries, recs = call_with_optional_progress(
@@ -85,7 +88,7 @@ def run(task: Task) -> dict[str, Any]:
         image_root=image_root,
         sparse_root=sparse_root,
         job_dir=job_dir,
-        spec=stage_options(spec),
+        spec=options,
         pose_priors=pose_priors,
     )
 
