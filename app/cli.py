@@ -4,13 +4,20 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 import os
 from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
 
 
 def _serve(args: argparse.Namespace) -> None:
     if args.mcp is not None:
         os.environ["SFMAPI_MCP_MODE"] = args.mcp
+    if args.profile is not None:
+        from app.services import plugin_service
+
+        plugin_service.use_default_profile(args.profile)
     import uvicorn
 
     uvicorn.run(
@@ -34,6 +41,16 @@ def _mcp(args: argparse.Namespace) -> None:
 
 
 def _check_backend(args: argparse.Namespace) -> None:
+    if args.load_entry_points:
+        from app.adapters.registry import register_backend
+        from sfm_hub.discovery import load_backend_entry_points
+
+        loaded = load_backend_entry_points(register_backend)
+        errors = [item for item in loaded if item.load_error]
+        for item in errors:
+            print(f"Backend plugin load failed: {item.plugin_id}: {item.load_error}")
+        if errors:
+            raise SystemExit(1)
     for module in args.import_module:
         importlib.import_module(module)
     if args.backend is not None:
@@ -54,6 +71,131 @@ def _check_backend(args: argparse.Namespace) -> None:
     raise SystemExit(1)
 
 
+def _print_json(value: Any) -> None:
+    print(json.dumps(value, indent=2, sort_keys=True, default=str))
+
+
+def _plugins_list(args: argparse.Namespace) -> None:
+    from app.services import plugin_service
+
+    rows = plugin_service.list_plugins(args.query)
+    if args.json:
+        _print_json(rows)
+        return
+    for row in rows:
+        status = "enabled" if row["enabled"] else "installed" if row["installed"] else "available"
+        print(f"{row['plugin_id']}\t{status}\t{', '.join(row['providers'])}")
+
+
+def _plugins_info(args: argparse.Namespace) -> None:
+    from app.services import plugin_service
+
+    detail = plugin_service.get_plugin(args.plugin_id)
+    _print_json(detail)
+
+
+def _plugins_install(args: argparse.Namespace) -> None:
+    from app.services import plugin_service
+
+    result = plugin_service.install_plugin(
+        args.plugin_id,
+        method=args.method,
+        github_url=args.github,
+        ref=args.ref,
+        package_name=args.package,
+        dry_run=args.dry_run,
+        allow_unsafe_execution=not args.dry_run,
+    )
+    _print_json(result)
+
+
+def _plugins_enable(args: argparse.Namespace) -> None:
+    from app.services import plugin_service
+
+    _print_json(plugin_service.enable_plugin(args.plugin_id))
+
+
+def _plugins_disable(args: argparse.Namespace) -> None:
+    from app.services import plugin_service
+
+    _print_json(plugin_service.disable_plugin(args.plugin_id))
+
+
+def _plugins_doctor(args: argparse.Namespace) -> None:
+    from app.services import plugin_service
+
+    _print_json(plugin_service.doctor_plugin(args.plugin_id))
+
+
+def _plugins_detect_tools(args: argparse.Namespace) -> None:
+    from app.services import plugin_service
+
+    _print_json(plugin_service.detect_tools())
+
+
+def _plugins_entry_points(args: argparse.Namespace) -> None:
+    from app.services import plugin_service
+
+    rows = plugin_service.list_entry_points(load=args.load)
+    if args.json:
+        _print_json(rows)
+        return
+    for row in rows:
+        status = row["load_error"] or row.get("version") or ""
+        print(f"{row['plugin_id']}\t{row['entry_point']}\t{status}")
+
+
+def _providers_list(args: argparse.Namespace) -> None:
+    from app.services import plugin_service
+
+    rows = plugin_service.list_providers()
+    if args.json:
+        _print_json(rows)
+        return
+    for row in rows:
+        print(f"{row['provider_id']}\t{row['plugin_id']}\t{', '.join(row['capabilities'])}")
+
+
+def _profiles_list(args: argparse.Namespace) -> None:
+    from app.services import plugin_service
+
+    _print_json(plugin_service.routing_state())
+
+
+def _profiles_create(args: argparse.Namespace) -> None:
+    from app.services import plugin_service
+
+    routes: dict[str, list[str]] = {}
+    if args.file:
+        routes = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    for item in args.route:
+        stage, _, providers = item.partition("=")
+        if not stage or not providers:
+            raise SystemExit("--route must use stage=provider1,provider2")
+        routes[stage] = [provider.strip() for provider in providers.split(",") if provider.strip()]
+    _print_json(plugin_service.create_profile(args.name, routes))
+
+
+def _profiles_set_default(args: argparse.Namespace) -> None:
+    from app.services import plugin_service
+
+    _print_json(plugin_service.use_default_profile(args.name))
+
+
+def _profiles_assign_project(args: argparse.Namespace) -> None:
+    from app.services import plugin_service
+
+    _print_json(plugin_service.assign_project_profile(args.project_id, args.name))
+
+
+def _profiles_assign_workspace(args: argparse.Namespace) -> None:
+    from app.core.config import get_settings
+    from app.services import plugin_service
+
+    workspace = args.workspace or str(get_settings().workspace_root)
+    _print_json(plugin_service.assign_workspace_profile(workspace, args.name))
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="sfmapi")
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -62,6 +204,11 @@ def main(argv: Sequence[str] | None = None) -> None:
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--reload", action="store_true")
+    serve.add_argument(
+        "--profile",
+        default=None,
+        help="Set the default sfm_hub routing profile before serving.",
+    )
     serve.add_argument(
         "--mcp",
         choices=("off", "local"),
@@ -103,7 +250,106 @@ def main(argv: Sequence[str] | None = None) -> None:
         default=None,
         help="Backend registry name to check. Defaults to SFMAPI_BACKEND.",
     )
+    check_backend.add_argument(
+        "--load-entry-points",
+        action="store_true",
+        help='Load installed [project.entry-points."sfmapi.backends"] before checking.',
+    )
     check_backend.set_defaults(func=_check_backend)
+
+    plugins = subcommands.add_parser("plugins", help="Discover and manage sfmapi backend plugins.")
+    plugin_subcommands = plugins.add_subparsers(dest="plugin_command", required=True)
+
+    plugins_list = plugin_subcommands.add_parser("list", help="List registered plugins.")
+    plugins_list.add_argument("--query", default=None)
+    plugins_list.add_argument("--json", action="store_true")
+    plugins_list.set_defaults(func=_plugins_list)
+
+    plugins_search = plugin_subcommands.add_parser("search", help="Search registered plugins.")
+    plugins_search.add_argument("query")
+    plugins_search.add_argument("--json", action="store_true")
+    plugins_search.set_defaults(func=_plugins_list)
+
+    plugins_info = plugin_subcommands.add_parser("info", help="Read one plugin manifest.")
+    plugins_info.add_argument("plugin_id")
+    plugins_info.set_defaults(func=_plugins_info)
+
+    plugins_install = plugin_subcommands.add_parser("install", help="Install a plugin.")
+    plugins_install.add_argument("plugin_id")
+    plugins_install.add_argument(
+        "--method", choices=("uv", "docker", "external_tool"), default="uv"
+    )
+    plugins_install.add_argument("--github", default=None, help="Install from a GitHub URL.")
+    plugins_install.add_argument("--ref", default=None, help="Git branch, tag, or commit.")
+    plugins_install.add_argument("--package", default=None, help="Python package name.")
+    plugins_install.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Plan the install without running uv/docker or recording state.",
+    )
+    plugins_install.set_defaults(func=_plugins_install)
+
+    plugins_enable = plugin_subcommands.add_parser("enable", help="Enable a plugin.")
+    plugins_enable.add_argument("plugin_id")
+    plugins_enable.set_defaults(func=_plugins_enable)
+
+    plugins_disable = plugin_subcommands.add_parser("disable", help="Disable a plugin.")
+    plugins_disable.add_argument("plugin_id")
+    plugins_disable.set_defaults(func=_plugins_disable)
+
+    plugins_doctor = plugin_subcommands.add_parser("doctor", help="Run plugin diagnostics.")
+    plugins_doctor.add_argument("plugin_id")
+    plugins_doctor.set_defaults(func=_plugins_doctor)
+
+    plugins_detect = plugin_subcommands.add_parser(
+        "detect-tools", help="Detect installed SfM tools."
+    )
+    plugins_detect.set_defaults(func=_plugins_detect_tools)
+
+    plugins_entry_points = plugin_subcommands.add_parser(
+        "entry-points", help="List installed Python backend entry points."
+    )
+    plugins_entry_points.add_argument("--load", action="store_true")
+    plugins_entry_points.add_argument("--json", action="store_true")
+    plugins_entry_points.set_defaults(func=_plugins_entry_points)
+
+    providers = subcommands.add_parser("providers", help="Inspect enabled backend providers.")
+    provider_subcommands = providers.add_subparsers(dest="provider_command", required=True)
+    providers_list = provider_subcommands.add_parser("list", help="List enabled providers.")
+    providers_list.add_argument("--json", action="store_true")
+    providers_list.set_defaults(func=_providers_list)
+
+    profiles = subcommands.add_parser("profiles", help="Manage provider routing profiles.")
+    profile_subcommands = profiles.add_subparsers(dest="profile_command", required=True)
+    profiles_list = profile_subcommands.add_parser("list", help="List routing profiles.")
+    profiles_list.set_defaults(func=_profiles_list)
+    profiles_create = profile_subcommands.add_parser("create", help="Create or replace a profile.")
+    profiles_create.add_argument("name")
+    profiles_create.add_argument(
+        "--route",
+        action="append",
+        default=[],
+        help="Route in stage=provider1,provider2 form. Repeatable.",
+    )
+    profiles_create.add_argument(
+        "--file", default=None, help="JSON file mapping stage to providers."
+    )
+    profiles_create.set_defaults(func=_profiles_create)
+    profiles_default = profile_subcommands.add_parser("set-default", help="Set default profile.")
+    profiles_default.add_argument("name")
+    profiles_default.set_defaults(func=_profiles_set_default)
+    profiles_project = profile_subcommands.add_parser(
+        "assign-project", help="Assign a routing profile to a project id."
+    )
+    profiles_project.add_argument("project_id")
+    profiles_project.add_argument("name")
+    profiles_project.set_defaults(func=_profiles_assign_project)
+    profiles_workspace = profile_subcommands.add_parser(
+        "assign-workspace", help="Assign a routing profile to a workspace root."
+    )
+    profiles_workspace.add_argument("name")
+    profiles_workspace.add_argument("--workspace", default=None)
+    profiles_workspace.set_defaults(func=_profiles_assign_workspace)
 
     args = parser.parse_args(argv)
     args.func(args)

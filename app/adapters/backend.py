@@ -10,6 +10,8 @@ Backends can implement only the layer they actually support:
 - :class:`Backend` is the minimum identity/capability/runtime contract.
 - :class:`BackendActionProvider` and :class:`BackendConfigSchemaProvider`
   live in sibling modules and are optional discovery surfaces.
+- Backend artifact I/O contracts live in ``app.adapters.backend_artifacts``
+  and describe which portable artifact kinds each stage accepts/emits.
 - Stage protocols such as :class:`FeatureBackend` and
   :class:`MappingBackend` are implemented only by backends that support
   portable sfmapi stages.
@@ -81,14 +83,14 @@ class FeatureBackend(Backend, Protocol):
         database_path: Path,
         image_root: Path,
         image_list: list[str],
-        options: dict,
-    ) -> dict:
+        options: dict[str, Any],
+    ) -> dict[str, Any]:
         """Run feature extraction over ``image_list`` into the SfM database."""
 
-    def match(self, *, database_path: Path, mode: str, options: dict) -> dict:
+    def match(self, *, database_path: Path, mode: str, options: dict[str, Any]) -> dict[str, Any]:
         """Run feature matching for the given pair-selection strategy."""
 
-    def verify_matches(self, *, database_path: Path, options: dict) -> dict:
+    def verify_matches(self, *, database_path: Path, options: dict[str, Any]) -> dict[str, Any]:
         """Run geometric verification on existing matches."""
 
 
@@ -123,9 +125,9 @@ class MappingBackend(Backend, Protocol):
         image_root: Path,
         sparse_root: Path,
         job_dir: Path,
-        spec: dict,
-        pose_priors: dict | None = None,
-    ) -> tuple[list[dict], list[Any]]:
+        spec: dict[str, Any],
+        pose_priors: dict[str, Any] | None = None,
+    ) -> tuple[list[dict[str, Any]], list[Any]]:
         """Run incremental/global/hierarchical/spherical mapping."""
 
 
@@ -133,7 +135,9 @@ class MappingBackend(Backend, Protocol):
 class RefinementBackend(Backend, Protocol):
     """Portable refinement and model-edit stages."""
 
-    def bundle_adjustment(self, *, model_path: Path, output_path: Path, spec: dict) -> dict:
+    def bundle_adjustment(
+        self, *, model_path: Path, output_path: Path, spec: dict[str, Any]
+    ) -> dict[str, Any]:
         """Run bundle adjustment."""
 
     def triangulate(
@@ -143,7 +147,7 @@ class RefinementBackend(Backend, Protocol):
         database_path: Path,
         image_root: Path,
         output_path: Path,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Re-triangulate against an existing database."""
 
     def relocalize(
@@ -154,10 +158,12 @@ class RefinementBackend(Backend, Protocol):
         image_root: Path,
         output_path: Path,
         image_ids: list[int],
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Register additional images into an existing reconstruction."""
 
-    def pose_graph_optimize(self, *, model_path: Path, output_path: Path, spec: dict) -> dict:
+    def pose_graph_optimize(
+        self, *, model_path: Path, output_path: Path, spec: dict[str, Any]
+    ) -> dict[str, Any]:
         """Run pose-graph optimization."""
 
 
@@ -165,7 +171,7 @@ class RefinementBackend(Backend, Protocol):
 class ExportBackend(Backend, Protocol):
     """Portable reconstruction export stages."""
 
-    def export(self, *, model_path: Path, output_path: Path, format: str) -> dict:
+    def export(self, *, model_path: Path, output_path: Path, format: str) -> dict[str, Any]:
         """Export a sparse model."""
 
 
@@ -173,13 +179,23 @@ class ExportBackend(Backend, Protocol):
 class SphericalBackend(Backend, Protocol):
     """Spherical/panorama conversion helpers."""
 
+    def project_images(
+        self,
+        *,
+        operation: str,
+        input_image_path: Path,
+        output_path: Path,
+        spec: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Run a portable image projection transform over a dataset."""
+
     def convert_spherical_to_cubemap(
         self,
         *,
         input_model_path: Path,
         input_image_path: Path,
         output_path: Path,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Convert a spherical reconstruction to a cubemap rig."""
 
     def render_spherical_cubemap_images(
@@ -188,7 +204,7 @@ class SphericalBackend(Backend, Protocol):
         input_image_path: Path,
         output_path: Path,
         face_size: int | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Render every panorama into six cubemap face images."""
 
 
@@ -200,16 +216,34 @@ class RetrievalBackend(Backend, Protocol):
         self,
         *,
         image_paths_by_id: dict[str, Path],
-        spec: dict,
+        spec: dict[str, Any],
     ) -> tuple[list[str], Any]:
         """Compute VLAD descriptors for a set of images."""
+
+
+@runtime_checkable
+class ArtifactConversionBackend(Backend, Protocol):
+    """Convert one stage artifact format into another."""
+
+    def convert_artifact(
+        self,
+        *,
+        input_artifact: dict[str, Any],
+        output_dir: Path,
+        to_format: str,
+        to_kind: str | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Convert an artifact and return one or more artifact descriptors."""
 
 
 @runtime_checkable
 class LocalizationBackend(Backend, Protocol):
     """Single-image localization helpers."""
 
-    def localize_from_memory(self, *, sparse_dir: Path, query_image: Path, spec: dict) -> dict:
+    def localize_from_memory(
+        self, *, sparse_dir: Path, query_image: Path, spec: dict[str, Any]
+    ) -> dict[str, Any]:
         """Localize a query image against a sparse model."""
 
 
@@ -217,7 +251,7 @@ class LocalizationBackend(Backend, Protocol):
 class BatchLocalizationBackend(Backend, Protocol):
     """Batch or sequence localization helpers."""
 
-    def localize_batch(self, **kwargs: Any) -> list:
+    def localize_batch(self, **kwargs: Any) -> list[Any]:
         """Localize multiple query images."""
 
 
@@ -230,8 +264,8 @@ class TransformBackend(Backend, Protocol):
         *,
         model_path: Path,
         output_path: Path,
-        sim3: dict,
-    ) -> dict:
+        sim3: dict[str, Any],
+    ) -> dict[str, Any]:
         """Apply a Sim(3) similarity transform to a sparse model."""
 
 
@@ -253,7 +287,7 @@ class ReconstructionMergeBackend(Backend, Protocol):
         model_paths: list[Path],
         output_path: Path,
         sim3_aligners: Any = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Merge multiple sparse models into one output model."""
 
 
@@ -271,6 +305,7 @@ class SfmBackend(
     TransformBackend,
     ReconstructionReaderBackend,
     ReconstructionMergeBackend,
+    ArtifactConversionBackend,
     Protocol,
 ):
     """Full portable SfM backend protocol kept for complete engines.
@@ -311,6 +346,7 @@ def require_backend_method(
 
 
 __all__ = [
+    "ArtifactConversionBackend",
     "Backend",
     "BackendIdentity",
     "BatchLocalizationBackend",

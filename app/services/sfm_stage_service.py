@@ -28,12 +28,15 @@ from app.core.errors import ValidationError
 from app.core.hashing import canonical_json, content_address
 from app.core.ids import new_id
 from app.core.paths import Paths
+from app.core.projections import projection_capability
 from app.db.models import Blob, Dataset, Image, ImageSource, Reconstruction
 from app.orchestrator.dag import TaskNode, hash_inputs, hash_params
 from app.orchestrator.scheduler import submit_job_dag
+from app.schemas.api.projections import CubemapProjectionSpec, ProjectionJobRequest
 from app.services import (
     artifact_service,
     dataset_service,
+    provider_routing_service,
     reconstruction_service,
     runtime_version_service,
 )
@@ -221,8 +224,19 @@ def _merge_spec_input_artifacts(*sources: object) -> dict[str, object]:
     return merged
 
 
-def validate_features_config(spec: dict[str, Any]) -> None:
+def _routing_workspace() -> str:
+    return str(get_settings().workspace_root)
+
+
+def validate_features_config(spec: dict[str, Any], *, project_id: str | None = None) -> None:
     feature_type = str(spec.get("type") or "sift")
+    provider_routing_service.apply_provider_resolution(
+        spec,
+        stage="features",
+        capability=f"features.extract.{feature_type}",
+        project_id=project_id,
+        workspace=_routing_workspace(),
+    )
     backend_config.validate_backend_options(
         stage="features",
         capability=f"features.extract.{feature_type}",
@@ -231,7 +245,7 @@ def validate_features_config(spec: dict[str, Any]) -> None:
     )
 
 
-def validate_matches_config(spec: dict[str, Any]) -> None:
+def validate_matches_config(spec: dict[str, Any], *, project_id: str | None = None) -> None:
     pairs = spec.get("pairs", {})
     matcher = spec.get("matcher", {})
     if not isinstance(pairs, dict):
@@ -240,6 +254,20 @@ def validate_matches_config(spec: dict[str, Any]) -> None:
         raise ValidationError("spec.matcher must be a dict")
     strategy = str(pairs.get("strategy") or "exhaustive")
     matcher_type = str(matcher.get("type") or "nn-mutual")
+    provider_routing_service.apply_provider_resolution(
+        pairs,
+        stage="pairs",
+        capability=f"pairs.{strategy}",
+        project_id=project_id,
+        workspace=_routing_workspace(),
+    )
+    provider_routing_service.apply_provider_resolution(
+        matcher,
+        stage="matcher",
+        capability=f"matchers.{matcher_type}",
+        project_id=project_id,
+        workspace=_routing_workspace(),
+    )
     backend_config.validate_backend_options(
         stage="pairs",
         capability=f"pairs.{strategy}",
@@ -254,7 +282,14 @@ def validate_matches_config(spec: dict[str, Any]) -> None:
     )
 
 
-def validate_verify_config(spec: dict[str, Any]) -> None:
+def validate_verify_config(spec: dict[str, Any], *, project_id: str | None = None) -> None:
+    provider_routing_service.apply_provider_resolution(
+        spec,
+        stage="verify",
+        capability="matches.verify",
+        project_id=project_id,
+        workspace=_routing_workspace(),
+    )
     backend_config.validate_backend_options(
         stage="verify",
         capability="matches.verify",
@@ -263,8 +298,15 @@ def validate_verify_config(spec: dict[str, Any]) -> None:
     )
 
 
-def validate_mapping_config(spec: dict[str, Any]) -> None:
+def validate_mapping_config(spec: dict[str, Any], *, project_id: str | None = None) -> None:
     kind = str(spec.get("kind") or "incremental")
+    provider_routing_service.apply_provider_resolution(
+        spec,
+        stage="mapping",
+        capability=f"map.{kind}",
+        project_id=project_id,
+        workspace=_routing_workspace(),
+    )
     backend_config.validate_backend_options(
         stage="mapping",
         capability=f"map.{kind}",
@@ -279,11 +321,12 @@ def validate_recipe_stage_configs(
     matches_spec: dict[str, Any],
     verify_spec: dict[str, Any],
     pipeline_spec: dict[str, Any],
+    project_id: str | None = None,
 ) -> None:
-    validate_features_config(features_spec)
-    validate_matches_config(matches_spec)
-    validate_verify_config(verify_spec)
-    validate_mapping_config(pipeline_spec)
+    validate_features_config(features_spec, project_id=project_id)
+    validate_matches_config(matches_spec, project_id=project_id)
+    validate_verify_config(verify_spec, project_id=project_id)
+    validate_mapping_config(pipeline_spec, project_id=project_id)
 
 
 async def submit_features(
@@ -295,8 +338,8 @@ async def submit_features(
     input_artifacts: dict[str, Any] | None = None,
     inline: bool = False,
 ) -> tuple[str, list[Any]]:
-    validate_features_config(spec)
     d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=dataset_id)
+    validate_features_config(spec, project_id=d.project_id)
     r = await ensure_reconstruction(session, tenant_id=tenant_id, dataset=d, spec=spec)
     materialization = await derive_materialization(session, tenant_id=tenant_id, dataset=d)
     db_path = reconstruction_database_path(tenant_id, d.project_id, r.recon_id)
@@ -348,8 +391,8 @@ async def submit_matches(
     input_artifacts: dict[str, Any] | None = None,
     inline: bool = False,
 ) -> tuple[str, list[Any]]:
-    validate_matches_config(spec)
     d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=dataset_id)
+    validate_matches_config(spec, project_id=d.project_id)
     pairs = spec.get("pairs", {})
     if not isinstance(pairs, dict):
         raise ValidationError("spec.pairs must be a dict")
@@ -446,15 +489,15 @@ async def _validate_explicit_pairs(
                 f"pairs.image_pairs[{index}] requires image_name1 and image_name2"
             )
         if image_name1 == image_name2:
-            raise ValidationError(
-                f"pairs.image_pairs[{index}] must reference two different images"
-            )
+            raise ValidationError(f"pairs.image_pairs[{index}] must reference two different images")
         for image_name in (image_name1, image_name2):
             if image_name not in known_names:
                 missing.append(image_name)
     if missing:
         missing_preview = ", ".join(sorted(set(missing))[:5])
-        raise ValidationError(f"pairs.image_pairs references unknown dataset images: {missing_preview}")
+        raise ValidationError(
+            f"pairs.image_pairs references unknown dataset images: {missing_preview}"
+        )
 
 
 async def submit_render_cubemap(
@@ -463,6 +506,7 @@ async def submit_render_cubemap(
     tenant_id: str,
     dataset_id: str,
     face_size: int | None = None,
+    spec: dict[str, Any] | None = None,
     inline: bool = False,
 ) -> tuple[str, list[Any]]:
     """Render every spherical panorama into 6 cubemap faces.
@@ -471,10 +515,48 @@ async def submit_render_cubemap(
     directory under the dataset's workspace; the user can register it
     as a new ``local`` dataset for downstream pinhole-only pipelines.
     """
-    require_capability("spherical.render_cubemap")
+    cubemap_spec = CubemapProjectionSpec.model_validate(spec or {})
+    if face_size is not None:
+        cubemap_spec.face_size = int(face_size)
+    request = ProjectionJobRequest(
+        operation="equirectangular_to_cubemap",
+        cubemap=cubemap_spec,
+    )
+    return await submit_project_images(
+        session,
+        tenant_id=tenant_id,
+        dataset_id=dataset_id,
+        spec=request.model_dump(mode="json"),
+        recipe="render_cubemap",
+        inline=inline,
+    )
+
+
+async def submit_project_images(
+    session: AsyncSession,
+    *,
+    tenant_id: str,
+    dataset_id: str,
+    spec: dict[str, Any],
+    recipe: str = "project_images",
+    inline: bool = False,
+) -> tuple[str, list[Any]]:
+    """Submit a portable image projection job over a dataset."""
+    request = ProjectionJobRequest.model_validate(spec)
+    capability = projection_capability(request.operation)
+    require_capability(capability)
     d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=dataset_id)
-    if not d.is_spherical:
-        raise ValidationError("render_cubemap is only valid on datasets marked is_spherical=true")
+    if (
+        request.operation
+        in {
+            "equirectangular_to_cubemap",
+            "equirectangular_to_perspective",
+        }
+        and not d.is_spherical
+    ):
+        raise ValidationError(
+            f"{request.operation} is only valid on datasets marked is_spherical=true"
+        )
     materialization = await derive_materialization(session, tenant_id=tenant_id, dataset=d)
     paths = Paths(get_settings())
     dataset_dir = paths.dataset_root(tenant_id, d.project_id, d.dataset_id)
@@ -483,17 +565,14 @@ async def submit_render_cubemap(
         "materialization": materialization,
         "dataset_dir": str(dataset_dir),
     }
-    spec: dict[str, Any] = {}
-    if face_size:
-        spec["face_size"] = int(face_size)
     return await _submit_single_stage(
         session,
         tenant_id=tenant_id,
         project_id=d.project_id,
-        recipe="render_cubemap",
-        kind="render_cubemap",
+        recipe=recipe,
+        kind="project_images",
         inputs=inputs,
-        spec=spec,
+        spec=request.model_dump(mode="json"),
         inline=inline,
     )
 
@@ -612,7 +691,7 @@ async def submit_to_cubemap(
     Refuses if the reconstruction's dataset isn't marked
     ``is_spherical`` — this avoids running the converter against a
     pinhole reconstruction (which produces nonsense)."""
-    require_capability("spherical.to_cubemap")
+    require_capability("projection.cubemap_rig")
     r = await reconstruction_service.get_reconstruction(
         session, tenant_id=tenant_id, recon_id=recon_id
     )
@@ -763,8 +842,8 @@ async def submit_verify(
     input_artifacts: dict[str, Any] | None = None,
     inline: bool = False,
 ) -> tuple[str, list[Any]]:
-    validate_verify_config(spec)
     d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=dataset_id)
+    validate_verify_config(spec, project_id=d.project_id)
     r, db_path = await _resolve_database_path(session, tenant_id=tenant_id, dataset=d, spec=spec)
     resolved_artifacts = await artifact_service.resolve_input_artifacts(
         session,

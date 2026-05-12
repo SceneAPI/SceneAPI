@@ -118,9 +118,45 @@ def run(task: Task) -> dict[str, Any]:
     if progress is not None:
         progress.snapshot_available(snapshot_seq=seq, summary={"models": summaries})
         progress.phase_completed(phase)
+    backend_name = str(getattr(backend, "name", "unknown"))
     return {
         "snapshot_seq": seq,
         "snapshot_path": str(sealed),
         "models": summaries,
         "job_dir": str(job_dir),
+        "artifacts": [
+            {
+                "kind": "reconstruction.sparse.v1",
+                "name": f"sparse-{seq}",
+                "uri": str(sealed),
+                "summary": {"snapshot_seq": seq, "models": summaries},
+                "artifact_format": "sfmapi.reconstruction.sparse.v1",
+                "schema_version": 1,
+                "producer": {"backend": backend_name},
+            },
+            {
+                "kind": "reconstruction.snapshot",
+                "name": f"snapshot-{seq}",
+                "uri": str(sealed),
+                "summary": {"snapshot_seq": seq},
+                "artifact_format": "sfmapi.reconstruction.snapshot.v1",
+                "schema_version": 1,
+                "producer": {"backend": backend_name},
+            },
+            *[
+                {
+                    "kind": "reconstruction.submodel",
+                    "name": f"submodel-{summary.get('idx', position)}",
+                    "uri": str(sealed / str(summary.get("idx", position)))
+                    if len(summaries) > 1
+                    else str(sealed),
+                    "summary": summary,
+                    "artifact_format": "sfmapi.reconstruction.submodel.v1",
+                    "schema_version": 1,
+                    "producer": {"backend": backend_name},
+                }
+                for position, summary in enumerate(summaries)
+                if isinstance(summary, dict)
+            ],
+        ],
     }

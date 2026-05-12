@@ -12,10 +12,21 @@ repositories, satisfy the smallest applicable protocol in
 `register_backend("name", Backend)`. A no-op
 `StubBackend` is bundled for tests and `SFMAPI_EPHEMERAL=true` demos.
 
+Client SDKs now live in the sibling `sfmapi-sdk` repository. This repo owns
+the server, OpenAPI contract, plugin hub, and backend interfaces; the SDK repo
+packages the Python, TypeScript, and C++ clients from that contract.
+
 Reference backend packages use the same discovery contract:
 `/v1/capabilities` for portable features, `/v1/backend/actions` for
 backend-native tools, and `/v1/backend/config-schemas` for
-provider-specific `backend_options`.
+provider-specific `backend_options`. Typed outputs use core artifact
+kinds and versioned `sfmapi.*.v1` interchange formats; backend-native
+files stay discoverable through `/v1/backend/artifact-contracts`.
+Artifacts can be validated with `/v1/artifacts/{id}:validate` and
+converted through normal jobs with `/v1/artifacts/{id}:convert` when
+the active backend advertises a conversion path. Existing artifact
+files can be registered without copying bytes through
+`POST /v1/artifacts:import`.
 
 | Repo | Launcher | Purpose |
 |---|---|---|
@@ -25,6 +36,36 @@ provider-specific `backend_options`.
 | `sfmapi_realityscan` | `sfmapi-realityscan-api` | RealityCapture/RealityScan CLI action backend |
 | `sfmapi_instantsfm` | `sfmapi-instantsfm-api` | InstantSfM Python action backend |
 | `sfmapi_spheresfm` | `sfmapi-spheresfm-api` | SphereSfM spherical action backend |
+
+## Plugin hub
+
+`sfm_hub` is bundled as the registry and manifest validator for
+backend plugins. Users still interact through `sfmapi`: install or
+inspect plugins with the CLI, then discover enabled providers through
+the API.
+
+```bash
+uv run sfmapi plugins list
+uv run sfmapi plugins install colmap_cli --method uv --dry-run
+uv run sfmapi plugins install local_test \
+  --github https://github.com/SFMAPI/sfmapi_custom.git@v0.1.0 \
+  --package sfmapi-custom --dry-run
+uv run sfmapi plugins entry-points --load
+uv run sfmapi providers list
+uv run sfmapi profiles create hybrid --route features=colmap_cli
+uv run sfmapi profiles set-default hybrid
+uv run sfmapi profiles assign-project 01H... hybrid
+```
+
+Operator API equivalents live under `/v1/admin/plugins`. Runtime
+discovery lives under `/v1/backend/providers` and `/v1/backend/routing`.
+Public SfM job endpoints never install plugins implicitly. HTTP plugin
+install execution is dry-run by default and requires
+`allow_unsafe_execution=true`; the CLI is the preferred install path.
+Installed backend packages should expose
+`[project.entry-points."sfmapi.backends"]`. Set
+`SFMAPI_AUTO_LOAD_BACKEND_PLUGINS=true` only in worker/operator
+processes where importing backend packages is acceptable.
 
 See [docs/](https://sfmapi.github.io/) for the user-facing site,
 [SFMAPI-SPEC.md](./SFMAPI-SPEC.md) for the wire spec, and
@@ -46,6 +87,14 @@ uv run uvicorn app.main:app --reload
 curl http://localhost:8080/healthz
 curl http://localhost:8080/version
 ```
+
+The base API does not require Pillow or OpenCV for image metadata.
+Install `.[image-processing]` only when this deployment should render
+thumbnails or build `dhash` similarity indexes.
+Install `.[projection]` when the API process should use the built-in
+NumPy/OpenCV pixel engine for equirectangular panorama to cubemap image
+jobs. Reverse cubemap rendering and arbitrary perspective views remain
+backend-provided contract paths.
 
 For a fully ephemeral, in-memory run (no files written, all state
 wiped on shutdown):

@@ -47,7 +47,7 @@ async def test_features_returns_202(client) -> None:
     _, did = await _project_with_image(client, "p-feat")
     resp = await client.post(
         f"/v1/datasets/{did}/features",
-        json={"spec": {"sift_max_num_features": 4096, "use_gpu": False}},
+        json={"spec": {"max_num_features": 4096, "use_gpu": False}},
     )
     assert resp.status_code == 202, resp.text
     body = resp.json()
@@ -286,7 +286,7 @@ async def test_matches_can_select_feature_artifact_as_input(client) -> None:
 
     artifacts = await client.get(
         f"/v1/jobs/{feature_job_id}/artifacts",
-        params={"kind": "features.database"},
+        params={"kind": "features.database.stub"},
     )
     assert artifacts.status_code == 200, artifacts.text
     feature_artifact = artifacts.json()["items"][0]
@@ -299,7 +299,7 @@ async def test_matches_can_select_feature_artifact_as_input(client) -> None:
             "input_artifacts": {
                 "features": {
                     "artifact_id": feature_artifact["artifact_id"],
-                    "kind": "features.database",
+                    "kind": "features.database.stub",
                 }
             },
         },

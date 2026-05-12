@@ -117,6 +117,7 @@ async def run_recipe(
         matches_spec=matches_spec,
         verify_spec=verify_spec,
         pipeline_spec=spec_dict,
+        project_id=project_id,
     )
     r = await sfm_stage_service.ensure_reconstruction(
         session, tenant_id=tenant_id, dataset=d, spec=spec_dict

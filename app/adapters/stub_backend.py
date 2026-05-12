@@ -84,13 +84,19 @@ class StubBackend:
         raise CapabilityUnavailableError(capability="export.ply")
 
     def convert_spherical_to_cubemap(self, **_: Any) -> dict:
-        raise CapabilityUnavailableError(capability="spherical.to_cubemap")
+        raise CapabilityUnavailableError(capability="projection.cubemap_rig")
+
+    def project_images(self, **_: Any) -> dict:
+        raise CapabilityUnavailableError(capability="projection.equirectangular_to_cubemap")
 
     def render_spherical_cubemap_images(self, **_: Any) -> dict:
-        raise CapabilityUnavailableError(capability="spherical.render_cubemap")
+        raise CapabilityUnavailableError(capability="projection.equirectangular_to_cubemap")
 
     def build_vlad_index(self, **_: Any) -> dict:
         raise CapabilityUnavailableError(capability="similarity.vlad")
+
+    def convert_artifact(self, **_: Any) -> dict:
+        raise CapabilityUnavailableError(capability="artifacts.convert")
 
     def localize_from_memory(self, **_: Any) -> dict:
         raise CapabilityUnavailableError(capability="localize.from_memory")

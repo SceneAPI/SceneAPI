@@ -12,9 +12,8 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
-from PIL import Image, ImageOps
-
 from app.core.config import get_settings
+from app.core.errors import CapabilityUnavailableError
 
 
 def thumb_path(sha: str, size: int) -> Path:
@@ -25,8 +24,16 @@ def make_thumbnail(src: Path, size: int) -> bytes:
     """Render a JPEG thumbnail no larger than `size` x `size` (preserves
     aspect). Always strips EXIF orientation so the resized image isn't
     sideways."""
-    with Image.open(src) as im:
-        im = ImageOps.exif_transpose(im)
+    try:
+        from PIL import Image, ImageOps
+    except ImportError as exc:
+        raise CapabilityUnavailableError(
+            capability="images.thumbnail",
+            reason="thumbnail rendering requires the optional Pillow dependency",
+        ) from exc
+
+    with Image.open(src) as opened:
+        im = ImageOps.exif_transpose(opened)
         im.thumbnail((size, size), Image.Resampling.LANCZOS)
         if im.mode not in ("RGB", "L"):
             im = im.convert("RGB")

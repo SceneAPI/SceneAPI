@@ -8,8 +8,9 @@ from pathlib import Path
 
 # Make the package + sdk importable for autodoc.
 ROOT = Path(__file__).resolve().parents[1]
+SDK_ROOT = Path(os.environ.get("SFMAPI_SDK_REPO", ROOT.parent / "sfmapi-sdk"))
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "clients" / "python"))
+sys.path.insert(0, str(SDK_ROOT / "python"))
 
 # Allow autodoc to work without server-side extras installed (e.g.,
 # on the GitHub Pages build runner without arq's redis client or
@@ -28,7 +29,7 @@ autodoc_mock_imports = [
 
 project = "sfmapi"
 author = "the sfmapi authors"
-copyright = "2026, the sfmapi authors"  # noqa: A001 — sphinx convention
+copyright = "2026, the sfmapi authors"
 
 try:
     from app import __version__ as version
@@ -185,7 +186,7 @@ def _generate_openapi() -> None:
         from app.main import create_app
 
         spec = create_app().openapi()
-    except Exception as exc:  # noqa: BLE001 — best-effort docs build
+    except Exception as exc:
         target.write_text(f'{{"error": "openapi unavailable: {exc}"}}', encoding="utf-8")
         return
     import json as _json

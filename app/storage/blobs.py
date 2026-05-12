@@ -10,7 +10,7 @@ implementation chosen by ``settings.blob_backend``:
 
   - ``s3``: bytes live at ``s3://<bucket>/<prefix><sha[:2]>/<sha>``.
     Reads download lazily to the local S3 cache and return paths into
-    that cache, so callers that need a filesystem path (pycolmap, PIL)
+    that cache, so callers that need a filesystem path (pycolmap, Pillow)
     work transparently. Configured via ``settings.blob_s3_*``.
 
 Refcounting is the caller's responsibility (typically a service) inside
@@ -58,7 +58,7 @@ class BlobStore(Protocol):
         For remote backends (S3) the bytes are downloaded into the
         local cache on first access; subsequent calls return the
         cached path. Callers that need to hand a real path to a native
-        library (pycolmap, PIL, OpenCV) should use this.
+        library (pycolmap, Pillow, OpenCV) should use this.
         """
         ...
 
@@ -319,7 +319,7 @@ class InMemoryBlobStore:
 
     Used by ``ephemeral=true`` mode: zero disk persistence, ideal for
     tests, demos, and embedded use. Callers that need a real
-    filesystem path (pycolmap, PIL) trigger lazy materialization into
+    filesystem path (pycolmap, Pillow) trigger lazy materialization into
     a per-store temp dir via ``local_path()``; that materialization
     survives until ``shutdown()`` is called.
 

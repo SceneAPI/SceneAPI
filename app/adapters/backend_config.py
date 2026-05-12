@@ -238,9 +238,7 @@ def list_backend_config_schemas(
     generic = getattr(backend, "list_backend_config_schemas", None)
     if callable(generic):
         for raw in _call_with_supported_kwargs(generic, include_schemas=include_schemas):
-            rows.append(
-                _normalize_descriptor(raw, backend=backend, include_schema=include_schemas)
-            )
+            rows.append(_normalize_descriptor(raw, backend=backend, include_schema=include_schemas))
         if rows:
             return _dedupe(rows)
 
@@ -415,9 +413,7 @@ def backend_config_contract_violations(backend: Any) -> list[str]:
             errors.append(f"{label}: stage must be one of {sorted(_VALID_STAGES)}")
         provider = row.get("provider")
         if provider is not None and not _PROVIDER_RE.match(str(provider)):
-            errors.append(
-                f"{label}: provider must match /^[A-Za-z0-9][A-Za-z0-9_.-]*$/"
-            )
+            errors.append(f"{label}: provider must match /^[A-Za-z0-9][A-Za-z0-9_.-]*$/")
         capability = row.get("capability")
         if capability is not None and str(capability) not in ALL_KNOWN:
             errors.append(f"{label}: capability {capability!r} is not portable")

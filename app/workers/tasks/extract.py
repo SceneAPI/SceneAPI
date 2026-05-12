@@ -63,10 +63,11 @@ def run(task: Task) -> dict[str, Any]:
     if inputs.get("input_artifacts"):
         options["input_artifacts"] = inputs["input_artifacts"]
     backend = get_backend()
+    feature_type = str(spec.get("type", "sift"))
     extract_features = require_backend_method(
         backend,
         "extract_features",
-        capability="features.extract",
+        capability=f"features.extract.{feature_type}",
     )
     summary = call_with_optional_progress(
         extract_features,
@@ -79,18 +80,29 @@ def run(task: Task) -> dict[str, Any]:
     if progress is not None:
         progress.phase_progress("feature_extraction", current=total_images, total=total_images)
         progress.phase_completed("feature_extraction")
-    return {"database_path": str(db_path), **summary}
+    backend_name = str(getattr(backend, "name", "unknown"))
+    return {
+        "database_path": str(db_path),
+        **summary,
+        "artifacts": [
+            {
+                "kind": f"features.database.{backend_name}",
+                "name": "feature-database",
+                "uri": str(db_path),
+                "summary": summary if isinstance(summary, dict) else {},
+                "artifact_format": f"{backend_name}.features.database.v1",
+                "schema_version": 1,
+                "producer": {"backend": backend_name},
+            }
+        ],
+    }
 
 
 def _feature_options(spec: dict[str, Any]) -> dict[str, Any]:
-    options = stage_options(spec, legacy_option_fields=("extractor_options",))
+    options = stage_options(spec)
     if "sift" not in options:
         sift_options = {
-            key: options[key]
-            for key in ("max_num_features", "sift_first_octave")
-            if options.get(key) is not None
+            key: options[key] for key in ("max_num_features",) if options.get(key) is not None
         }
-        if "sift_first_octave" in sift_options:
-            sift_options["first_octave"] = sift_options.pop("sift_first_octave")
         options["sift"] = sift_options
     return options

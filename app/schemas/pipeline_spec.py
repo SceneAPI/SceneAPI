@@ -121,9 +121,7 @@ class FeaturesSpec(BaseModel):
     ``features.extract.{type}`` capability flags. Unsupported types
     return 501 with the canonical capability name.
 
-    Backwards compat: the legacy ``sift_max_num_features`` /
-    ``sift_first_octave`` fields are accepted as aliases when
-    ``type=="sift"``."""
+    Backend-specific extractor controls belong in ``backend_options``."""
 
     version: Literal[1] = 1
     type: FeatureType = "sift"
@@ -155,16 +153,6 @@ class FeaturesSpec(BaseModel):
             "backend-specific feature extraction flows."
         ),
     )
-    extractor_options: BackendOptions = Field(
-        default_factory=dict,
-        description=(
-            "Deprecated compatibility alias for backend-specific extractor "
-            "options. Prefer backend_options."
-        ),
-    )
-    # Backwards-compat aliases (only meaningful when type=="sift"):
-    sift_max_num_features: int | None = None
-    sift_first_octave: int | None = None
 
 
 PairStrategy = Literal[
@@ -278,7 +266,9 @@ class PairsSpec(BaseModel):
                     "strategy='explicit' requires exactly one of image_pairs or pairs_blob_sha"
                 )
         elif has_inline or has_blob:
-            raise ValueError("image_pairs and pairs_blob_sha are only valid with strategy='explicit'")
+            raise ValueError(
+                "image_pairs and pairs_blob_sha are only valid with strategy='explicit'"
+            )
         return self
 
 
@@ -330,13 +320,6 @@ class MatcherSpec(BaseModel):
         description=(
             "Optional role-keyed input artifact references. Use role 'features' "
             "to select a feature artifact produced by another backend."
-        ),
-    )
-    matcher_options: BackendOptions = Field(
-        default_factory=dict,
-        description=(
-            "Deprecated compatibility alias for backend-specific matcher "
-            "options. Prefer backend_options."
         ),
     )
 

@@ -1,0 +1,62 @@
+{
+  "plugin_id": "hloc",
+  "display_name": "Hierarchical Localization",
+  "description": "Backend plugin for hloc feature, retrieval, matching, and localization workflows.",
+  "package_name": "sfmapi-hloc",
+  "github_url": "https://github.com/SFMAPI/sfmapi_hloc.git",
+  "entry_points": ["sfmapi_hloc.plugin:plugin"],
+  "providers": [
+    {
+      "provider_id": "hloc",
+      "display_name": "hloc",
+      "capabilities": [
+        "features.extract.superpoint",
+        "features.extract.disk",
+        "features.extract.aliked",
+        "pairs.retrieval",
+        "matchers.superglue",
+        "matchers.lightglue",
+        "matchers.loftr",
+        "matches.verify",
+        "localize.from_memory"
+      ],
+      "backend_actions": ["hloc.*"],
+      "priority_hint": 10
+    }
+  ],
+  "runtime_modes": {
+    "uv": {
+      "source": "git",
+      "url": "https://github.com/SFMAPI/sfmapi_hloc.git",
+      "ref": "main",
+      "package": "sfmapi-hloc"
+    },
+    "docker": {}
+  },
+  "capabilities": [
+    "features.extract.superpoint",
+    "features.extract.disk",
+    "features.extract.aliked",
+    "pairs.retrieval",
+    "matchers.superglue",
+    "matchers.lightglue",
+    "matchers.loftr",
+    "matches.verify",
+    "localize.from_memory"
+  ],
+  "backend_actions": ["hloc.*"],
+  "config_schemas": ["hloc.*"],
+  "artifact_contracts": ["sfmapi.features", "sfmapi.matches", "sfmapi.pairs"],
+  "licenses": [{"name": "AGPL-3.0-or-later"}],
+  "upstream_projects": [
+    {"name": "Hierarchical Localization", "url": "https://github.com/cvg/Hierarchical-Localization", "license": "Apache-2.0"}
+  ],
+  "compatibility": {
+    "sfmapi": ">=0.0.1",
+    "python": ">=3.12,<3.13",
+    "os": ["windows", "linux"],
+    "cuda": "recommended"
+  },
+  "conformance": {"status": "not_run", "suite": "sfmapi-bench"},
+  "trust_tier": "official"
+}

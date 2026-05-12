@@ -1,6 +1,4 @@
-"""Replays the same recorded fixtures through the **generated**
-Python SDK at ``clients/python/sfmapi_client_gen/`` to confirm
-equivalence with the hand-rolled SDK in ``clients/python/sfmapi_client/``.
+"""Replays the same recorded fixtures through the generated Python SDK.
 
 Adding this layer makes the codegen flip safe: as long as both
 SDKs decode the same fixture set, swapping consumers from the
@@ -10,6 +8,7 @@ hand-rolled to the generated client is a no-op for them.
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -20,7 +19,9 @@ from tests.contract.conftest import load_fixture
 
 pytestmark = pytest.mark.contract
 
-GEN_ROOT = Path(__file__).resolve().parents[2] / "clients" / "python" / "sfmapi_client_gen"
+SERVER_ROOT = Path(__file__).resolve().parents[2]
+SDK_ROOT = Path(os.environ.get("SFMAPI_SDK_REPO", SERVER_ROOT.parent / "sfmapi-sdk"))
+GEN_ROOT = SDK_ROOT / "python" / "sfmapi_client_gen"
 
 
 def _load_gen_module(rel: str) -> Any:
@@ -44,7 +45,7 @@ def _load_gen_module(rel: str) -> Any:
 
 def _skip_if_not_generated() -> None:
     if not GEN_ROOT.is_dir():
-        pytest.skip("generated SDK not present (run scripts/regen_sdk.py)")
+        pytest.skip(f"generated SDK not present at {GEN_ROOT} (run scripts/regen_sdk.py)")
 
 
 def test_capabilities_decodes_through_generated() -> None:

@@ -179,3 +179,5 @@ class JobAcceptedResponse(BaseModel):
     strategy: str | None = None
     action_id: str | None = None
     backend: str | None = None
+    artifact_id: str | None = None
+    target_format: str | None = None

@@ -1,16 +1,18 @@
 {
   "action_id": null,
   "applied_sim3": null,
+  "artifact_id": null,
   "backend": null,
   "dataset_id": null,
-  "job_id": "01KR54AETGGZH20X8J3PDN8H72",
+  "job_id": "01KRDAW09EEPCXNN2TQ6BY7QVY",
   "method": null,
   "project_id": null,
   "recon_id": null,
   "source_recon_ids": null,
   "strategy": null,
+  "target_format": null,
   "target_recon_id": null,
   "task_ids": [
-    "01KR54AETGGZH20X8J3PDN8H71"
+    "01KRDAW09EEPCXNN2TQ6BY7QVX"
   ]
 }

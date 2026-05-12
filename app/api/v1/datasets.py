@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Body, Depends, Query, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +17,12 @@ from app.schemas.api.datasets import (
     DatasetPatch,
 )
 from app.schemas.api.jobs import JobAcceptedResponse
+from app.schemas.api.projections import (
+    CubemapProjectionRequest,
+    EquirectangularProjectionRequest,
+    PerspectiveProjectionRequest,
+    ProjectionJobRequest,
+)
 from app.services import dataset_service, project_service, sfm_stage_service
 
 router = APIRouter(prefix="/projects/{project_id}/datasets", tags=["datasets"])
@@ -199,6 +205,7 @@ spherical_router = APIRouter(prefix="/datasets/{dataset_id}", tags=["datasets"])
 )
 async def render_cubemap(
     dataset_id: str,
+    body: CubemapProjectionRequest | None = Body(default=None),
     face_size: int | None = Query(
         default=None, ge=64, le=8192, description="Pixel edge length per cubemap face"
     ),
@@ -212,7 +219,82 @@ async def render_cubemap(
     register it as a new ``local`` source for downstream pinhole-only
     pipelines.
     """
+    if body is None:
+        body = CubemapProjectionRequest()
     job_id, _tasks = await sfm_stage_service.submit_render_cubemap(
-        session, tenant_id=tenant_id, dataset_id=dataset_id, face_size=face_size
+        session,
+        tenant_id=tenant_id,
+        dataset_id=dataset_id,
+        face_size=face_size,
+        spec=body.operation_spec(),
+    )
+    return accepted_response(JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id))
+
+
+@spherical_router.post(
+    ":project_images",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=JobAcceptedResponse,
+)
+async def project_images(
+    dataset_id: str,
+    body: ProjectionJobRequest,
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """Run a portable projection transform over the dataset images."""
+    job_id, _tasks = await sfm_stage_service.submit_project_images(
+        session,
+        tenant_id=tenant_id,
+        dataset_id=dataset_id,
+        spec=body.model_dump(mode="json"),
+    )
+    return accepted_response(JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id))
+
+
+@spherical_router.post(
+    ":render_equirectangular",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=JobAcceptedResponse,
+)
+async def render_equirectangular(
+    dataset_id: str,
+    body: EquirectangularProjectionRequest | None = Body(default=None),
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """Render a cubemap dataset back to equirectangular panoramas."""
+    if body is None:
+        body = EquirectangularProjectionRequest()
+    job_id, _tasks = await sfm_stage_service.submit_project_images(
+        session,
+        tenant_id=tenant_id,
+        dataset_id=dataset_id,
+        spec=body.model_dump(mode="json"),
+        recipe="render_equirectangular",
+    )
+    return accepted_response(JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id))
+
+
+@spherical_router.post(
+    ":render_perspective",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=JobAcceptedResponse,
+)
+async def render_perspective(
+    dataset_id: str,
+    body: PerspectiveProjectionRequest | None = Body(default=None),
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """Render pinhole perspective views from spherical panoramas."""
+    if body is None:
+        body = PerspectiveProjectionRequest()
+    job_id, _tasks = await sfm_stage_service.submit_project_images(
+        session,
+        tenant_id=tenant_id,
+        dataset_id=dataset_id,
+        spec=body.model_dump(mode="json"),
+        recipe="render_perspective",
     )
     return accepted_response(JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id))

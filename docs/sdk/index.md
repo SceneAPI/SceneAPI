@@ -7,9 +7,9 @@ and pluggable HTTP client checked against the same fixtures.
 
 | Language | Current install path | Notes |
 |---|---|---|
-| Python generated SDK | `pip install ./clients/python/sfmapi_client_gen` | Use `sfmapi_client_gen.Client` plus helpers in `sfmapi_client_gen._ergonomics`. |
-| TypeScript | `cd clients/typescript && npm install && npm run build` | Package metadata is under `clients/typescript/`; build from this repository until the package is published. |
-| C++17 | Add `clients/cpp/` as a header-only dependency | Bring your own HTTP transport and JSON parser. |
+| Python generated SDK | `pip install ../sfmapi-sdk/python/sfmapi_client_gen` | Use `sfmapi_client_gen.Client` plus helpers in `sfmapi_client_gen._ergonomics`. |
+| TypeScript | `cd ../sfmapi-sdk/typescript && npm install && npm run build` | Package metadata is under the SDK repository until the package is published. |
+| C++17 | Add `../sfmapi-sdk/cpp/` as a header-only dependency | Bring your own HTTP transport and JSON parser. |
 
 Wire fixtures in `tests/contract/fixtures/` are replayed through the
 clients, so a server change must propagate across the client surfaces or
@@ -18,7 +18,7 @@ CI fails.
 ## Python generated SDK
 
 ```bash
-pip install ./clients/python/sfmapi_client_gen
+pip install ../sfmapi-sdk/python/sfmapi_client_gen
 ```
 
 ```python
@@ -36,7 +36,7 @@ binary point parsing, and job waiting.
 ## TypeScript client
 
 ```bash
-cd clients/typescript
+cd ../sfmapi-sdk/typescript
 npm install
 npm run build
 ```
@@ -53,7 +53,7 @@ produces both ESM and CJS outputs plus generated OpenAPI types.
 ## C++17 client
 
 ```cmake
-add_subdirectory(third_party/sfmapi/clients/cpp)
+add_subdirectory(third_party/sfmapi-sdk/cpp)
 target_link_libraries(your_target PRIVATE sfmapi_cpp)
 ```
 

@@ -3,21 +3,21 @@
     {
       "_links": {
         "datasets": {
-          "href": "/v1/projects/01KR54AEE97R0E42R6W32JZ028/datasets"
+          "href": "/v1/projects/01KRDAVZPPGQXDXA5SA5BQ3PP2/datasets"
         },
         "pipelines": {
-          "href": "/v1/projects/01KR54AEE97R0E42R6W32JZ028/pipelines"
+          "href": "/v1/projects/01KRDAVZPPGQXDXA5SA5BQ3PP2/pipelines"
         },
         "self": {
-          "href": "/v1/projects/01KR54AEE97R0E42R6W32JZ028"
+          "href": "/v1/projects/01KRDAVZPPGQXDXA5SA5BQ3PP2"
         }
       },
-      "created_at": "2026-05-09T01:06:09.481082",
+      "created_at": "2026-05-12T05:34:31.126192",
       "description": "fixture",
       "name": "contract-demo",
-      "project_id": "01KR54AEE97R0E42R6W32JZ028",
+      "project_id": "01KRDAVZPPGQXDXA5SA5BQ3PP2",
       "tenant_id": "default",
-      "updated_at": "2026-05-09T01:06:09.481082"
+      "updated_at": "2026-05-12T05:34:31.126192"
     }
   ],
   "next_page_token": null,

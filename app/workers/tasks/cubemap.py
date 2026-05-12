@@ -36,12 +36,12 @@ def run(task: Task) -> dict:
     convert_spherical_to_cubemap = require_backend_method(
         backend,
         "convert_spherical_to_cubemap",
-        capability="spherical.to_cubemap",
+        capability="projection.cubemap_rig",
     )
     read_reconstruction = require_backend_method(
         backend,
         "read_reconstruction",
-        capability="spherical.to_cubemap",
+        capability="projection.cubemap_rig",
         reason="Cubemap conversion needs read_reconstruction() to seal a snapshot.",
     )
     convert_spherical_to_cubemap(

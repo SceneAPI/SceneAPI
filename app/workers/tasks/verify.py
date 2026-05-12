@@ -44,7 +44,19 @@ def run(task: Task) -> dict[str, Any]:
 
     # Export the verified two-view geometries as a wire-stable JSON sidecar
     # next to the database. Best-effort: failure here doesn't fail verify.
-    out: dict[str, Any] = {"database_path": str(db_path), **summary}
+    backend_name = str(getattr(backend, "name", "unknown"))
+    artifacts: list[dict[str, Any]] = [
+        {
+            "kind": f"matches.database.verified.{backend_name}",
+            "name": "verified-match-database",
+            "uri": str(db_path),
+            "summary": summary if isinstance(summary, dict) else {},
+            "artifact_format": f"{backend_name}.matches.database.verified.v1",
+            "schema_version": 1,
+            "producer": {"backend": backend_name},
+        }
+    ]
+    out: dict[str, Any] = {"database_path": str(db_path), **summary, "artifacts": artifacts}
     with contextlib.suppress(Exception):
         iter_two_view_geometries = require_backend_method(
             backend,
@@ -55,4 +67,15 @@ def run(task: Task) -> dict[str, Any]:
             iter_two_view_geometries(database_path=db_path), db_path.parent
         )
         out["two_view_geometries_path"] = str(written)
+        artifacts.append(
+            {
+                "kind": "matches.verified.v1",
+                "name": "two_view_geometries",
+                "uri": str(written),
+                "media_type": "application/json",
+                "artifact_format": "sfmapi.matches.verified.v1",
+                "schema_version": 1,
+                "producer": {"backend": backend_name},
+            }
+        )
     return out

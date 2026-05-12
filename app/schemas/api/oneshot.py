@@ -15,11 +15,15 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class OneShotImageInfo(BaseModel):
-    """Decoded image dimensions + size echoed back so consumers can
-    sanity-check what the server actually parsed."""
+    """Header-derived image metadata echoed back for caller sanity checks.
 
-    width: int
-    height: int
+    ``width`` and ``height`` are ``None`` when the server cannot read the
+    dimensions cheaply from image headers. sfmapi does not decode pixels in
+    the API layer.
+    """
+
+    width: int | None
+    height: int | None
     byte_size: int
 
 

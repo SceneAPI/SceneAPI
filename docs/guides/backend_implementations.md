@@ -185,12 +185,38 @@ Common categories:
 | Mapping | `map.{incremental, global, hierarchical, spherical}` |
 | Bundle adjustment | `ba.{standard, two_stage, featuremetric}` |
 | Dense | `dense.patch_match_stereo`, `dense.fusion`, `mesh.{poisson, delaunay}` |
-| Other | `relocalize.images`, `pgo.optimize`, `triangulate.retri`, `export.{ply, nvm, txt, bin}`, `spherical.{to_cubemap, render_cubemap}` |
+| Projection | `projection.{equirectangular_to_cubemap, cubemap_to_equirectangular, equirectangular_to_perspective, cubemap_rig}` |
+| Other | `relocalize.images`, `pgo.optimize`, `triangulate.retri`, `export.{ply, nvm, txt, bin}`, legacy `spherical.{to_cubemap, render_cubemap}` |
 
 If you advertise a capability, the corresponding portable stage method
 must succeed when called. If a backend does not implement that stage,
 omit both the capability and the method. sfmapi converts accidental
 portable-stage calls into a clean 501 with the capability name.
+
+Projection-capable backends should prefer one generic
+`project_images(operation, input_image_path, output_path, spec)` method.
+For compatibility, `equirectangular_to_cubemap` can still be served by
+the older `render_spherical_cubemap_images(...)` hook. The portable
+cubemap convention is `sfmapi-opencv`: face cameras use OpenCV image
+axes, and the canonical face order is `front`, `right`, `back`, `left`,
+`up`, `down`.
+
+sfmapi core can provide only the generic pixel path for
+`projection.equirectangular_to_cubemap` when the `projection` extra is
+installed. It supports `nearest` and `linear` sampling. Higher-order
+sampling, reverse cubemap rendering, and equirectangular-to-perspective
+views are contract-only in core. Backends that implement those paths
+must advertise the corresponding `projection.*` capability and return a
+manifest-compatible result.
+
+Projection result dictionaries may include `source_images`,
+`output_images`, and `derived_dataset`. If `derived_dataset` is present,
+sfmapi registers the output directory as a normal Dataset with Image
+rows. If it is omitted and the request keeps `output.create_dataset=true`,
+sfmapi derives a conservative dataset manifest from the files written to
+the output directory. Requested derived dataset names are collision-safe:
+sfmapi appends a task suffix when a name already exists, and task retries
+reuse the dataset registered for the same derived output root.
 
 `FeaturesSpec`, `PairsSpec`, and `MatcherSpec` each have an optional
 `provider` field. Use it only to disambiguate implementations that
@@ -213,29 +239,29 @@ row per line.
 
 ## Stage output artifacts
 
-Backend methods should return a dict. For simple COLMAP-compatible
-backends, legacy keys such as `database_path`, `correspondence_graph_path`,
-`two_view_geometries_path`, `snapshot_path`, and `models` are enough;
-sfmapi infers `StageArtifact` rows from them.
-
-For richer backends, return an explicit `artifacts` list so clients can
-choose among multiple outputs without guessing:
+Backend methods should return a dict. Data products must be declared
+explicitly in an `artifacts` list so clients can choose among multiple
+outputs without guessing from backend-local paths:
 
 ```python
 return {
     "database_path": str(database_path),
     "artifacts": [
         {
-            "kind": "matches.raw",
+            "kind": "matches.indexed.v1",
             "name": "hloc-lightglue",
             "uri": str(matches_path),
+            "artifact_format": "sfmapi.matches.indexed.v1",
+            "schema_version": 1,
             "summary": {"num_pairs": 12000, "num_matches": 2400000},
             "metadata": {"provider": "hloc", "feature_set": "superpoint"},
         },
         {
-            "kind": "matches.raw",
+            "kind": "matches.database.colmap",
             "name": "colmap-sift",
             "uri": str(colmap_matches_path),
+            "artifact_format": "colmap.matches.database.v1",
+            "schema_version": 1,
             "summary": {"num_pairs": 9000, "num_matches": 1800000},
             "metadata": {"provider": "colmap", "feature_set": "sift"},
         },
@@ -244,19 +270,25 @@ return {
 ```
 
 Artifact `kind` values are dot-notated identifiers. Reserved core kinds
-include `features.database`, `matches.database`,
-`matches.verified_database`, `matches.correspondence_graph`,
-`matches.two_view_geometries`, `reconstruction.snapshot`, and
-`reconstruction.submodel`. Use public stage names, not internal worker
-names such as `extract` or `verify`. Keep extension names stable and
-namespaced, for example `hloc.matches.lightglue`.
+include `features.local.v1`, `features.global.v1`,
+`pairs.image_names.v1`, `matches.indexed.v1`,
+`matches.coordinates.v1`, `matches.dense.v1`,
+`matches.verified.v1`, `reconstruction.sparse.v1`,
+`reconstruction.snapshot`, and `reconstruction.submodel`. Use
+same-family namespaced extension kinds for backend-native formats, for
+example `features.hloc_h5` or `matches.database.colmap`.
+`artifact_format` is the concrete storage or interchange contract.
+Portable outputs should use versioned `sfmapi.*.v1` format ids.
+Backend-native outputs should use backend-owned ids such as
+`hloc.features.h5.v1` or `colmap.matches.database.v1`.
 
 Invalid artifact descriptors fail the task with a clear validation
 error. Clients discover outputs with `GET /v1/jobs/{job_id}/artifacts`,
 `GET /v1/reconstructions/{recon_id}/artifacts`, or
 `GET /v1/artifacts/{artifact_id}`. List endpoints support exact
 `kind`, `task_id`, and `name` filters. `GET /v1/artifacts/kinds`
-returns the reserved core vocabulary.
+returns the reserved semantic vocabulary; `GET /v1/artifacts/formats`
+returns the reserved core interchange formats.
 
 ## Stage input artifacts
 
@@ -270,22 +302,110 @@ are `features`, `pairs`, `matches`, `verified_matches`, `snapshot`, and
   "input_artifacts": {
     "features": {
       "artifact_id": "01HZ...",
-      "kind": "features.database"
+      "kind": "features.local.v1"
     }
   }
 }
 ```
 
 sfmapi validates tenant scope, optional dataset scope, expected kind,
-and core role compatibility before a job is created. For database
-artifacts, sfmapi also routes the selected artifact URI into the
-downstream worker's `database_path`. All resolved artifact descriptors
-are passed to the backend in `options["input_artifacts"]` so mixed
-backends can consume richer formats without adding portable fields.
+and core role compatibility before a job is created. All resolved
+artifact descriptors are passed to the backend in
+`options["input_artifacts"]` so mixed backends can consume richer
+formats without adding portable fields.
 
 Artifact rows are created for new task completions. Pre-release
 databases are not backfilled automatically; rerun the stage if an older
 job needs typed artifact rows.
+
+## Backend artifact contracts
+
+Backends can publish artifact input/output contracts through
+`list_backend_artifact_contracts()`. This is the discovery surface for
+interchange: it tells a client which portable or backend-native kinds
+and format ids a stage accepts and emits.
+
+```python
+class MyBackend:
+    def list_backend_artifact_contracts(self) -> list[dict]:
+        return [
+            {
+                "contract_id": "my_backend.matcher.lightglue",
+                "stage": "matcher",
+                "capability": "matchers.lightglue",
+                "provider": "my_backend",
+                "display_name": "LightGlue match artifacts",
+                "accepts": ["features.local.v1", "pairs.image_names.v1"],
+                "emits": ["matches.indexed.v1"],
+                "accepts_formats": [
+                    "sfmapi.features.local.v1",
+                    "sfmapi.pairs.image_names.v1",
+                ],
+                "emits_formats": ["sfmapi.matches.indexed.v1", "hloc.matches.h5.v1"],
+                "preferred": "matches.indexed.v1",
+                "preferred_format": "sfmapi.matches.indexed.v1",
+                "conversions": [
+                    {
+                        "from_format": "hloc.matches.h5.v1",
+                        "to_format": "sfmapi.matches.indexed.v1",
+                        "lossless": False,
+                        "description": "Descriptor scores are not preserved.",
+                    }
+                ],
+            }
+        ]
+```
+
+If a backend omits this method, sfmapi derives a conservative contract
+from advertised portable capabilities. Explicit contracts are preferred
+for backends that can consume native formats or expose conversions.
+When `accepts_formats`, `emits_formats`, or `preferred_format` are
+omitted for core kinds, sfmapi fills them from the core format
+vocabulary.
+
+When a contract advertises `conversions`, the backend must also
+implement `convert_artifact(...)`. sfmapi uses this method for
+`POST /v1/artifacts/{artifact_id}:convert`:
+
+```python
+def convert_artifact(
+    self,
+    *,
+    input_artifact: dict,
+    output_dir: Path,
+    to_format: str,
+    to_kind: str | None = None,
+    options: dict | None = None,
+) -> dict:
+    target = output_dir / "matches.json"
+    # Write the requested format, then return normal artifact descriptors.
+    return {
+        "artifacts": [{
+            "kind": to_kind or "matches.indexed.v1",
+            "name": "lightglue-indexed",
+            "uri": str(target),
+            "media_type": "application/json",
+            "artifact_format": to_format,
+            "schema_version": 1,
+        }]
+    }
+```
+
+Clients can call `POST /v1/artifacts/{id}:conversionPlan` with
+`accepted_formats` to let sfmapi choose the shortest conversion path.
+If the path has multiple steps, sfmapi calls `convert_artifact()` once
+per step inside the conversion task and passes each returned artifact
+descriptor into the next call. The API does not silently reinterpret
+bytes: missing conversion contracts, lossy conversions when
+`require_lossless=true`, and missing `convert_artifact()`
+implementations fail before work is queued.
+
+Clients can also register externally produced artifacts with
+`POST /v1/artifacts:import`. Imports create a completed
+`artifact_import` job/task and then persist a normal `StageArtifact`.
+Backends should therefore treat imported artifacts exactly like
+worker-produced artifacts: validate `kind` and `artifact_format`, then
+consume the advertised `uri` or `files` entries.
 
 ## Backend config schemas
 

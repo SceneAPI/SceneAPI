@@ -249,9 +249,9 @@ scripts/                 dev / ops scripts
 - ``scripts/regen_sdk.py`` is the single entrypoint: dumps the
   current OpenAPI spec, runs ``openapi-python-client`` for Python,
   then ``openapi-typescript`` for TS. Outputs land in:
-  - ``clients/python/sfmapi_client_gen/`` — attrs-based dataclasses
+  - ``../sfmapi-sdk/python/sfmapi_client_gen/`` — attrs-based dataclasses
     plus per-endpoint API methods.
-  - ``clients/typescript/src/_generated/openapi.d.ts`` — type-only
+  - ``../sfmapi-sdk/typescript/src/_generated/openapi.d.ts`` — type-only
     paths/components, plus a thin ``openapi-fetch`` runtime wrapper
     in ``src/_generated/client.ts``.
 - Both generated SDKs ship with a small repo-owned ergonomics shim
@@ -262,14 +262,14 @@ scripts/                 dev / ops scripts
   ``Last-Event-ID`` for resume, and pure-stdlib parsers for the three
   binary wire formats (``application/x-sfm-points-v1``,
   ``application/x-sfm-depth-v1``, ``application/x-sfm-normal-v1``):
-  - Python: ``clients/python/sfmapi_client_gen/_ergonomics.py`` —
+  - Python: ``../sfmapi-sdk/python/sfmapi_client_gen/_ergonomics.py`` —
     typed exception classes + ``raise_for_status(UnexpectedStatus)``
     + ``buildhttp_error(httpx.Response)`` + ``supports(caps, name)``
     + ``upload_bytes(base_url, data, ...)`` / ``upload_file(...)``
     + ``stream_events(base_url, job_id, ...)`` /
     ``parse_sse_buffer(body)`` + ``parse_points_binary(data)`` /
     ``parse_depth_map(data)`` / ``parse_normal_map(data)``.
-  - TypeScript: ``clients/typescript/src/_generated/ergonomics.ts`` —
+  - TypeScript: ``../sfmapi-sdk/typescript/src/_generated/ergonomics.ts`` —
     same hierarchy as ES classes + ``buildSfmApiError`` /
     ``raiseForStatus`` / ``supports`` + ``uploadBytes(data, opts)``
     + ``streamEvents(jobId, opts)`` / ``parseSseBuffer(body)``
@@ -314,7 +314,7 @@ scripts/                 dev / ops scripts
   ``on_event`` callback because C++17 has no generators.
 
 ### Hand-rolled SDKs are deprecated
-- ``clients/python/sfmapi_client/`` is **deprecated** as of 0.0.2.
+- ``../sfmapi-sdk/python/sfmapi_client/`` is **deprecated** as of 0.0.2.
   Importing it now emits a single :class:`DeprecationWarning` on
   first import. The full ergonomics surface (typed exceptions,
   ``supports()``, ``upload_bytes()`` / ``stream_events()`` /
@@ -370,7 +370,7 @@ scripts/                 dev / ops scripts
   not the SDK's.
 
 ### TypeScript live-server contract test
-- ``clients/typescript/test/generated_live.test.ts`` spawns the
+- ``../sfmapi-sdk/typescript/test/generated_live.test.ts`` spawns the
   ephemeral app via ``uv run python -m uvicorn`` on a random port
   and runs three live tests, mirroring the Python live coverage:
   - **Chained ergonomics** — ``uploadBytes`` -> create image ->
@@ -420,11 +420,11 @@ scripts/                 dev / ops scripts
 - The TypeScript SDK exposes the generated layer at
   ``@sfmapi/client/generated`` and the raw paths/components at
   ``@sfmapi/client/generated/openapi``.
-- Hand-rolled SDKs at ``clients/python/sfmapi_client/`` and
-  ``clients/typescript/src/`` ship in parallel; contract tests in
-  ``tests/contract/`` (and the TS ``test/generated.test.ts``) replay
-  recorded fixtures through both layers so divergence fails CI
-  immediately.
+- Hand-rolled SDKs at ``../sfmapi-sdk/python/sfmapi_client/`` and
+  ``../sfmapi-sdk/typescript/src/`` ship in the SDK repo for the
+  deprecation window; contract tests in ``tests/contract/`` and SDK
+  tests replay recorded fixtures through generated layers so
+  divergence fails CI immediately.
 - Re-run ``scripts/regen_sdk.py`` after adding/changing any
   ``response_model``. Don't hand-edit files under
   ``sfmapi_client_gen/api/``, ``sfmapi_client_gen/models/``,

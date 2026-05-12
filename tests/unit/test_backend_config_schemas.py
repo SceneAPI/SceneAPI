@@ -134,15 +134,12 @@ def test_worker_feature_options_keep_portable_and_backend_envelopes() -> None:
             "provider": "config_test",
             "max_num_features": 4096,
             "backend_options": {"SiftExtraction.peak_threshold": 0.01},
-            "extractor_options": {"ImageReader.single_camera": True},
         }
     )
 
     assert options["portable"]["max_num_features"] == 4096
     assert options["backend_options"] == {"SiftExtraction.peak_threshold": 0.01}
-    assert options["legacy_options"]["extractor_options"] == {"ImageReader.single_camera": True}
     assert options["SiftExtraction.peak_threshold"] == 0.01
-    assert options["ImageReader.single_camera"] is True
     assert options["sift"]["max_num_features"] == 4096
 
 
@@ -160,7 +157,6 @@ def test_worker_match_options_split_pairs_and_matcher_backend_options() -> None:
             "type": "nn-mutual",
             "provider": "colmap",
             "backend_options": {"SiftMatching.max_ratio": 0.75},
-            "matcher_options": {"SiftMatching.max_distance": 0.7},
         },
     )
 
@@ -168,7 +164,5 @@ def test_worker_match_options_split_pairs_and_matcher_backend_options() -> None:
     assert options["matcher_provider"] == "colmap"
     assert options["backend_options"]["pairs"] == {"ExhaustiveMatching.block_size": 50}
     assert options["backend_options"]["matcher"] == {"SiftMatching.max_ratio": 0.75}
-    assert options["legacy_options"]["matcher_options"] == {"SiftMatching.max_distance": 0.7}
     assert options["ExhaustiveMatching.block_size"] == 50
     assert options["SiftMatching.max_ratio"] == 0.75
-    assert options["SiftMatching.max_distance"] == 0.7

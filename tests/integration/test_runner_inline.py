@@ -139,6 +139,29 @@ async def test_map_task_persists_submodels(session, monkeypatch) -> None:
                 {"idx": 1, "num_reg_images": 8, "num_points3D": 100},
                 {"idx": 0, "num_reg_images": 12, "num_points3D": 300},
             ],
+            "artifacts": [
+                {
+                    "kind": "reconstruction.snapshot",
+                    "name": "snapshot-3",
+                    "uri": snapshot_path,
+                    "artifact_format": "reconstruction.snapshot",
+                    "schema_version": 1,
+                },
+                {
+                    "kind": "reconstruction.submodel",
+                    "name": "submodel-0",
+                    "uri": str(Path(snapshot_path) / "0"),
+                    "artifact_format": "reconstruction.submodel",
+                    "schema_version": 1,
+                },
+                {
+                    "kind": "reconstruction.submodel",
+                    "name": "submodel-1",
+                    "uri": str(Path(snapshot_path) / "1"),
+                    "artifact_format": "reconstruction.submodel",
+                    "schema_version": 1,
+                },
+            ],
         }
 
     monkeypatch.setattr(dispatcher, "_HANDLERS_CACHE", {"map": fake_map})

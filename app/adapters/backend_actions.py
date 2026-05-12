@@ -27,9 +27,7 @@ class BackendActionProvider(Protocol):
 
     def get_backend_action(self, action_id: str) -> dict[str, Any]: ...
 
-    def validate_backend_action(
-        self, action_id: str, inputs: dict[str, Any]
-    ) -> dict[str, Any]: ...
+    def validate_backend_action(self, action_id: str, inputs: dict[str, Any]) -> dict[str, Any]: ...
 
     def run_backend_action(
         self,
@@ -508,13 +506,9 @@ def backend_action_contract_violations(backend: Any) -> list[str]:
                 errors.append(f"{action_id or f'action[{index}]'}: display_name is required")
             label = action_id or f"action[{index}]"
             if "stability" in raw and str(raw.get("stability")) not in ACTION_STABILITIES:
-                errors.append(
-                    f"{label}: stability must be one of {sorted(ACTION_STABILITIES)}"
-                )
+                errors.append(f"{label}: stability must be one of {sorted(ACTION_STABILITIES)}")
             if "side_effects" in raw and str(raw.get("side_effects")) not in ACTION_SIDE_EFFECTS:
-                errors.append(
-                    f"{label}: side_effects must be one of {sorted(ACTION_SIDE_EFFECTS)}"
-                )
+                errors.append(f"{label}: side_effects must be one of {sorted(ACTION_SIDE_EFFECTS)}")
             input_schema = raw.get("input_schema")
             if input_schema is not None and not isinstance(input_schema, dict):
                 errors.append(f"{label}: input_schema must be an object or null")
@@ -552,13 +546,9 @@ def backend_action_contract_violations(backend: Any) -> list[str]:
         if not str(action.get("display_name") or "").strip():
             errors.append(f"{label}: display_name is required")
         if str(action.get("stability")) not in ACTION_STABILITIES:
-            errors.append(
-                f"{label}: stability must be one of {sorted(ACTION_STABILITIES)}"
-            )
+            errors.append(f"{label}: stability must be one of {sorted(ACTION_STABILITIES)}")
         if str(action.get("side_effects")) not in ACTION_SIDE_EFFECTS:
-            errors.append(
-                f"{label}: side_effects must be one of {sorted(ACTION_SIDE_EFFECTS)}"
-            )
+            errors.append(f"{label}: side_effects must be one of {sorted(ACTION_SIDE_EFFECTS)}")
         input_schema = action.get("input_schema")
         if input_schema is not None and not isinstance(input_schema, dict):
             errors.append(f"{label}: input_schema must be an object or null")

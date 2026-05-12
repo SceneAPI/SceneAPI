@@ -15,12 +15,15 @@ from app.schemas.api.backend_actions import (
     BackendActionRunRequest,
     BackendActionValidateRequest,
     BackendActionValidateResponse,
+    BackendArtifactContractListPage,
+    BackendArtifactContractOut,
     BackendConfigSchemaListPage,
     BackendConfigSchemaOut,
     BackendOut,
 )
 from app.schemas.api.jobs import JobAcceptedResponse
-from app.services import backend_action_service
+from app.schemas.api.plugins import ProviderOut, ProviderPage, RoutingOut
+from app.services import backend_action_service, plugin_service
 
 router = APIRouter(prefix="/backend", tags=["backend"])
 
@@ -80,6 +83,22 @@ async def list_config_schemas(
     )
     return BackendConfigSchemaListPage(
         items=[BackendConfigSchemaOut.model_validate(row) for row in rows],
+        next_page_token=next_page_token,
+    )
+
+
+@router.get("/artifact-contracts", response_model=BackendArtifactContractListPage)
+async def list_artifact_contracts(
+    page_token: str | None = Query(None),
+    page_size: int = Query(50, ge=1, le=500),
+) -> BackendArtifactContractListPage:
+    """List artifact kinds accepted and emitted by backend portable stages."""
+    rows, next_page_token = backend_action_service.list_artifact_contracts(
+        page_size=page_size,
+        page_token=page_token,
+    )
+    return BackendArtifactContractListPage(
+        items=[BackendArtifactContractOut.model_validate(row) for row in rows],
         next_page_token=next_page_token,
     )
 
@@ -145,3 +164,37 @@ async def get_config_schema(config_id: str) -> BackendConfigSchemaOut:
     return BackendConfigSchemaOut.model_validate(
         backend_action_service.get_config_schema(config_id)
     )
+
+
+@router.get("/artifact-contracts/{contract_id}", response_model=BackendArtifactContractOut)
+async def get_artifact_contract(contract_id: str) -> BackendArtifactContractOut:
+    """Read one backend artifact input/output contract."""
+    return BackendArtifactContractOut.model_validate(
+        backend_action_service.get_artifact_contract(contract_id)
+    )
+
+
+@router.get("/providers", response_model=ProviderPage)
+async def list_providers(
+    page_token: str | None = Query(None),
+    page_size: int = Query(50, ge=1, le=500),
+) -> ProviderPage:
+    """List enabled providers discovered from installed sfm_hub plugins."""
+    rows = plugin_service.list_providers()
+    if page_token:
+        rows = [row for row in rows if str(row["provider_id"]) > page_token]
+    page = rows[: page_size + 1]
+    next_page_token = None
+    if len(page) > page_size:
+        next_page_token = str(page[page_size - 1]["provider_id"])
+        page = page[:page_size]
+    return ProviderPage(
+        items=[ProviderOut.model_validate(row) for row in page],
+        next_page_token=next_page_token,
+    )
+
+
+@router.get("/routing", response_model=RoutingOut)
+async def get_routing() -> RoutingOut:
+    """Read provider priority and named routing-profile state."""
+    return RoutingOut.model_validate(plugin_service.routing_state())

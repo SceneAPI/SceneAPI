@@ -71,7 +71,6 @@ def _match_options(
 
     pairs_backend_options = dict(pairs.get("backend_options") or {})
     matcher_backend_options = dict(matcher.get("backend_options") or {})
-    matcher_options = dict(matcher.get("matcher_options") or {})
     portable_pairs = {
         k: v
         for k, v in pairs.items()
@@ -81,11 +80,9 @@ def _match_options(
     portable_matcher = {
         k: v
         for k, v in matcher.items()
-        if k not in {"provider", "backend_options", "matcher_options", "input_artifacts"}
-        and v is not None
+        if k not in {"provider", "backend_options", "input_artifacts"} and v is not None
     }
     options = {
-        **matcher_options,
         **portable_pairs,
         **portable_matcher,
         **pairs_backend_options,
@@ -100,8 +97,6 @@ def _match_options(
         "pairs": pairs_backend_options,
         "matcher": matcher_backend_options,
     }
-    options["legacy_options"] = {"matcher_options": matcher_options}
-    options["matcher_options"] = matcher_options
     pairs["backend_options"] = pairs_backend_options
     matcher["backend_options"] = matcher_backend_options
     options["pairs"] = pairs
@@ -138,7 +133,24 @@ def run(task: Task) -> dict[str, Any]:
     if progress is not None:
         progress.phase_completed("matching")
 
-    out: dict[str, Any] = {"database_path": str(db_path), "strategy": strategy, **summary}
+    backend_name = str(getattr(backend, "name", "unknown"))
+    artifacts: list[dict[str, Any]] = [
+        {
+            "kind": f"matches.database.{backend_name}",
+            "name": "match-database",
+            "uri": str(db_path),
+            "summary": summary if isinstance(summary, dict) else {},
+            "artifact_format": f"{backend_name}.matches.database.v1",
+            "schema_version": 1,
+            "producer": {"backend": backend_name},
+        }
+    ]
+    out: dict[str, Any] = {
+        "database_path": str(db_path),
+        "strategy": strategy,
+        **summary,
+        "artifacts": artifacts,
+    }
     # Best-effort: dump the raw correspondence graph so the
     # reconstruction-level read endpoint has fresh data. Failure here
     # doesn't fail match — geometric verification is what matters.
@@ -152,4 +164,15 @@ def run(task: Task) -> dict[str, Any]:
             iter_correspondences(database_path=db_path), db_path.parent
         )
         out["correspondence_graph_path"] = str(written)
+        artifacts.append(
+            {
+                "kind": "matches.indexed.v1",
+                "name": "correspondence_graph",
+                "uri": str(written),
+                "media_type": "application/json",
+                "artifact_format": "sfmapi.matches.indexed.v1",
+                "schema_version": 1,
+                "producer": {"backend": backend_name},
+            }
+        )
     return out

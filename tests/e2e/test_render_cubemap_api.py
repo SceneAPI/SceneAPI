@@ -47,21 +47,22 @@ async def _make_dataset(client, *, is_spherical: bool) -> str:
     return did
 
 
-async def test_render_cubemap_returns_501_without_capability(client) -> None:
-    """Without pycolmap the backend doesn't advertise the
-    spherical.render_cubemap capability — request is rejected before
-    the dataset/is_spherical check."""
+async def test_render_cubemap_returns_501_without_capability(client, monkeypatch) -> None:
+    """Without a backend or built-in pixel engine, capability rejection wins."""
+    from app.core.capabilities import reset_capabilities_cache
+
+    monkeypatch.setattr("app.core.projection_engine.has_projection_engine", lambda: False)
+    reset_capabilities_cache()
     resp = await client.post("/v1/datasets/01HGHOST00000000000000000A:render_cubemap")
     assert resp.status_code == 501
-    assert resp.json()["capability"] == "spherical.render_cubemap"
+    assert resp.json()["capability"] == "projection.equirectangular_to_cubemap"
 
 
-async def test_render_cubemap_501_even_for_pinhole_dataset(client) -> None:
-    """Capability check fires first; the is_spherical=false rejection
-    only matters when the backend can do the work."""
+async def test_render_cubemap_rejects_pinhole_dataset(client) -> None:
     did = await _make_dataset(client, is_spherical=False)
     resp = await client.post(f"/v1/datasets/{did}:render_cubemap")
-    assert resp.status_code == 501
+    assert resp.status_code == 422
+    assert "is_spherical=true" in resp.text
 
 
 async def test_render_cubemap_rejects_face_size_too_large(client) -> None:
@@ -74,3 +75,79 @@ async def test_render_cubemap_rejects_face_size_too_small(client) -> None:
     did = await _make_dataset(client, is_spherical=True)
     resp = await client.post(f"/v1/datasets/{did}:render_cubemap", params={"face_size": 1})
     assert resp.status_code == 422
+
+
+async def test_projection_request_validates_equirectangular_dimensions(client) -> None:
+    did = await _make_dataset(client, is_spherical=False)
+    resp = await client.post(
+        f"/v1/datasets/{did}:render_equirectangular",
+        json={"equirectangular": {"width": 1024}},
+    )
+    assert resp.status_code == 422
+
+
+async def test_perspective_projection_requires_spherical_dataset(client) -> None:
+    from app.adapters.registry import register_backend
+    from app.adapters.stub_backend import StubBackend
+    from app.core.capabilities import reset_capabilities_cache
+
+    class PerspectiveBackend(StubBackend):
+        def capabilities(self) -> set[str]:
+            return {"projection.equirectangular_to_perspective"}
+
+    register_backend("stub", PerspectiveBackend)
+    reset_capabilities_cache()
+    did = await _make_dataset(client, is_spherical=False)
+
+    resp = await client.post(f"/v1/datasets/{did}:render_perspective", json={})
+
+    assert resp.status_code == 422
+    assert "is_spherical=true" in resp.text
+
+
+async def test_projection_job_writes_manifest_and_artifact(client) -> None:
+    from app.adapters.registry import register_backend
+    from app.adapters.stub_backend import StubBackend
+    from app.core.capabilities import reset_capabilities_cache
+
+    class ProjectionBackend(StubBackend):
+        def capabilities(self) -> set[str]:
+            return {"projection.equirectangular_to_cubemap"}
+
+        def project_images(self, *, operation, input_image_path, output_path, spec):
+            assert operation == "equirectangular_to_cubemap"
+            assert spec["face_size"] == 128
+            assert input_image_path.is_dir()
+            (output_path / "front.jpg").write_bytes(b"fake")
+            return {"backend": "projection-test"}
+
+    register_backend("stub", ProjectionBackend)
+    reset_capabilities_cache()
+    did = await _make_dataset(client, is_spherical=True)
+
+    resp = await client.post(
+        f"/v1/datasets/{did}:render_cubemap",
+        json={"cubemap": {"face_size": 128, "output": {"dataset_name": "ds"}}},
+    )
+
+    assert resp.status_code == 202, resp.text
+    job_id = resp.json()["job_id"]
+    job = await client.get(f"/v1/jobs/{job_id}")
+    assert job.status_code == 200
+    task = job.json()["tasks"][0]
+    assert task["kind"] == "project_images"
+    assert task["status"] == "succeeded"
+    outputs = task["outputs_ref"]
+    assert outputs["operation"] == "equirectangular_to_cubemap"
+    assert outputs["num_files"] == 2
+    assert outputs["artifacts"][0]["kind"] == "projection.images.v1"
+    derived = outputs["derived_dataset"]
+    assert derived["dataset_id"]
+    assert derived["name"].startswith("ds-")
+    derived_images = await client.get(f"/v1/datasets/{derived['dataset_id']}/images")
+    assert derived_images.status_code == 200
+    assert [item["name"] for item in derived_images.json()["items"]] == ["front.jpg"]
+
+    artifacts = await client.get(f"/v1/jobs/{job_id}/artifacts")
+    assert artifacts.status_code == 200
+    assert artifacts.json()["items"][0]["kind"] == "projection.images.v1"

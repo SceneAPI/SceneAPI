@@ -1,0 +1,42 @@
+{
+  "plugin_id": "instantsfm",
+  "display_name": "InstantSFM",
+  "description": "Backend plugin for Python-based InstantSFM workflows.",
+  "package_name": "sfmapi-instantsfm",
+  "github_url": "https://github.com/SFMAPI/sfmapi_instantsfm.git",
+  "entry_points": ["sfmapi_instantsfm.plugin:plugin"],
+  "providers": [
+    {
+      "provider_id": "instantsfm",
+      "display_name": "InstantSFM",
+      "capabilities": ["features.extract.superpoint", "pairs.retrieval", "matchers.lightglue", "map.incremental"],
+      "backend_actions": ["instantsfm.*"],
+      "priority_hint": 60
+    }
+  ],
+  "runtime_modes": {
+    "uv": {
+      "source": "git",
+      "url": "https://github.com/SFMAPI/sfmapi_instantsfm.git",
+      "ref": "main",
+      "package": "sfmapi-instantsfm"
+    },
+    "docker": {}
+  },
+  "capabilities": ["features.extract.superpoint", "pairs.retrieval", "matchers.lightglue", "map.incremental"],
+  "backend_actions": ["instantsfm.*"],
+  "config_schemas": ["instantsfm.*"],
+  "artifact_contracts": ["sfmapi.features", "sfmapi.matches", "sfmapi.reconstruction"],
+  "licenses": [{"name": "AGPL-3.0-or-later"}],
+  "upstream_projects": [
+    {"name": "InstantSFM", "url": "https://github.com/SFMAPI/InstantSFM", "license": "Upstream license"}
+  ],
+  "compatibility": {
+    "sfmapi": ">=0.0.1",
+    "python": ">=3.12,<3.13",
+    "os": ["windows", "linux"],
+    "cuda": "recommended"
+  },
+  "conformance": {"status": "not_run", "suite": "sfmapi-bench"},
+  "trust_tier": "community"
+}

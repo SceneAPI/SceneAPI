@@ -489,7 +489,7 @@ anti-patterns. Closure summary (per the plan in
 ### Phase D — tracked, not shipped
 - **D1 (gap #8)**: hand-rolled SDK removal milestone documented in
   `L12` and the deprecation warning at
-  `clients/python/sfmapi_client/__init__.py:87`: target removal at
+  `../sfmapi-sdk/python/sfmapi_client/__init__.py:87`: target removal at
   `0.1.0`. No code deletion this loop.
 - **D2 (gap #9, `L29`)**: `ColmapModBackend` god-class split
   formally deferred. Decision register entry documents the calibration:

@@ -12,6 +12,7 @@ from difflib import get_close_matches
 from typing import Any
 
 from app.adapters.backend_actions import backend_action_contract_violations, list_backend_actions
+from app.adapters.backend_artifacts import backend_artifact_contract_violations
 from app.adapters.backend_config import (
     backend_config_contract_violations,
     list_backend_config_schemas,
@@ -89,6 +90,7 @@ def backend_contract_violations(backend: Any) -> list[str]:
     errors.extend(backend_capability_contract_violations(backend))
     errors.extend(backend_action_contract_violations(backend))
     errors.extend(backend_config_contract_violations(backend))
+    errors.extend(backend_artifact_contract_violations(backend))
     deduped: list[str] = []
     for error in errors:
         if error not in deduped:

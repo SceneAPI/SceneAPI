@@ -41,7 +41,7 @@ def run(task: Task) -> dict:
     render_spherical_cubemap_images = require_backend_method(
         get_backend(),
         "render_spherical_cubemap_images",
-        capability="spherical.render_cubemap",
+        capability="projection.equirectangular_to_cubemap",
     )
     render_spherical_cubemap_images(
         input_image_path=image_path,

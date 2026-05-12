@@ -89,7 +89,7 @@ async def list_artifacts(
     page_size: int = Query(default=100, ge=1, le=500),
     kind: str | None = Query(
         default=None,
-        description="Optional exact artifact kind filter, e.g. matches.verified_database.",
+        description="Optional exact artifact kind filter, e.g. matches.verified.v1.",
     ),
     task_id: str | None = Query(default=None, description="Optional producing task id filter."),
     name: str | None = Query(default=None, description="Optional exact artifact name filter."),

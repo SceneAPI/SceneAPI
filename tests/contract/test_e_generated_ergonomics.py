@@ -6,6 +6,7 @@ the parity gap with the hand-rolled SDK.
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -15,7 +16,9 @@ from tests.contract.conftest import load_fixture
 
 pytestmark = pytest.mark.contract
 
-GEN_ROOT = Path(__file__).resolve().parents[2] / "clients" / "python" / "sfmapi_client_gen"
+SERVER_ROOT = Path(__file__).resolve().parents[2]
+SDK_ROOT = Path(os.environ.get("SFMAPI_SDK_REPO", SERVER_ROOT.parent / "sfmapi-sdk"))
+GEN_ROOT = SDK_ROOT / "python" / "sfmapi_client_gen"
 
 
 def _import_generated() -> tuple[object, object]:

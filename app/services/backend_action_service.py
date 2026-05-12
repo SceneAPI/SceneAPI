@@ -6,7 +6,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.adapters import backend_actions, backend_config
+from app.adapters import backend_actions, backend_artifacts, backend_config
 from app.adapters.registry import get_backend
 from app.core.config import get_settings
 from app.core.errors import ValidationError
@@ -19,13 +19,15 @@ from app.services import project_service
 def backend_summary() -> dict[str, Any]:
     backend = get_backend()
     actions = backend_actions.list_backend_actions(backend, include_schemas=False)
-    config_schemas = backend_config.list_backend_config_schemas(
-        backend, include_schemas=False
-    )
+    config_schemas = backend_config.list_backend_config_schemas(backend, include_schemas=False)
+    artifact_contracts = backend_artifacts.list_backend_artifact_contracts(backend)
     links: dict[str, dict[str, str]] = {
         "self": {"href": "/v1/backend"},
         "actions": {"href": "/v1/backend/actions"},
         "config_schemas": {"href": "/v1/backend/config-schemas"},
+        "artifact_contracts": {"href": "/v1/backend/artifact-contracts"},
+        "providers": {"href": "/v1/backend/providers"},
+        "routing": {"href": "/v1/backend/routing"},
     }
     settings = get_settings()
     if settings.mcp_api_enabled():
@@ -39,6 +41,7 @@ def backend_summary() -> dict[str, Any]:
         "runtime_versions": dict(backend.runtime_versions()),
         "action_count": len(actions),
         "config_schema_count": len(config_schemas),
+        "artifact_contract_count": len(artifact_contracts),
         "_links": links,
     }
 
@@ -83,6 +86,26 @@ def list_config_schemas(
 
 def get_config_schema(config_id: str) -> dict[str, Any]:
     return backend_config.get_backend_config_schema(config_id)
+
+
+def list_artifact_contracts(
+    *,
+    page_size: int = 50,
+    page_token: str | None = None,
+) -> tuple[list[dict[str, Any]], str | None]:
+    rows = backend_artifacts.list_backend_artifact_contracts()
+    if page_token:
+        rows = [row for row in rows if str(row["contract_id"]) > page_token]
+    page = rows[: page_size + 1]
+    next_page_token = None
+    if len(page) > page_size:
+        next_page_token = str(page[page_size - 1]["contract_id"])
+        page = page[:page_size]
+    return page, next_page_token
+
+
+def get_artifact_contract(contract_id: str) -> dict[str, Any]:
+    return backend_artifacts.get_backend_artifact_contract(contract_id)
 
 
 def validate_action(action_id: str, inputs: dict[str, Any]) -> dict[str, Any]:

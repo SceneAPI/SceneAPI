@@ -55,24 +55,20 @@ def test_sift_options_from_spec_default() -> None:
     assert out == {"max_num_features": 8192, "use_gpu": True}
 
 
-def test_sift_options_from_spec_legacy_aliases_win() -> None:
+def test_sift_options_from_spec_uses_canonical_fields() -> None:
     out = oneshot_service._sift_options_from_spec(
         FeaturesSpec(
-            max_num_features=8192,
-            sift_max_num_features=2048,
-            sift_first_octave=-1,
+            max_num_features=2048,
             use_gpu=False,
         )
     )
-    # Legacy alias overrides the canonical max_num_features when set.
     assert out["max_num_features"] == 2048
-    assert out["first_octave"] == -1
     assert out["use_gpu"] is False
 
 
-def test_sift_options_from_spec_passes_extractor_options_through() -> None:
+def test_sift_options_from_spec_passes_backend_options_through() -> None:
     out = oneshot_service._sift_options_from_spec(
-        FeaturesSpec(extractor_options={"edge_threshold": 5.0, "peak_threshold": 0.01})
+        FeaturesSpec(backend_options={"edge_threshold": 5.0, "peak_threshold": 0.01})
     )
     assert out["edge_threshold"] == 5.0
     assert out["peak_threshold"] == 0.01

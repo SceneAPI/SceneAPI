@@ -113,7 +113,9 @@ def test_backend_contract_rejects_malformed_config_schema() -> None:
     assert any("additionalProperties must be false" in violation for violation in violations)
     assert any("runtime-managed option 'database_path'" in violation for violation in violations)
     assert any("properties.freeform must be an object" in violation for violation in violations)
-    assert any("required contains unknown property 'missing'" in violation for violation in violations)
+    assert any(
+        "required contains unknown property 'missing'" in violation for violation in violations
+    )
 
 
 def test_check_backend_cli_reports_ok(

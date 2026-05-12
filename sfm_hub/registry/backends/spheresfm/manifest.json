@@ -1,0 +1,61 @@
+{
+  "plugin_id": "spheresfm",
+  "display_name": "SphereSFM",
+  "description": "Backend plugin for spherical Structure-from-Motion workflows.",
+  "package_name": "sfmapi-spheresfm",
+  "github_url": "https://github.com/SFMAPI/sfmapi_spheresfm.git",
+  "entry_points": ["sfmapi_spheresfm.plugin:plugin"],
+  "providers": [
+    {
+      "provider_id": "spheresfm",
+      "display_name": "SphereSFM",
+      "capabilities": [
+        "features.extract.sift",
+        "pairs.exhaustive",
+        "matches.verify",
+        "map.spherical",
+        "projection.equirectangular_to_cubemap",
+        "projection.equirectangular_to_perspective"
+      ],
+      "backend_actions": ["spheresfm.*"],
+      "priority_hint": 15
+    }
+  ],
+  "runtime_modes": {
+    "uv": {
+      "source": "git",
+      "url": "https://github.com/SFMAPI/sfmapi_spheresfm.git",
+      "ref": "main",
+      "package": "sfmapi-spheresfm"
+    },
+    "docker": {},
+    "external_tool": {
+      "executable_names": ["spheresfm"],
+      "env_vars": ["SPHERESFM_EXE"],
+      "version_args": ["--version"]
+    }
+  },
+  "capabilities": [
+    "features.extract.sift",
+    "pairs.exhaustive",
+    "matches.verify",
+    "map.spherical",
+    "projection.equirectangular_to_cubemap",
+    "projection.equirectangular_to_perspective"
+  ],
+  "backend_actions": ["spheresfm.*"],
+  "config_schemas": ["spheresfm.*"],
+  "artifact_contracts": ["sfmapi.spherical_dataset", "sfmapi.reconstruction"],
+  "licenses": [{"name": "AGPL-3.0-or-later"}],
+  "upstream_projects": [
+    {"name": "SphereSFM", "url": "https://github.com/SFMAPI/SphereSFM", "license": "Upstream license"}
+  ],
+  "compatibility": {
+    "sfmapi": ">=0.0.1",
+    "python": ">=3.12,<3.13",
+    "os": ["windows", "linux"],
+    "cuda": "optional"
+  },
+  "conformance": {"status": "not_run", "suite": "sfmapi-bench"},
+  "trust_tier": "community"
+}

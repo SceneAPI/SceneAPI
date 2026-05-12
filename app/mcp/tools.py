@@ -12,12 +12,17 @@ from typing import Any
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from app.core import artifacts as artifact_vocab
 from app.core.capabilities import BackendInfo, empty_capabilities
 from app.core.config import get_settings
 from app.core.errors import TenantViolationError
 from app.db.models import Task
 from app.db.session import session_scope
-from app.schemas.api.artifacts import StageArtifactOut
+from app.schemas.api.artifacts import (
+    ArtifactConversionPlanRequest,
+    ArtifactFormatOut,
+    StageArtifactOut,
+)
 from app.schemas.api.backend_actions import BackendActionOut
 from app.schemas.api.common import Page, to_out
 from app.schemas.api.jobs import JobDetail, JobOut, JobStatus, TaskOut
@@ -28,6 +33,7 @@ from app.schemas.api.reconstructions import (
     SubModelOut,
 )
 from app.services import (
+    artifact_conversion_service,
     artifact_service,
     backend_action_service,
     job_progress_service,
@@ -242,6 +248,49 @@ async def get_artifact(artifact_id: str, tenant_id: str | None = None) -> dict[s
     return _dump(to_out(StageArtifactOut, artifact))
 
 
+async def list_artifact_formats() -> dict[str, Any]:
+    """List sfmapi core artifact interchange formats."""
+    rows = sorted(artifact_vocab.CORE_ARTIFACT_FORMATS.values(), key=lambda item: item.format_id)
+    page = Page[ArtifactFormatOut](
+        items=[ArtifactFormatOut.model_validate(row) for row in rows],
+        next_page_token=None,
+    )
+    return _dump(page)
+
+
+async def validate_artifact(artifact_id: str, tenant_id: str | None = None) -> dict[str, Any]:
+    """Validate an artifact descriptor and local managed bytes."""
+    async with session_scope() as session:
+        report = await artifact_conversion_service.validate_artifact(
+            session,
+            tenant_id=resolve_tenant(tenant_id),
+            artifact_id=artifact_id,
+        )
+    return _dump(report)
+
+
+async def plan_artifact_conversion(
+    artifact_id: str,
+    to_format: str | None = None,
+    accepted_formats: list[str] | None = None,
+    require_lossless: bool = False,
+    tenant_id: str | None = None,
+) -> dict[str, Any]:
+    """Plan a conversion path for one artifact without submitting work."""
+    async with session_scope() as session:
+        plan = await artifact_conversion_service.get_conversion_plan(
+            session,
+            tenant_id=resolve_tenant(tenant_id),
+            artifact_id=artifact_id,
+            request=ArtifactConversionPlanRequest(
+                to_format=to_format,
+                accepted_formats=accepted_formats or [],
+                require_lossless=require_lossless,
+            ),
+        )
+    return _dump(plan)
+
+
 async def get_reconstruction(recon_id: str, tenant_id: str | None = None) -> dict[str, Any]:
     """Read one reconstruction metadata row."""
     async with session_scope() as session:
@@ -314,6 +363,9 @@ TOOLS = (
     get_job_progress,
     list_artifacts,
     get_artifact,
+    list_artifact_formats,
+    validate_artifact,
+    plan_artifact_conversion,
     get_reconstruction,
     list_submodels,
     list_snapshots,

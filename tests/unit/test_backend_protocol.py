@@ -120,8 +120,8 @@ def test_capabilities_endpoint_picks_up_swapped_backend() -> None:
     caps = detect_capabilities()
     assert caps.backend.name == "stub"
     # Stub advertises no backend capabilities — every backend op stays
-    # False. sfmapi-internal capabilities (dhash, pose_priors) remain
-    # available regardless.
+    # False. sfmapi-internal capabilities remain available when their
+    # own optional dependencies are present.
     assert not caps.supports("features.extract")
     assert not caps.supports("ba.standard")
     assert not caps.supports("dense.patch_match_stereo")

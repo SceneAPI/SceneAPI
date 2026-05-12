@@ -10,15 +10,26 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1._helpers import accepted_response
 from app.core import artifacts as artifact_vocab
 from app.core.config import get_settings
 from app.core.errors import NotFoundError, ValidationError
 from app.core.http import file_etag, if_none_match_hit, not_modified
 from app.core.tenancy import current_tenant
 from app.db.session import get_db
-from app.schemas.api.artifacts import ArtifactKindOut, StageArtifactOut
+from app.schemas.api.artifacts import (
+    ArtifactConversionPlanOut,
+    ArtifactConversionPlanRequest,
+    ArtifactConvertRequest,
+    ArtifactFormatOut,
+    ArtifactImportRequest,
+    ArtifactKindOut,
+    ArtifactValidationOut,
+    StageArtifactOut,
+)
 from app.schemas.api.common import Link, Page, to_out
-from app.services import artifact_service
+from app.schemas.api.jobs import JobAcceptedResponse
+from app.services import artifact_conversion_service, artifact_service
 
 router = APIRouter(prefix="/artifacts", tags=["artifacts"])
 
@@ -48,6 +59,94 @@ async def list_artifact_kinds() -> Page[ArtifactKindOut]:
         items=[ArtifactKindOut.model_validate(row) for row in rows],
         next_page_token=None,
     )
+
+
+@router.get("/formats", response_model=Page[ArtifactFormatOut])
+async def list_artifact_formats() -> Page[ArtifactFormatOut]:
+    """List sfmapi's reserved core artifact interchange formats.
+
+    Backend-native formats are exposed by backend artifact contracts,
+    not reserved here. Core formats are the stable interchange surface
+    clients can rely on across backend implementations.
+    """
+    rows = sorted(artifact_vocab.CORE_ARTIFACT_FORMATS.values(), key=lambda item: item.format_id)
+    return Page(
+        items=[ArtifactFormatOut.model_validate(row) for row in rows],
+        next_page_token=None,
+    )
+
+
+@router.post("/{artifact_id}:conversionPlan", response_model=ArtifactConversionPlanOut)
+async def plan_artifact_conversion(
+    artifact_id: str,
+    body: ArtifactConversionPlanRequest,
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
+) -> ArtifactConversionPlanOut:
+    """Plan conversion from this artifact's current format to a target format."""
+    return await artifact_conversion_service.get_conversion_plan(
+        session,
+        tenant_id=tenant_id,
+        artifact_id=artifact_id,
+        request=body,
+    )
+
+
+@router.post(
+    "/{artifact_id}:convert",
+    response_model=JobAcceptedResponse,
+    status_code=202,
+)
+async def convert_artifact(
+    artifact_id: str,
+    body: ArtifactConvertRequest,
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
+) -> Response:
+    """Submit an artifact format conversion as a normal sfmapi job."""
+    job_id, tasks, target_format = await artifact_conversion_service.submit_conversion(
+        session,
+        tenant_id=tenant_id,
+        artifact_id=artifact_id,
+        request=body,
+    )
+    return accepted_response(
+        JobAcceptedResponse(
+            job_id=job_id,
+            task_ids=[task.task_id for task in tasks],
+            artifact_id=artifact_id,
+            target_format=target_format,
+        )
+    )
+
+
+@router.post("/{artifact_id}:validate", response_model=ArtifactValidationOut)
+async def validate_artifact(
+    artifact_id: str,
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
+) -> ArtifactValidationOut:
+    """Validate an artifact descriptor and any local server-managed bytes."""
+    return await artifact_conversion_service.validate_artifact(
+        session,
+        tenant_id=tenant_id,
+        artifact_id=artifact_id,
+    )
+
+
+@router.post(":import", response_model=StageArtifactOut, status_code=201)
+async def import_artifact(
+    body: ArtifactImportRequest,
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
+) -> StageArtifactOut:
+    """Register an existing artifact URI for validation and downstream reuse."""
+    artifact = await artifact_conversion_service.import_artifact(
+        session,
+        tenant_id=tenant_id,
+        request=body,
+    )
+    return to_out(StageArtifactOut, artifact, links=artifact_links(artifact))
 
 
 @router.get("/{artifact_id}", response_model=StageArtifactOut)

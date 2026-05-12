@@ -3,9 +3,9 @@
 Two strategies are reserved by the spec; one is implemented today:
 
   - **dhash** (default): a 64-bit perceptual difference hash. Works
-    on raw image bytes and is independent of any SfM engine, so it's
-    available unconditionally. Tuned for "near-duplicate" detection
-    and quick similarity queries.
+    on raw image bytes and is independent of any SfM engine, but it
+    needs the optional Pillow image-processing extra to decode pixels.
+    Tuned for "near-duplicate" detection and quick similarity queries.
 
   - **vlad**: SfM-grade VLAD descriptors. Requires pycolmap (and an
     extracted feature database) and is built by a worker. Stub here
@@ -26,9 +26,9 @@ import io
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO
+from typing import Any, BinaryIO
 
-from PIL import Image, ImageOps
+from app.core.errors import CapabilityUnavailableError
 
 DHASH_SIZE = 8  # produces an 8x8 = 64-bit hash
 
@@ -38,7 +38,7 @@ class SimilarityNeighbor:
     image_id: str
     distance: int
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, int | str]:
         return {"image_id": self.image_id, "distance": self.distance}
 
 
@@ -48,7 +48,7 @@ class SimilarityIndex:
     manifest_hash: str
     hashes: dict[str, str]  # image_id -> hex string
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "strategy": self.strategy,
             "manifest_hash": self.manifest_hash,
@@ -70,8 +70,16 @@ def dhash_bytes(data: bytes | BinaryIO) -> int:
         fh: BinaryIO = io.BytesIO(bytes(data))
     else:
         fh = data
-    with Image.open(fh) as im:
-        im = ImageOps.exif_transpose(im)
+    try:
+        from PIL import Image, ImageOps
+    except ImportError as exc:
+        raise CapabilityUnavailableError(
+            capability="similarity.dhash",
+            reason="dhash similarity requires the optional Pillow dependency",
+        ) from exc
+
+    with Image.open(fh) as opened:
+        im = ImageOps.exif_transpose(opened)
         im = im.convert("L").resize((DHASH_SIZE + 1, DHASH_SIZE), Image.Resampling.LANCZOS)
         # `tobytes()` returns row-major pixel data — same layout `getdata()`
         # produced and stable across Pillow versions.

@@ -64,7 +64,7 @@ async def test_cache_short_circuit_on_identical_inputs(conf_client) -> None:
     """§9.1 Identical (kind, inputs_hash, params_hash, runtime_version_id)
     MUST short-circuit to the cached output without re-running."""
     _pid, did, _ = await make_project_dataset(conf_client, name="cache")
-    spec = {"use_gpu": False, "sift_max_num_features": 4096}
+    spec = {"use_gpu": False, "max_num_features": 4096}
     a = await conf_client.post(f"/v1/datasets/{did}/features", json={"spec": spec})
     b = await conf_client.post(f"/v1/datasets/{did}/features", json={"spec": spec})
     assert a.status_code == 202

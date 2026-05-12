@@ -30,6 +30,14 @@ uv run alembic upgrade head
 directory using the schema. The `.env` carries the standalone
 defaults (queue=inline, blobs=fs, sqlite db).
 
+The base API reads image dimensions with header-only parsing. Install
+the `image-processing` extra only for optional thumbnail rendering and
+`dhash` similarity:
+
+```bash
+uv pip install -e ".[image-processing]"
+```
+
 ## 2. Start the server
 
 ```bash
@@ -77,7 +85,7 @@ curl -sX POST http://localhost:8080/v1/projects/$PID/datasets \
 ## 4. Use a typed SDK (Python or TypeScript)
 
 ```bash
-uv pip install ./clients/python/sfmapi_client_gen
+uv pip install ../sfmapi-sdk/python/sfmapi_client_gen
 ```
 
 ```python
@@ -93,7 +101,7 @@ with Client(base_url="http://localhost:8080") as c:
 For TypeScript:
 
 ```bash
-cd clients/typescript && npm install && npm run build
+cd ../sfmapi-sdk/typescript && npm install && npm run build
 ```
 
 ```typescript

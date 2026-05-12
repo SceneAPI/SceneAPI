@@ -1,4 +1,4 @@
-"""`python -m bench.cli {run, lint, list, plot}`."""
+"""`python -m bench.cli {run, lint, list, plugins}`."""
 
 from __future__ import annotations
 
@@ -8,8 +8,10 @@ from pathlib import Path
 
 import click
 
-from bench import harness, store
-from sfmapi_client import SfmApiClient
+from sfm_hub.discovery import discovered_plugin_ids
+from sfm_hub.doctor import doctor_manifest
+from sfm_hub.install import build_docker_install_plan, build_install_plan, parse_github_source
+from sfm_hub.registry import list_manifests
 
 DATASETS_DIR = Path(__file__).resolve().parent / "datasets"
 
@@ -26,6 +28,8 @@ def cli() -> None:
 @cli.command("list")
 def list_() -> None:
     """List the dataset specs available."""
+    from bench import harness
+
     for p in _list_dataset_files():
         spec = harness.load_dataset(p)
         click.echo(
@@ -55,6 +59,10 @@ def run(
     poll_interval: float,
 ) -> None:
     """Drive one or more benchmark datasets through the live server."""
+    from sfmapi_client import SfmApiClient  # type: ignore[import-not-found]
+
+    from bench import harness, store
+
     targets: list[Path]
     if run_all:
         targets = _list_dataset_files()
@@ -80,7 +88,7 @@ def run(
                     poll_interval=poll_interval,
                     timeout_seconds=timeout,
                 )
-            except Exception as e:  # noqa: BLE001 — record + continue
+            except Exception as e:
                 click.secho(f"  FAILED: {type(e).__name__}: {e}", fg="red")
                 failed += 1
                 continue
@@ -91,7 +99,7 @@ def run(
                 f"pts={int(result.metrics.get('num_points3D', 0))}",
                 fg=("green" if result.status == "succeeded" else "yellow"),
             )
-    sys.exit(1 if failed else 0)
+    raise click.exceptions.Exit(1 if failed else 0)
 
 
 @cli.command("lint")
@@ -104,6 +112,8 @@ def run(
 @click.option("--exit-zero", is_flag=True, help="Always exit 0 (just print findings).")
 def lint(tolerance: float | None, latest_from: str | None, exit_zero: bool) -> None:
     """Compare the latest results against the rolling median of history."""
+    from bench import store
+
     if latest_from:
         target = store.RESULTS_DIR / f"{latest_from}.jsonl"
         if not target.is_file():
@@ -145,6 +155,8 @@ def lint(tolerance: float | None, latest_from: str | None, exit_zero: bool) -> N
 @click.option("--limit", type=int, default=20, show_default=True)
 def history(dataset: str | None, recipe: str | None, limit: int) -> None:
     """Print the last N rows for a (dataset, recipe) combo."""
+    from bench import store
+
     rows = list(store.iter_history())
     if dataset:
         rows = [r for r in rows if r.dataset == dataset]
@@ -163,9 +175,68 @@ def history(dataset: str | None, recipe: str | None, limit: int) -> None:
         )
 
 
-def main() -> int:
+@cli.command("plugins")
+@click.option("--strict", is_flag=True, help="Fail on manifest or install-plan warnings.")
+@click.option(
+    "--require-entry-points",
+    is_flag=True,
+    help="Also require every bundled plugin id to be installed as a Python entry point.",
+)
+def plugins(strict: bool, require_entry_points: bool) -> None:
+    """Validate every bundled sfm_hub registry entry."""
+    failed = 0
+    installed_entry_points = discovered_plugin_ids() if require_entry_points else set()
+    for manifest in list_manifests():
+        report = doctor_manifest(manifest)
+        uv_runtime = manifest.runtime_modes.uv
+        plan_warnings: list[str] = []
+        if uv_runtime is None:
+            plan_warnings.append("missing uv runtime")
+        else:
+            plan_warnings.extend(
+                build_install_plan(
+                    source=parse_github_source(
+                        uv_runtime.url,
+                        ref=uv_runtime.ref,
+                        package=uv_runtime.package,
+                    )
+                ).warnings
+            )
+        if manifest.runtime_modes.docker is not None:
+            source = parse_github_source(
+                manifest.github_url,
+                package=manifest.package_name,
+            )
+            plan_warnings.extend(
+                build_docker_install_plan(
+                    manifest.plugin_id,
+                    manifest.runtime_modes.docker,
+                    source=source,
+                ).warnings
+            )
+        entry_point_missing = (
+            require_entry_points and manifest.plugin_id not in installed_entry_points
+        )
+        failed_manifest = report.status == "fail" or entry_point_missing
+        strict_warn = strict and (report.status == "warn" or bool(plan_warnings))
+        if failed_manifest or strict_warn:
+            failed += 1
+            details = []
+            if entry_point_missing:
+                details.append("entry point missing")
+            details.extend(plan_warnings)
+            click.secho(
+                f"{manifest.plugin_id:<20} fail" + (f" ({'; '.join(details)})" if details else ""),
+                fg="red",
+            )
+            continue
+        click.secho(f"{manifest.plugin_id:<20} {report.status}", fg="green")
+    raise click.exceptions.Exit(1 if failed else 0)
+
+
+def main(argv: list[str] | None = None) -> int:
     try:
-        cli.main(prog_name="bench", standalone_mode=False)
+        cli.main(args=argv, prog_name="bench", standalone_mode=False)
     except click.exceptions.Exit as e:
         return int(e.exit_code or 0)
     except click.ClickException as e:

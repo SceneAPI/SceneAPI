@@ -44,13 +44,6 @@ CORE_CAPABILITIES: tuple[str, ...] = (
 
 # OPTIONAL feature flags — backend may advertise any subset.
 OPTIONAL_CAPABILITIES: tuple[str, ...] = (
-    # Feature pipeline (legacy bundled flag — kept for backwards compat)
-    "features.extract",
-    "matches.exhaustive",
-    "matches.sequential",
-    "matches.spatial",
-    "matches.vocabtree",
-    "matches.verify",
     # Per-extractor capability (one per FeatureType)
     "features.extract.sift",
     "features.extract.superpoint",
@@ -73,6 +66,7 @@ OPTIONAL_CAPABILITIES: tuple[str, ...] = (
     "matchers.lightglue",
     "matchers.loftr",
     "matchers.mast3r",
+    "matches.verify",
     # Mapping
     "map.incremental",
     "map.global",
@@ -102,10 +96,16 @@ OPTIONAL_CAPABILITIES: tuple[str, ...] = (
     # Retrieval / similarity
     "similarity.dhash",
     "similarity.vlad",
+    # API-layer image helpers that require optional image-processing deps.
+    "images.thumbnail",
     # Localization
     "localize.from_memory",
     # Geometry tooling
     "georegister.sim3",
+    "projection.equirectangular_to_cubemap",
+    "projection.cubemap_to_equirectangular",
+    "projection.equirectangular_to_perspective",
+    "projection.cubemap_rig",
     "spherical.to_cubemap",
     "spherical.render_cubemap",
     # Inputs
@@ -126,6 +126,7 @@ OPTIONAL_CAPABILITIES: tuple[str, ...] = (
     "backend.action_validate",
     "backend.action_jobs",
     "backend.config_schemas",
+    "backend.artifact_contracts",
     # Segmentation
     "segment.sam",
 )
@@ -208,8 +209,9 @@ def detect_capabilities() -> Capabilities:
 
     Asks the active :class:`~app.adapters.backend.Backend` for its
     canonical capability set, then layers on the small set of
-    capabilities sfmapi provides itself (``similarity.dhash``,
-    ``pose_priors.read_write``) regardless of the backend choice.
+    capabilities sfmapi provides itself (for example
+    ``pose_priors.read_write`` and optional image helpers) regardless
+    of the backend choice.
 
     Result is cached for the lifetime of the process — backend
     capability sets do not change between requests. Tests + backend
@@ -234,6 +236,10 @@ def detect_capabilities() -> Capabilities:
     for name in advertised:
         if name in caps.features:
             caps.features[name] = True
+    if caps.features.get("spherical.render_cubemap"):
+        caps.features["projection.equirectangular_to_cubemap"] = True
+    if caps.features.get("spherical.to_cubemap"):
+        caps.features["projection.cubemap_rig"] = True
     action_ids: set[str] = set()
     try:
         from app.adapters.backend_actions import has_backend_actions, list_backend_actions
@@ -254,6 +260,13 @@ def detect_capabilities() -> Capabilities:
 
         if has_backend_config_schemas(backend_impl):
             caps.features["backend.config_schemas"] = True
+    except Exception:
+        pass
+    try:
+        from app.adapters.backend_artifacts import has_backend_artifact_contracts
+
+        if has_backend_artifact_contracts(backend_impl):
+            caps.features["backend.artifact_contracts"] = True
     except Exception:
         pass
     # Backend advertised capabilities not in ALL_KNOWN are silently
@@ -281,7 +294,18 @@ def detect_capabilities() -> Capabilities:
             ),
         )
     # sfmapi-internal capabilities — independent of the SfM backend.
-    caps.features["similarity.dhash"] = True
+    from app.core.optional_deps import has_pillow
+
+    if has_pillow():
+        caps.features["similarity.dhash"] = True
+        caps.features["images.thumbnail"] = True
+    try:
+        from app.core.projection_engine import has_projection_engine
+
+        if has_projection_engine():
+            caps.features["projection.equirectangular_to_cubemap"] = True
+    except Exception:
+        pass
     caps.features["pose_priors.read_write"] = True
     # Observations / visibility sidecars are emitted by the snapshot
     # writer regardless of the SfM backend.

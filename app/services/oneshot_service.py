@@ -19,6 +19,7 @@ from app.core.errors import (
     PycolmapUnavailableError,
     ValidationError,
 )
+from app.core.image_metadata import read_image_metadata, sniff_image_extension
 from app.schemas.api.oneshot import (
     OneShotFeaturesPayload,
     OneShotFeaturesResponse,
@@ -69,10 +70,7 @@ def extract_features_oneshot(
     started = time.perf_counter()
     backend = get_backend()
 
-    # Resolve image dimensions cheaply (no pycolmap dependency for the
-    # echo-back fields). PIL is a soft dep already pulled in by other
-    # workers; if it's missing we fall back to (-1, -1).
-    width, height = _try_decode_dimensions(image_bytes)
+    metadata = read_image_metadata(image_bytes, content_type=content_type)
 
     # Build a tempdir scoped to this request. The directory is deleted
     # automatically when the context manager exits — this is the
@@ -98,7 +96,7 @@ def extract_features_oneshot(
             extract_features = require_backend_method(
                 backend,
                 "extract_features",
-                capability="features.extract",
+                capability=f"features.extract.{spec.type}",
             )
             summary = extract_features(
                 database_path=db_path,
@@ -118,8 +116,8 @@ def extract_features_oneshot(
     runtime_ms = int((time.perf_counter() - started) * 1000)
     return OneShotFeaturesResponse(
         image=OneShotImageInfo(
-            width=width,
-            height=height,
+            width=metadata.width,
+            height=metadata.height,
             byte_size=len(image_bytes),
         ),
         features=OneShotFeaturesPayload(
@@ -137,22 +135,6 @@ def extract_features_oneshot(
 # --- helpers --------------------------------------------------------
 
 
-def _try_decode_dimensions(image_bytes: bytes) -> tuple[int, int]:
-    """Best-effort image dimension decode via PIL. Returns (-1, -1)
-    when PIL is unavailable or the bytes don't decode."""
-    try:
-        import io
-
-        from PIL import Image as _PILImage  # type: ignore[import-not-found]
-    except ImportError:
-        return (-1, -1)
-    try:
-        with _PILImage.open(io.BytesIO(image_bytes)) as im:
-            return (int(im.width), int(im.height))
-    except Exception:
-        return (-1, -1)
-
-
 def _ext_for_content_type(content_type: str) -> str | None:
     return {
         "image/jpeg": ".jpg",
@@ -166,35 +148,17 @@ def _ext_for_content_type(content_type: str) -> str | None:
 def _sniff_extension(b: bytes) -> str | None:
     """Magic-byte sniff — only used when the consumer didn't set a
     helpful Content-Type."""
-    if len(b) < 8:
-        return None
-    if b[:3] == b"\xff\xd8\xff":
-        return ".jpg"
-    if b[:8] == b"\x89PNG\r\n\x1a\n":
-        return ".png"
-    if b[:4] in (b"II*\x00", b"MM\x00*"):
-        return ".tif"
-    if b[:2] == b"BM":
-        return ".bmp"
-    if b[:4] == b"RIFF" and b[8:12] == b"WEBP":
-        return ".webp"
-    return None
+    return sniff_image_extension(b)
 
 
 def _sift_options_from_spec(spec: FeaturesSpec) -> dict[str, Any]:
     """Translate FeaturesSpec into the dict shape
     ``backend.extract_features`` expects under ``options['sift']``."""
     out: dict[str, Any] = {
-        "max_num_features": (
-            spec.sift_max_num_features
-            if spec.sift_max_num_features is not None
-            else spec.max_num_features
-        ),
+        "max_num_features": spec.max_num_features,
         "use_gpu": spec.use_gpu,
     }
-    if spec.sift_first_octave is not None:
-        out["first_octave"] = spec.sift_first_octave
-    out.update(spec.extractor_options or {})
+    out.update(spec.backend_options or {})
     return out
 
 
@@ -216,7 +180,7 @@ def _read_back_keypoints(db_path: Path, image_name: str) -> tuple[list[list[floa
         read_keypoints = require_backend_method(
             backend,
             "read_keypoints",
-            capability="features.extract",
+            capability="features.extract.sift",
         )
         keypoints, descriptors_bytes, descriptor_dim = read_keypoints(
             database_path=db_path,
@@ -272,7 +236,7 @@ def localize_oneshot(
 
     started = time.perf_counter()
     backend = get_backend()
-    width, height = _try_decode_dimensions(image_bytes)
+    metadata = read_image_metadata(image_bytes, content_type=content_type)
 
     with tempfile.TemporaryDirectory(prefix="sfmapi-oneshot-loc-") as tmp:
         tmp_path = Path(tmp)
@@ -301,7 +265,11 @@ def localize_oneshot(
     runtime_ms = int((time.perf_counter() - started) * 1000)
     return OneShotLocalizeResponse(
         recon_id=recon_id,
-        image=OneShotImageInfo(width=width, height=height, byte_size=len(image_bytes)),
+        image=OneShotImageInfo(
+            width=metadata.width,
+            height=metadata.height,
+            byte_size=len(image_bytes),
+        ),
         result=result_dict,
         runtime=OneShotRuntimeInfo(backend=backend.name, ms=runtime_ms),
         spec=spec.model_dump(mode="json"),

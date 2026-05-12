@@ -35,6 +35,9 @@ TOOL_TITLES: dict[str, str] = {
     "get_job_progress": "Read sfmapi job progress",
     "list_artifacts": "List sfmapi artifacts",
     "get_artifact": "Read an sfmapi artifact",
+    "list_artifact_formats": "List artifact formats",
+    "validate_artifact": "Validate an artifact",
+    "plan_artifact_conversion": "Plan artifact conversion",
     "get_reconstruction": "Read an sfmapi reconstruction",
     "list_submodels": "List sfmapi submodels",
     "list_snapshots": "List sfmapi snapshots",
@@ -43,8 +46,9 @@ TOOL_TITLES: dict[str, str] = {
 MCP_INSTRUCTIONS = """Read-only local adapter for sfmapi.
 
 Use these tools to inspect sfmapi server state, capabilities, backend
-action schemas, jobs, progress, reconstructions, submodels, and sealed
-snapshot metadata. It also lists typed stage artifacts so agents can
+action schemas, jobs, progress, artifact formats, conversion plans,
+reconstructions, submodels, and sealed snapshot metadata. It also lists
+typed stage artifacts so agents can
 inspect selected feature, match, verification, and snapshot outputs
 without scraping task payloads. The adapter does not create projects, upload images,
 submit pipelines, run backend actions, cancel work, resume work, or
@@ -61,6 +65,7 @@ def _resource_names() -> list[str]:
     return [
         "sfmapi://version",
         "sfmapi://capabilities",
+        "sfmapi://artifacts/formats",
         "sfmapi://backend/actions",
         "sfmapi://backend/actions/{action_id}",
         "sfmapi://tenants/{tenant_id}/projects",
@@ -155,6 +160,14 @@ def create_mcp_server(
         annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
         tags={"sfmapi", "discovery"},
     )(tool_impl.sfmapi_capabilities)
+    mcp.resource(
+        "sfmapi://artifacts/formats",
+        title="sfmapi artifact formats",
+        mime_type="application/json",
+        annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
+        tags={"sfmapi", "artifacts"},
+    )(tool_impl.list_artifact_formats)
+
     async def backend_actions_resource() -> dict[str, Any]:
         return await tool_impl.list_backend_actions()
 
@@ -197,9 +210,7 @@ def create_mcp_server(
     async def job_artifacts_resource(tenant_id: str, job_id: str) -> dict[str, Any]:
         return await tool_impl.list_artifacts(tenant_id=tenant_id, job_id=job_id)
 
-    async def reconstruction_artifacts_resource(
-        tenant_id: str, recon_id: str
-    ) -> dict[str, Any]:
+    async def reconstruction_artifacts_resource(tenant_id: str, recon_id: str) -> dict[str, Any]:
         return await tool_impl.list_artifacts(tenant_id=tenant_id, recon_id=recon_id)
 
     mcp.resource(
@@ -256,10 +267,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         "--transport",
         choices=("stdio", "http"),
         default=None,
-        help=(
-            "MCP transport. Defaults to SFMAPI_MCP_MODE when it is stdio/http, "
-            "otherwise stdio."
-        ),
+        help=("MCP transport. Defaults to SFMAPI_MCP_MODE when it is stdio/http, otherwise stdio."),
     )
     parser.add_argument("--host", default="127.0.0.1", help="HTTP bind host.")
     parser.add_argument("--port", type=int, default=9000, help="HTTP bind port.")
@@ -275,11 +283,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     if transport is None:
         transport = "http" if settings.mcp_mode == "http" else "stdio"
 
-    if (
-        transport == "http"
-        and not args.allow_non_loopback
-        and not _is_loopback_host(args.host)
-    ):
+    if transport == "http" and not args.allow_non_loopback and not _is_loopback_host(args.host):
         parser.error(
             "HTTP transport defaults to local-only use. Bind to 127.0.0.1, "
             "or pass --allow-non-loopback when a trusted proxy/network layer protects it."

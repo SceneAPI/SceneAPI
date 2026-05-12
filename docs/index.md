@@ -72,6 +72,8 @@ Look up the normative contract and project-level release history.
   for production callers.
 - {doc}`Storage <guides/storage>` and {doc}`jobs and progress <guides/jobs_and_progress>`
   for backend and operator context.
+- {doc}`Plugin hub checklist <guides/plugin_hub_checklist>` for the
+  multi-provider registry, CLI, admin API, and backend app contract.
 - {doc}`Configuration <reference/configuration>`, {doc}`multi-tenancy <guides/multitenancy>`,
   and {doc}`CLI/scripts <reference/cli>` for deployments.
 - {doc}`Changelog <changelog>` for release history and project updates.
@@ -113,6 +115,7 @@ reference/errors
 :maxdepth: 2
 
 guides/backend_implementations
+guides/plugin_hub_checklist
 guides/architecture
 guides/storage
 guides/jobs_and_progress

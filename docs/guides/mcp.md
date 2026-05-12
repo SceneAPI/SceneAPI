@@ -212,6 +212,9 @@ and network boundaries must still be enforced by deployment.
 - `get_job_progress`
 - `list_artifacts`
 - `get_artifact`
+- `list_artifact_formats`
+- `validate_artifact`
+- `plan_artifact_conversion`
 - `get_reconstruction`
 - `list_submodels`
 - `list_snapshots`
@@ -223,6 +226,7 @@ clients that prefer resource reads over tool calls:
 
 - `sfmapi://version`
 - `sfmapi://capabilities`
+- `sfmapi://artifacts/formats`
 - `sfmapi://backend/actions`
 - `sfmapi://backend/actions/{action_id}`
 - `sfmapi://tenants/{tenant_id}/projects`

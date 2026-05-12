@@ -186,9 +186,7 @@ async def test_backend_action_catalog_validate_and_run_job(
 
         actions_with_schema = await client.get("/v1/backend/actions?include_schemas=true")
         assert actions_with_schema.status_code == 200
-        assert (
-            actions_with_schema.json()["items"][0]["input_schema"]["properties"]["message"]
-        )
+        assert actions_with_schema.json()["items"][0]["input_schema"]["properties"]["message"]
 
         invalid = await client.post(
             "/v1/backend/actions/echo.echo:validate",
@@ -268,9 +266,7 @@ async def test_colmap_command_surface_is_adapted_as_backend_actions(
             },
         )
         assert accepted.status_code == 202, accepted.text
-        job = (
-            await client.get(f"/v1/jobs/{accepted.json()['job_id']}")
-        ).json()
+        job = (await client.get(f"/v1/jobs/{accepted.json()['job_id']}")).json()
         output = job["tasks"][0]["outputs_ref"]
         assert output["backend"] == "fake_colmap"
         assert output["result"]["command"] == "feature_extractor"

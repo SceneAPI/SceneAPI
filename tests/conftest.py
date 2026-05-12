@@ -27,6 +27,7 @@ def _isolate_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Itera
     monkeypatch.setenv("SFMAPI_WORKSPACE_ROOT", str(ws))
     monkeypatch.setenv("SFMAPI_BLOB_ROOT", str(ws / "_blobs"))
     monkeypatch.setenv("SFMAPI_S3_CACHE_ROOT", str(ws / "_cache" / "s3"))
+    monkeypatch.setenv("SFMAPI_PLUGIN_STATE", str(tmp_path / "plugins.json"))
     monkeypatch.setenv("SFMAPI_AUTH_MODE", "none")
     monkeypatch.setenv("SFMAPI_DEFAULT_TENANT", "default")
     monkeypatch.setenv("SFMAPI_LEASE_TTL_SECONDS", "5")

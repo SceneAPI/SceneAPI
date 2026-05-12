@@ -313,8 +313,10 @@ content-type: application/json
 
     "localize.from_memory":      true,
     "georegister.sim3":          true,
-    "spherical.to_cubemap":      true,
-    "spherical.render_cubemap":  true,
+    "projection.equirectangular_to_cubemap": true,
+    "projection.cubemap_to_equirectangular": false,
+    "projection.equirectangular_to_perspective": false,
+    "projection.cubemap_rig":    true,
 
     "pose_priors.read_write":    true,
     "segment.sam":               false
@@ -855,14 +857,29 @@ on the source images:
 |--------|--------------------------------------------------------|--------------|----------------|
 | POST   | `/v1/reconstructions/{rid}:to_cubemap`                 | 202 + job    | reconstruction |
 | POST   | `/v1/datasets/{did}:render_cubemap?face_size={N}`      | 202 + job    | images only    |
+| POST   | `/v1/datasets/{did}:project_images`                    | 202 + job    | images only    |
+| POST   | `/v1/datasets/{did}:render_equirectangular`            | 202 + job    | images only    |
+| POST   | `/v1/datasets/{did}:render_perspective`                | 202 + job    | images only    |
 
 `POST :render_cubemap` accepts an optional `face_size` query
 (64–8192) for the per-face pixel edge length. Output is a directory
-under the dataset's workspace; the task result carries
-``{output_path, num_files, face_size}`` so the client can register
-the path as a fresh ``local`` dataset for downstream pinhole-only
-pipelines. Servers **MUST** return 422 if the dataset is not marked
-``is_spherical=true``.
+under the dataset's workspace. Servers **MUST** return 422 if the
+dataset is not marked ``is_spherical=true``.
+
+Projection jobs emit a ``projection_manifest.json`` with generic SfM
+fields: ``source_images``, ``output_images``, optional face geometry,
+and optional ``derived_dataset`` registration details. The task result
+carries ``{output_path, num_files, manifest_path, derived_dataset}``;
+when ``output.create_dataset=true`` (default), the server registers the
+generated directory as a derived ``Dataset`` for downstream stages.
+
+The core server MAY implement ``projection.equirectangular_to_cubemap``
+with a portable pixel engine. Reverse cubemap rendering and perspective
+view rendering are contract-only in core; higher-order sampling modes
+such as ``cubic`` and ``lanczos`` MAY also require a backend. A backend
+MUST advertise ``projection.cubemap_to_equirectangular`` or
+``projection.equirectangular_to_perspective`` before those endpoints are
+accepted.
 
 `POST :to_cubemap` operates on the reconstruction:
 
@@ -1100,6 +1117,10 @@ MUST NOT require these endpoints.
 | POST | `/v1/backend/actions/{action_id}:run` | `{project_id, inputs}` | 202 + `JobAcceptedResponse` |
 | GET | `/v1/backend/config-schemas` | `?page_token=&page_size=&include_schemas=true` | `Page<BackendConfigSchema>` |
 | GET | `/v1/backend/config-schemas/{config_id}` | - | `BackendConfigSchema` |
+| GET | `/v1/backend/artifact-contracts` | `?page_token=&page_size=` | `Page<BackendArtifactContract>` |
+| GET | `/v1/backend/artifact-contracts/{contract_id}` | - | `BackendArtifactContract` |
+| GET | `/v1/backend/providers` | `?page_token=&page_size=` | `Page<Provider>` |
+| GET | `/v1/backend/routing` | - | provider priority and routing-profile state |
 
 Action ids SHOULD be stable dot-namespaced strings, such as
 `colmap.feature_extractor`. Clients MUST treat ids as opaque and
@@ -1117,6 +1138,14 @@ provider. They describe valid keys inside `backend_options`; runtime
 paths such as databases, image roots, and output directories are still
 server-managed.
 
+Provider discovery is powered by the reference `sfm_hub` plugin
+registry and local install state. A clean install MAY return an empty
+provider page and still use the configured backend directly. If
+several enabled providers can satisfy the same portable stage and no
+request-level `provider` or project, workspace, default, or priority
+routing rule exists, the reference implementation returns a validation
+error instead of choosing one arbitrarily.
+
 ### 6.11 Admin [Reference-only]
 
 This route group is shipped by the reference implementation for
@@ -1130,10 +1159,69 @@ suites **MUST NOT** require it.
 | POST    | `/v1/admin/api-keys`          | `{tenant_id, name?}`       | `{raw_key, api_key_id, ...}`  |
 | GET     | `/v1/admin/api-keys`          | —                          | `[ApiKeyOut]`                 |
 | DELETE  | `/v1/admin/api-keys/{kid}`    | —                          | `ApiKeyOut` (revoked)         |
+| GET     | `/v1/admin/plugins`           | `?query=&page_token=&page_size=` | `Page<PluginRegistryItem>` |
+| GET     | `/v1/admin/plugins/detect-tools` | —                       | external tool detection       |
+| GET     | `/v1/admin/plugins/entry-points` | `?load=false`              | installed Python entry points |
+| GET     | `/v1/admin/plugins/{plugin_id}` | —                         | manifest + local state        |
+| POST    | `/v1/admin/plugins/{plugin_id}:install` | `{method, github_url?, ref?, package_name?, dry_run?, allow_unsafe_execution?}` | install plan or result |
+| POST    | `/v1/admin/plugins/{plugin_id}:enable` | —                     | plugin state                  |
+| POST    | `/v1/admin/plugins/{plugin_id}:disable` | —                    | plugin state                  |
+| POST    | `/v1/admin/plugins/{plugin_id}:doctor` | —                     | diagnostics                   |
+| POST    | `/v1/admin/routing/profiles`  | `{name, routes}`           | routing state                 |
+| POST    | `/v1/admin/routing/default`   | `{profile}`                | routing state                 |
+| POST    | `/v1/admin/routing/projects/{project_id}` | `{profile}`      | routing state                 |
+| POST    | `/v1/admin/routing/workspaces` | `{profile}`               | routing state                 |
+
+Plugin installation is an explicit operator action. Public project,
+dataset, pipeline, and job endpoints MUST NOT install plugins
+implicitly. HTTP install execution is dry-run by default and requires
+`allow_unsafe_execution=true`.
 
 ---
 
 ## 7. Wire formats
+
+### Stage artifact format ids
+
+Stage artifacts separate semantic kind from storage format. `kind`
+answers what the artifact represents, such as `matches.verified.v1` or
+`reconstruction.sparse.v1`. `artifact_format` answers how bytes should
+be interpreted. Core interchangeable formats use versioned ids under
+the `sfmapi.*.v1` namespace, for example
+`sfmapi.features.local.v1`, `sfmapi.matches.indexed.v1`,
+`sfmapi.matches.verified.v1`, and
+`sfmapi.reconstruction.sparse.v1`.
+
+Backend-native files **MUST NOT** be added to the core vocabulary.
+Backends expose them as namespaced extension format ids through
+artifact contracts, for example `colmap.matches.database.v1` or
+`hloc.features.h5.v1`. Format conversions **MUST** be explicit in the
+backend artifact contract and should say whether the conversion is
+lossless.
+
+Artifact conversion is a long-running operation:
+
+| Method | Path | Result |
+|--------|------|--------|
+| POST | `/v1/artifacts:import` | `StageArtifact` |
+| POST | `/v1/artifacts/{artifact_id}:conversionPlan` | `ArtifactConversionPlan` |
+| POST | `/v1/artifacts/{artifact_id}:convert` | 202 + `JobAcceptedResponse` |
+| POST | `/v1/artifacts/{artifact_id}:validate` | `ArtifactValidation` |
+
+`artifacts:import` registers an existing URI without copying bytes.
+The server **MUST** persist it as a normal stage artifact owned by a
+completed import job/task.
+
+`conversionPlan` accepts either an exact `to_format` or
+`accepted_formats` in preference order. `convert` uses the same
+selection rules and submits a normal job whose task kind is
+`convert_artifact`. A backend that advertises `conversions` in
+`list_backend_artifact_contracts()` **MUST** implement
+`convert_artifact(input_artifact, output_dir, to_format, to_kind,
+options)`. Servers **MUST** reject conversion requests when no
+contracted conversion path exists or when `require_lossless=true`
+cannot be satisfied. Multi-step paths **MAY** be executed inside one
+conversion task by calling the backend once per step.
 
 ### 7.1 Binary points: `application/x-sfm-points-v1`
 
@@ -1565,7 +1653,7 @@ A *conforming server* **MAY** additionally implement:
 
 - §6.8 pipeline recipes.
 - §6.10 backend actions and backend config schemas.
-- §6.11 admin / api-keys.
+- §6.11 admin / api-keys / plugin hub.
 - `local`/`s3` source kinds.
 - WebSocket peek+cancel.
 - Mask sets / segmentation (not yet specified).

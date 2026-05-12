@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-`app/` contains the FastAPI service: `api/v1/` routes, `schemas/` wire models, `services/` tenant logic, `orchestrator/` scheduling, `workers/` task handlers, `storage/`, `db/`, and `adapters/` for backend registration. Tests use `tests/{unit,integration,e2e,contract,conformance}/`. SDKs live in `clients/python/`, `clients/typescript/`, and `clients/cpp/`; generated output is under `sfmapi_client_gen/` and `src/_generated/`. Docs are in `docs/`, deploy assets in `deploy/`, migrations in `alembic/`, benchmarks in `bench/`.
+`app/` contains the FastAPI service: `api/v1/` routes, `schemas/` wire models, `services/` tenant logic, `orchestrator/` scheduling, `workers/` task handlers, `storage/`, `db/`, and `adapters/` for backend registration. Tests use `tests/{unit,integration,e2e,contract,conformance}/`. SDKs live in the sibling `../sfmapi-sdk` repository; `scripts/regen_sdk.py` copies this repo's OpenAPI document there and regenerates client code. Docs are in `docs/`, deploy assets in `deploy/`, migrations in `alembic/`, benchmarks in `bench/`.
 
 ## Build, Test, and Development Commands
 
@@ -14,7 +14,7 @@
 - `uv run ruff check app tests` and `uv run ruff format --check app tests`: lint and format-check.
 - `uv run mypy app`: run strict type checks.
 - `bash scripts/test_dual_db.sh` or `pwsh scripts/test_dual_db.ps1`: exercise SQLite and Postgres paths.
-- SDK checks: `uv run pytest clients/python -q`; from `clients/typescript/`, run `npm test`, `npm run lint`, and `npm run build`; for C++, see `clients/cpp/README.md`.
+- SDK checks from `../sfmapi-sdk`: `uv run --extra dev pytest -q` in `python/`, `npm test`, `npm run lint`, and `npm run build` in `typescript/`, and `cmake -S . -B build -DSFMAPI_CPP_TESTS=ON && cmake --build build && ctest --test-dir build -C Debug` in `cpp/`.
 
 ## Coding Style & Naming Conventions
 

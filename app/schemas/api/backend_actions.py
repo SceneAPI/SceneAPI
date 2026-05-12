@@ -15,6 +15,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.api.artifacts import ArtifactConversionOut
 from app.schemas.api.common import Link, Page
 
 BackendActionStability = Literal[
@@ -83,6 +84,32 @@ class BackendConfigSchemaOut(BaseModel):
 BackendConfigSchemaListPage = Page[BackendConfigSchemaOut]
 
 
+class BackendArtifactContractOut(BaseModel):
+    """Discoverable artifact input/output contract for a portable stage."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    contract_id: str
+    backend: str
+    stage: str
+    capability: str | None = None
+    provider: str | None = None
+    display_name: str
+    description: str | None = None
+    accepts: list[str] = Field(default_factory=list)
+    emits: list[str] = Field(default_factory=list)
+    accepts_formats: list[str] = Field(default_factory=list)
+    emits_formats: list[str] = Field(default_factory=list)
+    preferred: str | None = None
+    preferred_format: str | None = None
+    conversions: list[ArtifactConversionOut] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    links: dict[str, Link | None] | None = Field(default=None, alias="_links")
+
+
+BackendArtifactContractListPage = Page[BackendArtifactContractOut]
+
+
 class BackendOut(BaseModel):
     """Active backend summary plus extension-action availability."""
 
@@ -94,6 +121,7 @@ class BackendOut(BaseModel):
     runtime_versions: dict[str, str] = Field(default_factory=dict)
     action_count: int = 0
     config_schema_count: int = 0
+    artifact_contract_count: int = 0
     links: dict[str, Link | None] | None = Field(default=None, alias="_links")
 
 

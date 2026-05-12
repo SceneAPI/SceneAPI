@@ -63,6 +63,10 @@ flowchart LR
   knobs at the top level. Provider-specific knobs go in
   `backend_options` and are discoverable from
   `/v1/backend/config-schemas`.
+- **Plugin hub**: install and enable backend plugins with the
+  `sfmapi plugins ...` CLI or `/v1/admin/plugins...` operator routes.
+  Public SfM job APIs never install plugins implicitly; HTTP execution
+  requires `allow_unsafe_execution=true`.
 - **Idempotency**: `Idempotency-Key` header on `POST /v1/uploads`
   (replay-safe).
 - **Caching**: sealed snapshot files emit strong `ETag` +
@@ -82,6 +86,9 @@ flowchart LR
 | GET | `/spec` | Spec discovery envelope |
 | GET | `/v1/capabilities` | Backend feature flags (dot-notated names) |
 | GET | `/v1/backend` | Active backend identity, runtime versions, action links, and config-schema links |
+| GET | `/v1/backend/providers` | Enabled providers discovered from installed plugins |
+| GET | `/v1/backend/routing` | Provider priority and default routing-profile state |
+| GET | `/v1/camera-models` | Portable camera model parameter layouts |
 | GET | `/openapi.json` | OpenAPI 3.1 document |
 | GET | `/metrics` | Prometheus exposition |
 
@@ -100,6 +107,10 @@ capabilities.
 | POST | `/v1/backend/actions/{action_id}:run` | `{project_id, inputs}` | 202 + `JobAcceptedResponse` |
 | GET | `/v1/backend/config-schemas` | `?page_token=&page_size=&include_schemas=true` | `Page<BackendConfigSchema>` |
 | GET | `/v1/backend/config-schemas/{config_id}` | - | `BackendConfigSchema` |
+| GET | `/v1/backend/artifact-contracts` | `?page_token=&page_size=` | `Page<BackendArtifactContract>` |
+| GET | `/v1/backend/artifact-contracts/{contract_id}` | - | `BackendArtifactContract` |
+| GET | `/v1/backend/providers` | `?page_token=&page_size=` | `Page<Provider>` |
+| GET | `/v1/backend/routing` | - | `RoutingOut` |
 
 `GET /v1/backend/actions` omits `input_schema` and `output_schema` by
 default so catalog reads stay small. Pass `include_schemas=true`, or
@@ -116,6 +127,20 @@ portable stage specs. They are scoped by `stage`, optional
 and basic JSON types before queuing a job when the active backend
 publishes a matching schema; otherwise the options pass through and
 the backend validates them.
+
+Backend artifact contracts describe the portable artifact kinds and
+format ids a stage accepts and emits. Core `sfmapi.*.v1` formats are
+stable interchange contracts; backend-native formats remain
+namespaced extensions such as `colmap.features.database.v1` or
+`hloc.features.h5.v1`. Conversions are explicit metadata on the
+contract and should declare whether they are lossless.
+
+Provider discovery is driven by `sfm_hub` plugin manifests plus local
+install state. A clean sfmapi install can return an empty provider
+page and still run the configured backend directly. Once multiple
+enabled providers expose the same portable capability, sfmapi requires
+either a request-level `provider` or a project, workspace, default, or
+priority routing rule.
 
 Example feature extraction request:
 
@@ -166,7 +191,10 @@ present.
 | GET | `/v1/projects/{pid}/datasets/{did}` | — | `Dataset` |
 | PATCH | `/v1/projects/{pid}/datasets/{did}` | `DatasetPatch` + optional `?update_mask=` | `Dataset` |
 | DELETE | `/v1/projects/{pid}/datasets/{did}` | — | 204 |
-| POST | `/v1/datasets/{did}:render_cubemap` | `?face_size=` | 202 + `JobAccepted` |
+| POST | `/v1/datasets/{did}:render_cubemap` | `CubemapProjectionRequest` or `?face_size=` | 202 + `JobAccepted` |
+| POST | `/v1/datasets/{did}:render_equirectangular` | `EquirectangularProjectionRequest` | 202 + `JobAccepted` |
+| POST | `/v1/datasets/{did}:render_perspective` | `PerspectiveProjectionRequest` | 202 + `JobAccepted` |
+| POST | `/v1/datasets/{did}:project_images` | `ProjectionJobRequest` | 202 + `JobAccepted` |
 | POST | `/v1/datasets/{did}/images` | `ImageCreate` | `Image` |
 | POST | `/v1/datasets/{did}/images:batchCreate` | `BatchCreateImagesRequest{requests[]}` | `BatchCreateImagesResponse{images[]}` |
 | GET | `/v1/datasets/{did}/images` | `?page_token=&page_size=` | `Page<Image>` |
@@ -174,10 +202,28 @@ present.
 | DELETE | `/v1/datasets/{did}/images/{name}` | legacy label-addressed delete | 204 |
 | GET | `/v1/images/{iid}` | — | `Image` |
 | GET | `/v1/images/{iid}/bytes` | `If-None-Match` (optional) | image bytes |
-| GET | `/v1/images/{iid}/thumbnail` | `?size=N` | JPEG |
+| GET | `/v1/images/{iid}/thumbnail` | `?size=N` | JPEG; requires the optional image-processing extra |
 | GET | `/v1/images/{iid}/exif` | — | `ImageExifResponse` |
 | GET / PUT / DELETE | `/v1/images/{iid}/pose_prior` | `PosePrior` | `PosePrior \| null` |
 | GET / PUT | `/v1/datasets/{did}/pose_priors` | `PosePriorsBulkRequest` | `PosePriorsBulkResponse` |
+
+Projection jobs produce a `projection.images.v1` stage artifact and a
+`projection_manifest.json`. The manifest includes generic SfM metadata:
+`source_images`, `output_images`, face geometry when applicable, and an
+optional `derived_dataset` block. When `output.create_dataset=true`
+(default), sfmapi registers the generated image directory as a normal
+dataset so later feature, match, and mapping stages can consume it.
+If the requested derived dataset name already exists in the project,
+sfmapi appends a deterministic task suffix instead of failing the job;
+task retries reuse the already-registered derived dataset.
+
+The built-in projection engine is deliberately narrow. With the
+`projection` extra installed it handles
+`projection.equirectangular_to_cubemap` using vectorized NumPy plus
+OpenCV image I/O, with `nearest` and `linear` sampling. `cubic`,
+`lanczos`, `projection.cubemap_to_equirectangular`, and
+`projection.equirectangular_to_perspective` are contract-only in core;
+a backend must advertise those capabilities to serve them.
 
 ## SfM stages (single-task jobs)
 
@@ -210,8 +256,8 @@ For large hloc/COLMAP pair files, upload the text file through
 format is one `image1 image2` pair per line.
 
 Use `input_artifacts` to select a previous stage output, for example
-`{"features": {"artifact_id": "...", "kind": "features.database"}}`
-when matching against a specific feature database.
+`{"features": {"artifact_id": "...", "kind": "features.local.v1"}}`
+when matching against a specific feature artifact.
 
 ## Pipelines (recipe sugar)
 
@@ -251,8 +297,13 @@ verification emits several candidate pair sets.
 | Method | Path | Query | Returns |
 |---|---|---|---|
 | GET | `/v1/artifacts/kinds` | - | `Page<ArtifactKind>` |
+| GET | `/v1/artifacts/formats` | - | `Page<ArtifactFormat>` |
+| POST | `/v1/artifacts:import` | `ArtifactImportRequest` | `StageArtifact` |
 | GET | `/v1/artifacts/{artifact_id}` | - | `StageArtifact` |
 | GET | `/v1/artifacts/{artifact_id}/content` | `?download=true` | file bytes |
+| POST | `/v1/artifacts/{artifact_id}:conversionPlan` | `{to_format? , accepted_formats?, require_lossless?}` | `ArtifactConversionPlan` |
+| POST | `/v1/artifacts/{artifact_id}:convert` | `{to_format? , accepted_formats?, to_kind?, name?, options?}` | 202 + `JobAccepted` |
+| POST | `/v1/artifacts/{artifact_id}:validate` | - | `ArtifactValidation` |
 
 `StageArtifact.uri` is metadata, not a portability contract. Use
 `/content` for local server-managed file artifacts. Remote URIs and
@@ -266,7 +317,7 @@ Stage submissions can pass selected artifacts through
   "input_artifacts": {
     "verified_matches": {
       "artifact_id": "01HZ...",
-      "kind": "matches.verified_database"
+      "kind": "matches.verified.v1"
     }
   }
 }
@@ -274,6 +325,31 @@ Stage submissions can pass selected artifacts through
 
 Core roles validate expected kinds before job creation. Unknown
 backend-specific roles are allowed if they use the same dot-key syntax.
+Use `/v1/artifacts:import` to register an existing server-local or
+remote artifact URI without copying bytes. sfmapi creates a completed
+import job/task so the artifact has the same ownership, listing, and
+validation behavior as worker-produced artifacts.
+
+Core portable artifact kinds include `features.local.v1`,
+`features.global.v1`, `pairs.image_names.v1`, `matches.indexed.v1`,
+`matches.coordinates.v1`, `matches.dense.v1`, `matches.verified.v1`,
+and `reconstruction.sparse.v1`. Each kind has a default canonical
+format id such as `sfmapi.features.local.v1` or
+`sfmapi.matches.verified.v1`. Backend-native artifacts should use a
+namespaced same-family kind such as `features.hloc_h5` or
+`matches.database.colmap`, plus a backend-owned `artifact_format`
+such as `hloc.features.h5.v1` or `colmap.matches.database.v1`.
+
+`/v1/artifacts/{artifact_id}:conversionPlan` chooses the shortest
+conversion path from the active backend's artifact contracts. Pass
+`accepted_formats` in preference order to let sfmapi negotiate the
+target format; pass `to_format` for an exact target. `:convert`
+submits the selected conversion as a normal job and requires the
+backend to implement `convert_artifact(...)`. Multi-step paths are
+executed inside that conversion task by calling the backend once per
+step. `:validate` checks the artifact descriptor, core kind/format
+compatibility, local managed files, declared byte sizes, SHA-256
+digests, and JSON manifests when bytes are available.
 
 `{name}` is one of `cameras.json | images.json | rigs.json |
 frames.json | pose_graph.json | summary.json | points.bin |
@@ -295,7 +371,7 @@ dense/fused.bin`.
 | Method | Path | Body | Returns |
 |---|---|---|---|
 | GET | `/v1/datasets/{did}/similarity` | `?image_id=&k=&strategy=&include_self=` | `SimilarityQueryResponse` |
-| POST | `/v1/datasets/{did}/similarity:build` | `?strategy=dhash\|vlad&force=` | 200 (`dhash`) or 202 (`vlad`) |
+| POST | `/v1/datasets/{did}/similarity:build` | `?strategy=dhash\|vlad&force=` | 200 (`dhash`, optional image-processing extra) or 202 (`vlad`) |
 
 ## One-shot (bytes-in / typed-result-out)
 
@@ -363,6 +439,28 @@ control-plane layer.
 | POST | `/v1/admin/api-keys` | `{tenant_id, name?}` | `IssueKeyResponse` (`raw_key` returned **once**) |
 | GET | `/v1/admin/api-keys` | — | `[ApiKeyOut]` |
 | DELETE | `/v1/admin/api-keys/{kid}` | — | `ApiKeyOut` (revoked) |
+| GET | `/v1/admin/plugins` | `?query=&page_token=&page_size=` | `Page<PluginRegistryItem>` |
+| GET | `/v1/admin/plugins/detect-tools` | — | local external-tool detection |
+| GET | `/v1/admin/plugins/entry-points` | `?load=false` | installed Python entry points |
+| GET | `/v1/admin/plugins/{plugin_id}` | — | plugin manifest + local state |
+| POST | `/v1/admin/plugins/{plugin_id}:install` | `{method, github_url?, ref?, package_name?, dry_run?, allow_unsafe_execution?}` | install plan or result |
+| POST | `/v1/admin/plugins/{plugin_id}:enable` | — | plugin state |
+| POST | `/v1/admin/plugins/{plugin_id}:disable` | — | plugin state |
+| POST | `/v1/admin/plugins/{plugin_id}:doctor` | — | diagnostics |
+| POST | `/v1/admin/routing/profiles` | `{name, routes}` | routing state |
+| POST | `/v1/admin/routing/default` | `{profile}` | routing state |
+| POST | `/v1/admin/routing/projects/{project_id}` | `{profile}` | routing state |
+| POST | `/v1/admin/routing/workspaces` | `{profile}` | routing state |
+
+Plugin installation is an operator action. `method="uv"` creates a
+direct-reference command such as
+`uv pip install "sfmapi-colmap-cli @ git+https://github.com/SFMAPI/sfmapi_colmap_cli.git@main"`;
+mutable refs produce warnings. `docker` and `external_tool` modes are
+planned or recorded as runtime choices and are never invoked by normal
+job submission. Backend packages can expose
+`[project.entry-points."sfmapi.backends"]`; `sfmapi plugins
+entry-points --load` and `sfmapi check-backend --load-entry-points`
+validate those contracts.
 
 ## ProgressEvent
 

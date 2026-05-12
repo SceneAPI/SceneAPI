@@ -72,9 +72,10 @@ async def build(
 ) -> JSONResponse:
     """Build (or rebuild) the similarity index for the dataset.
 
-    `dhash` builds synchronously (fast — pure Pillow). `vlad` enqueues
-    a worker job (requires pycolmap + SIFT extraction per image) and
-    returns ``202`` with a `Location` header pointing at the job.
+    `dhash` builds synchronously using the optional image-processing
+    dependency. `vlad` enqueues a worker job (requires pycolmap + SIFT
+    extraction per image) and returns ``202`` with a `Location` header
+    pointing at the job.
     """
     if strategy == "vlad":
         job_id, _tasks = await sfm_stage_service.submit_vlad_index(

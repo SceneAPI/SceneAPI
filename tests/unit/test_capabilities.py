@@ -70,7 +70,26 @@ def test_detect_capabilities_returns_known_backend() -> None:
     assert caps.backend.name == "stub"
     for name in CORE_CAPABILITIES:
         assert caps.supports(name)
-    # dhash is always available regardless of pycolmap; vlad is not.
+    # dhash is API-local when the optional image-processing dependency exists;
+    # vlad still requires the worker path.
     assert caps.supports("similarity.dhash")
     # pose_priors are pure CRUD — also always available.
     assert caps.supports("pose_priors.read_write")
+
+
+def test_legacy_spherical_capability_enables_projection_alias() -> None:
+    from app.adapters.registry import register_backend
+    from app.adapters.stub_backend import StubBackend
+    from app.core.capabilities import reset_capabilities_cache
+
+    class LegacySphericalBackend(StubBackend):
+        def capabilities(self) -> set[str]:
+            return {"spherical.render_cubemap"}
+
+    register_backend("stub", LegacySphericalBackend)
+    reset_capabilities_cache()
+
+    caps = detect_capabilities()
+
+    assert caps.supports("spherical.render_cubemap")
+    assert caps.supports("projection.equirectangular_to_cubemap")

@@ -106,6 +106,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         register_backend("stub", StubBackend)
         os.environ.setdefault("SFMAPI_BACKEND", "stub")
         log.info("sfmapi.ephemeral_bootstrapped", workspace=str(settings.workspace_root))
+    if settings.auto_load_backend_plugins:
+        from app.adapters.registry import register_backend
+        from sfm_hub.discovery import load_backend_entry_points
+
+        loaded = load_backend_entry_points(register_backend)
+        failures = [item for item in loaded if item.load_error]
+        log.info(
+            "sfmapi.plugins_loaded",
+            count=len(loaded),
+            failures=len(failures),
+        )
     if settings.warm_capabilities:
         try:
             from app.core.capabilities import detect_capabilities
@@ -235,6 +246,7 @@ def create_app() -> FastAPI:
         admin,
         artifacts,
         backend,
+        camera_models,
         capabilities,
         datasets,
         images,
@@ -254,6 +266,7 @@ def create_app() -> FastAPI:
     app.include_router(projects.router, prefix="/v1")
     app.include_router(artifacts.router, prefix="/v1")
     app.include_router(backend.router, prefix="/v1")
+    app.include_router(camera_models.router, prefix="/v1")
     app.include_router(uploads.router, prefix="/v1")
     app.include_router(datasets.router, prefix="/v1")
     app.include_router(datasets.spherical_router, prefix="/v1")

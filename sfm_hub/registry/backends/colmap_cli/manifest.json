@@ -1,0 +1,76 @@
+{
+  "plugin_id": "colmap_cli",
+  "display_name": "COLMAP CLI",
+  "description": "Backend plugin that drives an installed COLMAP executable through sfmapi.",
+  "package_name": "sfmapi-colmap-cli",
+  "github_url": "https://github.com/SFMAPI/sfmapi_colmap_cli.git",
+  "entry_points": ["sfmapi_colmap_cli.plugin:plugin"],
+  "providers": [
+    {
+      "provider_id": "colmap_cli",
+      "display_name": "COLMAP CLI",
+      "description": "COLMAP command-line provider using an external colmap executable.",
+      "capabilities": [
+        "features.extract.sift",
+        "pairs.exhaustive",
+        "pairs.sequential",
+        "pairs.spatial",
+        "pairs.vocabtree",
+        "matchers.nn-mutual",
+        "matchers.nn-ratio",
+        "matches.verify",
+        "map.incremental",
+        "map.global",
+        "ba.standard",
+        "triangulate.retri",
+        "export.ply"
+      ],
+      "backend_actions": ["colmap.*"],
+      "priority_hint": 20
+    }
+  ],
+  "runtime_modes": {
+    "uv": {
+      "source": "git",
+      "url": "https://github.com/SFMAPI/sfmapi_colmap_cli.git",
+      "ref": "main",
+      "package": "sfmapi-colmap-cli"
+    },
+    "docker": {},
+    "external_tool": {
+      "executable_names": ["colmap", "colmap.exe"],
+      "env_vars": ["COLMAP_EXE", "SFMAPI_COLMAP_EXE"],
+      "version_args": ["--version"]
+    }
+  },
+  "capabilities": [
+    "features.extract.sift",
+    "pairs.exhaustive",
+    "pairs.sequential",
+    "pairs.spatial",
+    "pairs.vocabtree",
+    "matchers.nn-mutual",
+    "matchers.nn-ratio",
+    "matches.verify",
+    "map.incremental",
+    "map.global",
+    "ba.standard",
+    "triangulate.retri",
+    "export.ply"
+  ],
+  "backend_actions": ["colmap.*"],
+  "config_schemas": ["colmap.*"],
+  "artifact_contracts": ["colmap.database", "colmap.sparse_model"],
+  "licenses": [{"name": "AGPL-3.0-or-later"}],
+  "upstream_projects": [
+    {"name": "COLMAP", "url": "https://github.com/colmap/colmap", "license": "BSD-3-Clause"}
+  ],
+  "compatibility": {
+    "sfmapi": ">=0.0.1",
+    "python": ">=3.12,<3.13",
+    "os": ["windows", "linux", "macos"],
+    "tool_versions": {"colmap": ">=3.9"}
+  },
+  "conformance": {"status": "not_run", "suite": "sfmapi-bench"},
+  "trust_tier": "official"
+}

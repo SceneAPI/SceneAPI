@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +18,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFoundError
 from app.db.models import ApiKey
 from app.db.session import get_db
-from app.services import api_key_service
+from app.schemas.api.plugins import (
+    PluginDetailOut,
+    PluginDoctorOut,
+    PluginEntryPointOut,
+    PluginEntryPointPage,
+    PluginInstallRequest,
+    PluginInstallResponse,
+    PluginRegistryItemOut,
+    PluginRegistryPage,
+    RoutingOut,
+    RoutingProfileAssignmentRequest,
+    RoutingProfileRequest,
+    ToolDetectionOut,
+)
+from app.services import api_key_service, plugin_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -124,3 +138,114 @@ async def list_keys(session: AsyncSession = Depends(get_db)) -> list[ApiKeyOut]:
         )
         for r in rows
     ]
+
+
+@router.get("/plugins", response_model=PluginRegistryPage)
+async def list_plugins(
+    query: str | None = Query(None),
+    page_token: str | None = Query(None),
+    page_size: int = Query(50, ge=1, le=500),
+) -> PluginRegistryPage:
+    """List sfm_hub registry entries and local install state."""
+    rows = plugin_service.list_plugins(query)
+    if page_token:
+        rows = [row for row in rows if str(row["plugin_id"]) > page_token]
+    page = rows[: page_size + 1]
+    next_page_token = None
+    if len(page) > page_size:
+        next_page_token = str(page[page_size - 1]["plugin_id"])
+        page = page[:page_size]
+    return PluginRegistryPage(
+        items=[PluginRegistryItemOut.model_validate(row) for row in page],
+        next_page_token=next_page_token,
+    )
+
+
+@router.get("/plugins/detect-tools", response_model=ToolDetectionOut)
+async def detect_plugin_tools() -> ToolDetectionOut:
+    """Detect locally installed external SfM executables."""
+    return ToolDetectionOut.model_validate(plugin_service.detect_tools())
+
+
+@router.get("/plugins/entry-points", response_model=PluginEntryPointPage)
+async def list_plugin_entry_points(load: bool = Query(False)) -> PluginEntryPointPage:
+    """List installed Python entry points in the sfmapi backend group."""
+    return PluginEntryPointPage(
+        items=[
+            PluginEntryPointOut.model_validate(row)
+            for row in plugin_service.list_entry_points(load=load)
+        ]
+    )
+
+
+@router.get("/plugins/{plugin_id}", response_model=PluginDetailOut)
+async def get_plugin(plugin_id: str) -> PluginDetailOut:
+    """Read one sfm_hub plugin manifest and local install state."""
+    return PluginDetailOut.model_validate(plugin_service.get_plugin(plugin_id))
+
+
+@router.post("/plugins/{plugin_id}:install", response_model=PluginInstallResponse)
+async def install_plugin(plugin_id: str, body: PluginInstallRequest) -> PluginInstallResponse:
+    """Plan or run an operator-scoped plugin install."""
+    return PluginInstallResponse.model_validate(
+        plugin_service.install_plugin(
+            plugin_id,
+            method=body.method,
+            github_url=body.github_url,
+            ref=body.ref,
+            package_name=body.package_name,
+            dry_run=body.dry_run,
+            allow_unsafe_execution=body.allow_unsafe_execution,
+        )
+    )
+
+
+@router.post("/plugins/{plugin_id}:enable", response_model=PluginDetailOut)
+async def enable_plugin(plugin_id: str) -> PluginDetailOut:
+    """Enable an installed plugin for provider discovery."""
+    return PluginDetailOut.model_validate(plugin_service.enable_plugin(plugin_id))
+
+
+@router.post("/plugins/{plugin_id}:disable", response_model=PluginDetailOut)
+async def disable_plugin(plugin_id: str) -> PluginDetailOut:
+    """Disable a plugin without uninstalling its Python package."""
+    return PluginDetailOut.model_validate(plugin_service.disable_plugin(plugin_id))
+
+
+@router.post("/plugins/{plugin_id}:doctor", response_model=PluginDoctorOut)
+async def doctor_plugin(plugin_id: str) -> PluginDoctorOut:
+    """Run local operator diagnostics for one plugin."""
+    return PluginDoctorOut.model_validate(plugin_service.doctor_plugin(plugin_id))
+
+
+@router.post("/routing/profiles", response_model=RoutingOut)
+async def create_routing_profile(body: RoutingProfileRequest) -> RoutingOut:
+    """Create or replace a named provider routing profile."""
+    return RoutingOut.model_validate(plugin_service.create_profile(body.name, body.routes))
+
+
+@router.post("/routing/default", response_model=RoutingOut)
+async def set_default_routing_profile(body: RoutingProfileAssignmentRequest) -> RoutingOut:
+    """Set the default provider routing profile for this sfmapi process."""
+    return RoutingOut.model_validate(plugin_service.use_default_profile(body.profile))
+
+
+@router.post("/routing/projects/{project_id}", response_model=RoutingOut)
+async def set_project_routing_profile(
+    project_id: str,
+    body: RoutingProfileAssignmentRequest,
+) -> RoutingOut:
+    """Assign a provider routing profile to one project id."""
+    return RoutingOut.model_validate(
+        plugin_service.assign_project_profile(project_id, body.profile)
+    )
+
+
+@router.post("/routing/workspaces", response_model=RoutingOut)
+async def set_workspace_routing_profile(body: RoutingProfileAssignmentRequest) -> RoutingOut:
+    """Assign a provider routing profile to the current workspace root."""
+    from app.core.config import get_settings
+
+    return RoutingOut.model_validate(
+        plugin_service.assign_workspace_profile(str(get_settings().workspace_root), body.profile)
+    )

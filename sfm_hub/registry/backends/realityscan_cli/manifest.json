@@ -1,0 +1,46 @@
+{
+  "plugin_id": "realityscan_cli",
+  "display_name": "RealityScan CLI",
+  "description": "Backend plugin for installed RealityScan or RealityCapture command-line tools.",
+  "package_name": "sfmapi-realityscan",
+  "github_url": "https://github.com/SFMAPI/sfmapi-realityscan.git",
+  "entry_points": ["sfmapi_realityscan.plugin:plugin"],
+  "providers": [
+    {
+      "provider_id": "realityscan_cli",
+      "display_name": "RealityScan CLI",
+      "capabilities": ["features.extract.sift", "pairs.exhaustive", "matches.verify", "map.incremental", "export.ply"],
+      "backend_actions": ["realityscan.*"],
+      "priority_hint": 50
+    }
+  ],
+  "runtime_modes": {
+    "uv": {
+      "source": "git",
+      "url": "https://github.com/SFMAPI/sfmapi-realityscan.git",
+      "ref": "main",
+      "package": "sfmapi-realityscan"
+    },
+    "external_tool": {
+      "executable_names": ["RealityScan.exe", "RealityCapture.exe"],
+      "env_vars": ["REALITYSCAN_EXE", "REALITYCAPTURE_EXE"],
+      "version_args": ["-version"]
+    }
+  },
+  "capabilities": ["features.extract.sift", "pairs.exhaustive", "matches.verify", "map.incremental", "export.ply"],
+  "backend_actions": ["realityscan.*"],
+  "config_schemas": ["realityscan.*"],
+  "artifact_contracts": ["realityscan.project", "realityscan.model"],
+  "licenses": [{"name": "AGPL-3.0-or-later"}],
+  "upstream_projects": [
+    {"name": "RealityScan", "url": "https://www.capturingreality.com/realityscan", "license": "Proprietary"}
+  ],
+  "compatibility": {
+    "sfmapi": ">=0.0.1",
+    "python": ">=3.12,<3.13",
+    "os": ["windows"],
+    "tool_versions": {"RealityScan": "current", "RealityCapture": "current"}
+  },
+  "conformance": {"status": "not_run", "suite": "sfmapi-bench"},
+  "trust_tier": "official"
+}

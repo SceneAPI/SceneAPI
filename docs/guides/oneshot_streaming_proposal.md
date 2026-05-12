@@ -104,7 +104,7 @@ Just one. Don't ship a kitchen sink:
 
 | Route | Purpose | Notes |
 |---|---|---|
-| `POST /v1/oneshot/features` | Extract 2D features from one image. | Mirrors the parameter set of `FeaturesSpec` (type, max_num_features, use_gpu, seed, extractor_options). |
+| `POST /v1/oneshot/features` | Extract 2D features from one image. | Mirrors the parameter set of `FeaturesSpec` (type, max_num_features, use_gpu, seed, backend_options). |
 
 ### Phase b — `POST /v1/oneshot/localize` (added per user direction)
 

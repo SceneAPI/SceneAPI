@@ -99,6 +99,7 @@ class Settings(BaseSettings):
     profile_sort_by: Literal["cumulative", "tottime", "time", "calls"] = "cumulative"
     profile_dir: Path | None = None
     warm_capabilities: bool = False
+    auto_load_backend_plugins: bool = False
 
     # Optional MCP adapter. Disabled by default so the core REST server
     # does not depend on FastMCP unless explicitly enabled. Prefer

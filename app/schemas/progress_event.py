@@ -28,7 +28,7 @@ in lock-step if the wire shape ever has to break, never per-kind.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -54,6 +54,7 @@ Phase = Literal[
     "export",
     "vlad_index",
     "backend_action",
+    "artifact_conversion",
 ]
 
 
@@ -92,7 +93,7 @@ class Metric(_Base):
 class SnapshotAvailable(_Base):
     kind: Literal["snapshot_available"] = "snapshot_available"
     snapshot_seq: int
-    summary: dict
+    summary: dict[str, Any]
 
 
 class LogLine(_Base):
@@ -110,7 +111,7 @@ class ErrorEvent(_Base):
     kind: Literal["error"] = "error"
     error_class: str
     message: str
-    detail: dict | None = None
+    detail: dict[str, Any] | None = None
 
 
 ProgressEvent = Annotated[

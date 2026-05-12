@@ -1,0 +1,69 @@
+{
+  "plugin_id": "colmap_native",
+  "display_name": "Native COLMAP backends",
+  "description": "COLMAP backend collection with CLI, pycolmap, native C++, and in-memory provider variants.",
+  "package_name": "sfmapi-colmap",
+  "github_url": "https://github.com/SFMAPI/sfmapi_colmap.git",
+  "entry_points": ["sfmapi_colmap.plugin:plugin"],
+  "providers": [
+    {
+      "provider_id": "colmap_cli",
+      "display_name": "COLMAP CLI",
+      "capabilities": ["features.extract.sift", "pairs.exhaustive", "matches.verify", "map.incremental"],
+      "backend_actions": ["colmap.*"],
+      "priority_hint": 25
+    },
+    {
+      "provider_id": "colmap_pycolmap",
+      "display_name": "pycolmap",
+      "capabilities": ["features.extract.sift", "pairs.exhaustive", "matches.verify", "map.incremental"],
+      "backend_actions": ["pycolmap.*"],
+      "priority_hint": 35
+    },
+    {
+      "provider_id": "colmap_cpp_native",
+      "display_name": "COLMAP C++ native",
+      "capabilities": ["features.extract.sift", "pairs.exhaustive", "matches.verify", "map.incremental", "ba.standard"],
+      "backend_actions": ["colmap_cpp.*"],
+      "priority_hint": 40
+    },
+    {
+      "provider_id": "colmap_cpp_inmemory",
+      "display_name": "COLMAP C++ in-memory",
+      "capabilities": ["features.extract.sift", "pairs.exhaustive", "matches.verify", "map.incremental", "ba.standard"],
+      "backend_actions": ["colmap_cpp.*"],
+      "priority_hint": 45
+    }
+  ],
+  "runtime_modes": {
+    "uv": {
+      "source": "git",
+      "url": "https://github.com/SFMAPI/sfmapi_colmap.git",
+      "ref": "main",
+      "package": "sfmapi-colmap"
+    },
+    "docker": {},
+    "external_tool": {
+      "executable_names": ["colmap", "colmap.exe"],
+      "env_vars": ["COLMAP_EXE", "SFMAPI_COLMAP_EXE"],
+      "version_args": ["--version"]
+    }
+  },
+  "capabilities": ["features.extract.sift", "pairs.exhaustive", "matches.verify", "map.incremental", "ba.standard"],
+  "backend_actions": ["colmap.*", "pycolmap.*", "colmap_cpp.*"],
+  "config_schemas": ["colmap.*", "pycolmap.*", "colmap_cpp.*"],
+  "artifact_contracts": ["colmap.database", "colmap.sparse_model"],
+  "licenses": [{"name": "AGPL-3.0-or-later"}],
+  "upstream_projects": [
+    {"name": "COLMAP", "url": "https://github.com/colmap/colmap", "license": "BSD-3-Clause"}
+  ],
+  "compatibility": {
+    "sfmapi": ">=0.0.1",
+    "python": ">=3.12,<3.13",
+    "os": ["windows", "linux"],
+    "cuda": "optional",
+    "tool_versions": {"colmap": ">=4.1"}
+  },
+  "conformance": {"status": "not_run", "suite": "sfmapi-bench"},
+  "trust_tier": "official"
+}

@@ -12,6 +12,7 @@ so fixtures are always fresh for the running server.
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -25,8 +26,12 @@ pytestmark = pytest.mark.contract
 
 def _load_sdk_models() -> Any:
     """Import the SDK's models module by file path so we don't need
-    `clients/python` on PYTHONPATH."""
-    src = Path(__file__).resolve().parents[2] / "clients" / "python" / "sfmapi_client" / "models.py"
+    the SDK repo on PYTHONPATH."""
+    server_root = Path(__file__).resolve().parents[2]
+    sdk_root = Path(os.environ.get("SFMAPI_SDK_REPO", server_root.parent / "sfmapi-sdk"))
+    src = sdk_root / "python" / "sfmapi_client" / "models.py"
+    if not src.is_file():
+        pytest.skip(f"SDK repo not found at {sdk_root}")
     spec = importlib.util.spec_from_file_location("_sdk_models", src)
     assert spec is not None
     assert spec.loader is not None

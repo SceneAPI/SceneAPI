@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
@@ -20,12 +19,6 @@ def _task_inputs(task: Task) -> dict[str, Any]:
     return inputs if isinstance(inputs, dict) else {}
 
 
-def _task_spec(task: Task) -> dict[str, Any]:
-    state = task.task_state_json or {}
-    spec = state.get("spec") or {}
-    return spec if isinstance(spec, dict) else {}
-
-
 def _optional_str(value: Any) -> str | None:
     if value is None:
         return None
@@ -37,19 +30,9 @@ def _summary(value: Any) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
-def _output_summary(outputs: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in outputs.items() if key != "artifacts"}
-
-
-def _metadata(task: Task, extra: dict[str, Any] | None = None) -> dict[str, Any]:
-    out: dict[str, Any] = {"stage": task.kind}
-    spec = _task_spec(task)
-    provider = spec.get("provider")
-    if provider is not None:
-        out["provider"] = provider
-    if extra:
-        out.update(extra)
-    return out
+def _metadata_value(artifact: StageArtifact, key: str) -> Any:
+    metadata = artifact.metadata_json if isinstance(artifact.metadata_json, dict) else {}
+    return metadata.get(key)
 
 
 def _validate_artifact_descriptor(descriptor: Any, *, index: int) -> dict[str, Any]:
@@ -58,9 +41,9 @@ def _validate_artifact_descriptor(descriptor: Any, *, index: int) -> dict[str, A
     kind = descriptor.get("kind")
     if not isinstance(kind, str) or not artifact_vocab.is_valid_artifact_key(kind):
         raise ValidationError(
-            "outputs.artifacts"
-            f"[{index}].kind must match {artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
+            f"outputs.artifacts[{index}].kind must match {artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
         )
+    core_kind = artifact_vocab.CORE_ARTIFACT_KINDS.get(kind)
     name = descriptor.get("name")
     if name is not None and (not isinstance(name, str) or len(name) > 255):
         raise ValidationError(f"outputs.artifacts[{index}].name must be a string up to 255 chars")
@@ -72,12 +55,93 @@ def _validate_artifact_descriptor(descriptor: Any, *, index: int) -> dict[str, A
         raise ValidationError(
             f"outputs.artifacts[{index}].media_type must be a string up to 127 chars"
         )
+    artifact_format = descriptor.get("artifact_format")
+    if artifact_format is None and core_kind is not None:
+        artifact_format = core_kind.artifact_format
+        descriptor["artifact_format"] = artifact_format
+    if artifact_format is not None and (
+        not isinstance(artifact_format, str)
+        or not artifact_vocab.is_valid_artifact_key(artifact_format)
+    ):
+        raise ValidationError(
+            "outputs.artifacts"
+            f"[{index}].artifact_format must match {artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
+        )
+    if artifact_format is not None and not artifact_vocab.is_format_compatible_with_kind(
+        kind,
+        str(artifact_format),
+    ):
+        raise ValidationError(
+            "outputs.artifacts"
+            f"[{index}].artifact_format {artifact_format!r} is not compatible with kind {kind!r}"
+        )
+    schema_version = descriptor.get("schema_version")
+    if schema_version is None and core_kind is not None:
+        schema_version = core_kind.schema_version
+        descriptor["schema_version"] = schema_version
+    if schema_version is not None and (
+        not isinstance(schema_version, int)
+        or isinstance(schema_version, bool)
+        or schema_version < 1
+    ):
+        raise ValidationError(f"outputs.artifacts[{index}].schema_version must be a positive int")
+    artifact_type = descriptor.get("artifact_type")
+    if artifact_type is None and artifact_format is not None:
+        artifact_type = artifact_vocab.artifact_type_for_format(str(artifact_format))
+        if artifact_type is not None:
+            descriptor["artifact_type"] = artifact_type
+    if artifact_type is None:
+        artifact_type = artifact_vocab.artifact_type_for_kind(kind)
+        if artifact_type is not None:
+            descriptor["artifact_type"] = artifact_type
+    if artifact_type is None and core_kind is not None:
+        artifact_type = core_kind.artifact_type
+        descriptor["artifact_type"] = artifact_type
+    if artifact_type is not None and (
+        not isinstance(artifact_type, str)
+        or not artifact_vocab.is_valid_artifact_key(artifact_type)
+    ):
+        raise ValidationError(
+            f"outputs.artifacts[{index}].artifact_type must match "
+            f"{artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
+        )
+    files = descriptor.get("files")
+    if files is not None:
+        if not isinstance(files, list):
+            raise ValidationError(f"outputs.artifacts[{index}].files must be a list")
+        for file_index, file_ref in enumerate(files):
+            if not isinstance(file_ref, dict):
+                raise ValidationError(
+                    f"outputs.artifacts[{index}].files[{file_index}] must be an object"
+                )
+            if not isinstance(file_ref.get("name"), str) or not file_ref.get("name"):
+                raise ValidationError(
+                    f"outputs.artifacts[{index}].files[{file_index}].name is required"
+                )
+            if not isinstance(file_ref.get("uri"), str) or not file_ref.get("uri"):
+                raise ValidationError(
+                    f"outputs.artifacts[{index}].files[{file_index}].uri is required"
+                )
     summary = descriptor.get("summary")
     if summary is not None and not isinstance(summary, dict):
         raise ValidationError(f"outputs.artifacts[{index}].summary must be an object")
-    metadata = descriptor.get("metadata")
-    if metadata is not None and not isinstance(metadata, dict):
+    raw_metadata = descriptor.get("metadata")
+    if raw_metadata is not None and not isinstance(raw_metadata, dict):
         raise ValidationError(f"outputs.artifacts[{index}].metadata must be an object")
+    metadata = dict(raw_metadata or {})
+    for key in (
+        "artifact_format",
+        "artifact_type",
+        "schema_version",
+        "files",
+        "sha256",
+        "byte_size",
+        "coordinate_frame",
+        "producer",
+    ):
+        if key in descriptor and key not in metadata:
+            metadata[key] = descriptor[key]
+    descriptor["metadata"] = metadata
     return descriptor
 
 
@@ -88,105 +152,12 @@ def _append_unique(out: list[dict[str, Any]], item: dict[str, Any]) -> None:
     out.append(item)
 
 
-def _infer_artifacts(task: Task, outputs: dict[str, Any]) -> list[dict[str, Any]]:
-    inputs = _task_inputs(task)
-    artifacts: list[dict[str, Any]] = []
-    recon_id = _optional_str(inputs.get("recon_id"))
-    dataset_id = _optional_str(inputs.get("dataset_id"))
-
-    database_path = _optional_str(outputs.get("database_path"))
-    database_kind = artifact_vocab.DATABASE_ARTIFACT_KIND_BY_TASK.get(task.kind)
-    if database_path and database_kind:
-        _append_unique(
-            artifacts,
-            {
-                "kind": database_kind,
-                "name": "database",
-                "uri": database_path,
-                "summary": _output_summary(outputs),
-                "metadata": _metadata(task, {"source": "inferred"}),
-                "recon_id": recon_id,
-                "dataset_id": dataset_id,
-            },
-        )
-
-    correspondence_path = _optional_str(outputs.get("correspondence_graph_path"))
-    if correspondence_path:
-        _append_unique(
-            artifacts,
-            {
-                "kind": "matches.correspondence_graph",
-                "name": "correspondence_graph",
-                "uri": correspondence_path,
-                "media_type": "application/json",
-                "summary": _output_summary(outputs),
-                "metadata": _metadata(task, {"source": "inferred"}),
-                "recon_id": recon_id,
-                "dataset_id": dataset_id,
-            },
-        )
-
-    two_view_path = _optional_str(outputs.get("two_view_geometries_path"))
-    if two_view_path:
-        _append_unique(
-            artifacts,
-            {
-                "kind": "matches.two_view_geometries",
-                "name": "two_view_geometries",
-                "uri": two_view_path,
-                "media_type": "application/json",
-                "summary": _output_summary(outputs),
-                "metadata": _metadata(task, {"source": "inferred"}),
-                "recon_id": recon_id,
-                "dataset_id": dataset_id,
-            },
-        )
-
-    snapshot_path = _optional_str(outputs.get("snapshot_path"))
-    if snapshot_path:
-        _append_unique(
-            artifacts,
-            {
-                "kind": "reconstruction.snapshot",
-                "name": f"snapshot-{outputs.get('snapshot_seq')}",
-                "uri": snapshot_path,
-                "summary": {"snapshot_seq": outputs.get("snapshot_seq")},
-                "metadata": _metadata(task, {"source": "inferred"}),
-                "recon_id": recon_id,
-                "dataset_id": dataset_id,
-            },
-        )
-
-    models = outputs.get("models")
-    if snapshot_path and isinstance(models, list):
-        for position, summary in enumerate(models):
-            if not isinstance(summary, dict):
-                continue
-            idx = summary.get("idx", position)
-            _append_unique(
-                artifacts,
-                {
-                    "kind": "reconstruction.submodel",
-                    "name": f"submodel-{idx}",
-                    "uri": str(Path(snapshot_path) / str(idx))
-                    if len(models) > 1
-                    else snapshot_path,
-                    "summary": summary,
-                    "metadata": _metadata(task, {"source": "inferred", "idx": idx}),
-                    "recon_id": recon_id,
-                    "dataset_id": dataset_id,
-                },
-            )
-    return artifacts
-
-
 def normalize_task_outputs(task: Task, outputs: Any) -> dict[str, Any]:
     """Validate and enrich a worker return payload.
 
-    Worker handlers must return a dict. They may return
-    ``{"artifacts": [...]}``; sfmapi also infers artifacts from legacy
-    keys such as ``database_path`` and ``snapshot_path`` for backward
-    compatibility.
+    Worker handlers must return a dict. Portable data products must be
+    declared explicitly through ``{"artifacts": [...]}``; sfmapi no
+    longer infers interchange semantics from backend-local paths.
     """
     if outputs is None:
         outputs = {}
@@ -203,8 +174,6 @@ def normalize_task_outputs(task: Task, outputs: Any) -> dict[str, Any]:
     artifacts: list[dict[str, Any]] = []
     for index, descriptor in enumerate(explicit):
         _append_unique(artifacts, _validate_artifact_descriptor(descriptor, index=index))
-    for descriptor in _infer_artifacts(task, normalized):
-        _append_unique(artifacts, descriptor)
     if artifacts:
         normalized["artifacts"] = artifacts
     return normalized
@@ -345,7 +314,8 @@ def _artifact_ref_dict(value: Any, *, role: str) -> dict[str, Any]:
         raise ValidationError(f"input_artifacts.{role}.artifact_id is required")
     expected_kind = value.get("kind")
     if expected_kind is not None and (
-        not isinstance(expected_kind, str) or not artifact_vocab.is_valid_artifact_key(expected_kind)
+        not isinstance(expected_kind, str)
+        or not artifact_vocab.is_valid_artifact_key(expected_kind)
     ):
         raise ValidationError(
             f"input_artifacts.{role}.kind must match {artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
@@ -384,12 +354,10 @@ async def resolve_input_artifacts(
                 f"input_artifacts.{role}.kind expected {expected_kind!r}, "
                 f"but artifact {artifact.artifact_id} is {artifact.kind!r}"
             )
-        allowed_kinds = artifact_vocab.ARTIFACT_INPUT_ROLE_KINDS.get(role)
-        if allowed_kinds is not None and artifact.kind not in allowed_kinds:
-            allowed = ", ".join(sorted(allowed_kinds))
+        if not artifact_vocab.is_artifact_allowed_for_role(role, artifact.kind):
+            allowed = ", ".join(sorted(artifact_vocab.ARTIFACT_INPUT_ROLE_KINDS.get(role, ())))
             raise ValidationError(
-                f"input_artifacts.{role} expects one of [{allowed}], "
-                f"got {artifact.kind!r}"
+                f"input_artifacts.{role} expects one of [{allowed}], got {artifact.kind!r}"
             )
         if (
             dataset_id is not None
@@ -397,8 +365,7 @@ async def resolve_input_artifacts(
             and artifact.dataset_id != dataset_id
         ):
             raise ValidationError(
-                f"input_artifacts.{role} belongs to dataset {artifact.dataset_id}, "
-                f"not {dataset_id}"
+                f"input_artifacts.{role} belongs to dataset {artifact.dataset_id}, not {dataset_id}"
             )
         resolved[role] = {
             "artifact_id": artifact.artifact_id,
@@ -406,6 +373,10 @@ async def resolve_input_artifacts(
             "name": artifact.name,
             "uri": artifact.uri,
             "media_type": artifact.media_type,
+            "artifact_format": _metadata_value(artifact, "artifact_format"),
+            "artifact_type": _metadata_value(artifact, "artifact_type")
+            or artifact_vocab.artifact_type_for_kind(artifact.kind),
+            "schema_version": _metadata_value(artifact, "schema_version"),
             "summary": artifact.summary_json,
             "metadata": artifact.metadata_json,
             "job_id": artifact.job_id,
@@ -416,22 +387,44 @@ async def resolve_input_artifacts(
     return resolved
 
 
-def database_path_from_input_artifacts(
+def artifact_uri_from_input_artifacts(
     input_artifacts: dict[str, dict[str, Any]],
     *,
     roles: tuple[str, ...],
+    accepted_prefixes: tuple[str, ...] = (),
 ) -> str | None:
-    """Return a backend-readable database path from a selected artifact."""
+    """Return the URI for the first selected artifact matching a role.
+
+    ``accepted_prefixes`` lets a worker ask for a same-family
+    backend-native artifact without hardcoding one engine's database
+    format into the sfmapi contract.
+    """
     for role in roles:
         artifact = input_artifacts.get(role)
         if not artifact:
             continue
         kind = artifact.get("kind")
         uri = artifact.get("uri")
-        if kind in {
-            "features.database",
-            "matches.database",
-            "matches.verified_database",
-        } and uri:
+        if uri and (
+            not accepted_prefixes or any(str(kind).startswith(p) for p in accepted_prefixes)
+        ):
             return str(uri)
     return None
+
+
+def database_path_from_input_artifacts(
+    input_artifacts: dict[str, dict[str, Any]],
+    *,
+    roles: tuple[str, ...],
+) -> str | None:
+    """Return a backend-native database URI selected for a DB-backed worker.
+
+    Portable artifacts still travel through ``options["input_artifacts"]``.
+    Only engine-native database kinds are eligible to replace the worker's
+    default ``database_path``.
+    """
+    return artifact_uri_from_input_artifacts(
+        input_artifacts,
+        roles=roles,
+        accepted_prefixes=("features.database.", "matches.database."),
+    )

@@ -172,7 +172,7 @@ async def test_artifact_endpoints_list_typed_outputs(client, session) -> None:
         task_id=task.task_id,
         recon_id=rid,
         dataset_id=did,
-        kind="matches.two_view_geometries",
+        kind="matches.verified.v1",
         name="hloc-lightglue-verified",
         uri=str(artifact_file),
         media_type="application/json",
@@ -183,7 +183,7 @@ async def test_artifact_endpoints_list_typed_outputs(client, session) -> None:
 
     by_job = await client.get(f"/v1/jobs/{job.job_id}/artifacts")
     assert by_job.status_code == 200
-    assert by_job.json()["items"][0]["kind"] == "matches.two_view_geometries"
+    assert by_job.json()["items"][0]["kind"] == "matches.verified.v1"
     assert by_job.json()["items"][0]["_links"]["self"]["href"] == (
         f"/v1/artifacts/{artifact.artifact_id}"
     )
@@ -204,7 +204,7 @@ async def test_artifact_endpoints_list_typed_outputs(client, session) -> None:
 
     kinds = await client.get("/v1/artifacts/kinds")
     assert kinds.status_code == 200
-    assert "matches.two_view_geometries" in {row["kind"] for row in kinds.json()["items"]}
+    assert "matches.verified.v1" in {row["kind"] for row in kinds.json()["items"]}
 
     detail = await client.get(f"/v1/artifacts/{artifact.artifact_id}")
     assert detail.status_code == 200

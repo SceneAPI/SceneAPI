@@ -84,9 +84,14 @@ async def _seed_project_job_and_progress(session) -> tuple[str, str, str]:
             tenant_id="default",
             job_id=job.job_id,
             task_id=task.task_id,
-            kind="matches.verified_database",
+            kind="matches.verified.v1",
             name="verified",
-            uri="database.db",
+            uri="memory://database.db",
+            metadata_json={
+                "artifact_format": "sfmapi.matches.verified.v1",
+                "artifact_type": "matches",
+                "schema_version": 1,
+            },
         )
     )
     session.add(
@@ -125,11 +130,23 @@ async def test_mcp_tools_read_projects_jobs_and_progress(session) -> None:
     assert progress["current_phase"] == "matching"
     assert progress["tasks"][0]["current"] == 1
 
-    artifacts = await tools.list_artifacts(job_id=job_id, kind="matches.verified_database")
+    artifacts = await tools.list_artifacts(job_id=job_id, kind="matches.verified.v1")
     assert artifacts["items"][0]["name"] == "verified"
 
     artifact = await tools.get_artifact(artifacts["items"][0]["artifact_id"])
-    assert artifact["kind"] == "matches.verified_database"
+    assert artifact["kind"] == "matches.verified.v1"
+
+    formats = await tools.list_artifact_formats()
+    assert "sfmapi.matches.verified.v1" in {item["format_id"] for item in formats["items"]}
+
+    validation = await tools.validate_artifact(artifact["artifact_id"])
+    assert validation["valid"] is True
+
+    plan = await tools.plan_artifact_conversion(
+        artifact["artifact_id"],
+        to_format="sfmapi.matches.verified.v1",
+    )
+    assert plan["conversion_required"] is False
 
 
 @pytest.mark.unit
@@ -189,6 +206,9 @@ def test_create_mcp_server_registers_curated_tools(monkeypatch: pytest.MonkeyPat
 
     assert "get_job_progress" in server.tools
     assert "list_artifacts" in server.tools
+    assert "list_artifact_formats" in server.tools
+    assert "validate_artifact" in server.tools
+    assert "plan_artifact_conversion" in server.tools
     assert "list_projects" in server.tools
     assert server.kwargs["strict_input_validation"] is False
     assert "read-only local adapter" in server.kwargs["instructions"].lower()
@@ -197,6 +217,7 @@ def test_create_mcp_server_registers_curated_tools(monkeypatch: pytest.MonkeyPat
     assert server.tools["get_job_progress"]["annotations"]["idempotentHint"] is True
     assert server.tools["get_job_progress"]["annotations"]["openWorldHint"] is False
     assert "sfmapi://version" in server.resources
+    assert "sfmapi://artifacts/formats" in server.resources
     assert "sfmapi://tenants/{tenant_id}/jobs/{job_id}/progress" in server.resources
     assert "sfmapi://tenants/{tenant_id}/jobs/{job_id}/artifacts" in server.resources
     assert server.resources["sfmapi://version"]["annotations"]["readOnlyHint"] is True
@@ -275,6 +296,7 @@ async def test_real_fastmcp_lists_annotations_and_reads_resources(session) -> No
     resources = await server.list_resources()
     resource_uris = {str(resource.uri) for resource in resources}
     assert "sfmapi://version" in resource_uris
+    assert "sfmapi://artifacts/formats" in resource_uris
 
     templates = await server.list_resource_templates()
     template_uris = {template.uri_template for template in templates}
@@ -295,7 +317,7 @@ async def test_real_fastmcp_lists_annotations_and_reads_resources(session) -> No
 
     artifacts = await server.read_resource(f"sfmapi://tenants/default/jobs/{job_id}/artifacts")
     artifacts_body = json.loads(artifacts.contents[0].content)
-    assert artifacts_body["items"][0]["kind"] == "matches.verified_database"
+    assert artifacts_body["items"][0]["kind"] == "matches.verified.v1"
 
 
 @pytest.mark.unit

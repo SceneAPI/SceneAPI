@@ -1,0 +1,66 @@
+{
+  "plugin_id": "pycolmap",
+  "display_name": "pycolmap",
+  "description": "Python backend plugin using pycolmap bindings for in-process COLMAP workflows.",
+  "package_name": "sfmapi-pycolmap",
+  "github_url": "https://github.com/SFMAPI/sfmapi_pycolmap.git",
+  "entry_points": ["sfmapi_pycolmap.plugin:plugin"],
+  "providers": [
+    {
+      "provider_id": "colmap_pycolmap",
+      "display_name": "pycolmap",
+      "description": "In-process pycolmap provider.",
+      "capabilities": [
+        "features.extract.sift",
+        "pairs.exhaustive",
+        "pairs.sequential",
+        "matchers.nn-mutual",
+        "matchers.nn-ratio",
+        "matches.verify",
+        "map.incremental",
+        "ba.standard",
+        "triangulate.retri",
+        "export.ply"
+      ],
+      "backend_actions": ["pycolmap.*"],
+      "priority_hint": 30
+    }
+  ],
+  "runtime_modes": {
+    "uv": {
+      "source": "git",
+      "url": "https://github.com/SFMAPI/sfmapi_pycolmap.git",
+      "ref": "main",
+      "package": "sfmapi-pycolmap"
+    },
+    "docker": {}
+  },
+  "capabilities": [
+    "features.extract.sift",
+    "pairs.exhaustive",
+    "pairs.sequential",
+    "matchers.nn-mutual",
+    "matchers.nn-ratio",
+    "matches.verify",
+    "map.incremental",
+    "ba.standard",
+    "triangulate.retri",
+    "export.ply"
+  ],
+  "backend_actions": ["pycolmap.*"],
+  "config_schemas": ["pycolmap.*"],
+  "artifact_contracts": ["colmap.database", "colmap.sparse_model"],
+  "licenses": [{"name": "AGPL-3.0-or-later"}],
+  "upstream_projects": [
+    {"name": "pycolmap", "url": "https://github.com/colmap/pycolmap", "license": "BSD-3-Clause"},
+    {"name": "COLMAP", "url": "https://github.com/colmap/colmap", "license": "BSD-3-Clause"}
+  ],
+  "compatibility": {
+    "sfmapi": ">=0.0.1",
+    "python": ">=3.12,<3.13",
+    "os": ["windows", "linux", "macos"],
+    "tool_versions": {"pycolmap": ">=3.11"}
+  },
+  "conformance": {"status": "not_run", "suite": "sfmapi-bench"},
+  "trust_tier": "official"
+}

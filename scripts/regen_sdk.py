@@ -1,16 +1,16 @@
-"""Regenerate the typed Python SDK from the live OpenAPI spec.
+"""Regenerate SDK artifacts in the sibling sfmapi-sdk repository.
 
 Workflow:
   1. Dump a fresh OpenAPI document from the FastAPI app.
   2. Run ``openapi-python-client generate`` into
-     ``clients/python/sfmapi_client_gen/`` (overwriting in place).
-  3. Print a summary of generated models + endpoint methods.
+     ``../sfmapi-sdk/python/sfmapi_client_gen/``.
+  3. Regenerate TypeScript OpenAPI types under
+     ``../sfmapi-sdk/typescript/src/_generated/``.
+  4. Print a summary of generated models + endpoint methods.
 
-The generated SDK is committed and is the canonical typed surface
-for downstream consumers. The hand-rolled SDK at
-``clients/python/sfmapi_client/`` is kept for now; contract tests
-(``tests/contract/``) replay the same fixtures through both so any
-divergence shows up immediately.
+Set ``SFMAPI_SDK_REPO`` to point at a different SDK checkout. The
+server repo remains the OpenAPI source of truth; the SDK repo owns
+packaging and generated client artifacts.
 
 Usage:
     uv run python scripts/regen_sdk.py
@@ -18,15 +18,19 @@ Usage:
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+SDK_REPO = Path(os.environ.get("SFMAPI_SDK_REPO", REPO_ROOT.parent / "sfmapi-sdk")).resolve()
 SPEC_PATH = REPO_ROOT / "openapi.json"
-OUT_DIR = REPO_ROOT / "clients" / "python" / "sfmapi_client_gen"
-TS_OUT_DIR = REPO_ROOT / "clients" / "typescript" / "src" / "_generated"
+SDK_SPEC_PATH = SDK_REPO / "openapi.json"
+OUT_DIR = SDK_REPO / "python" / "sfmapi_client_gen"
+TS_ROOT = SDK_REPO / "typescript"
+TS_OUT_DIR = TS_ROOT / "src" / "_generated"
 DUMP_SCRIPT = REPO_ROOT / "scripts" / "dump_openapi.py"
 
 # Files in the generated SDK that the repo owns and the generator
@@ -55,6 +59,9 @@ def main() -> int:
     if not DUMP_SCRIPT.is_file():
         print(f"missing {DUMP_SCRIPT}", file=sys.stderr)
         return 2
+    if not SDK_REPO.is_dir():
+        print(f"missing SDK repo: {SDK_REPO}", file=sys.stderr)
+        return 2
 
     # 1. Dump OpenAPI.
     print(f"-> dumping OpenAPI to {SPEC_PATH}")
@@ -64,6 +71,8 @@ def main() -> int:
     ).returncode
     if rc != 0:
         return rc
+    shutil.copyfile(SPEC_PATH, SDK_SPEC_PATH)
+    print(f"-> copied OpenAPI snapshot to {SDK_SPEC_PATH}")
 
     # 2. Generate. Snapshot non-generated files before --overwrite
     # nukes the directory.
@@ -109,7 +118,7 @@ def main() -> int:
     if not npx:
         print(
             "skipping TS generation (npx not on PATH); run "
-            "`npm run gen:sdk` from clients/typescript/ to generate"
+            f"`npm run gen:sdk` from {TS_ROOT} to generate"
         )
         return 0
     TS_OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -123,7 +132,7 @@ def main() -> int:
             "-o",
             str(ts_target),
         ],
-        cwd=REPO_ROOT / "clients" / "typescript",
+        cwd=TS_ROOT,
         check=False,
         shell=False,
     ).returncode
