@@ -178,4 +178,14 @@ tests/
 docs/            user docs (Sphinx, published to https://sfmapi.github.io/)
 ```
 
-Both SQLite and Postgres are supported; CI tests both. AGPL-3.0-or-later.
+Both SQLite and Postgres are supported; CI tests both.
+
+## License
+
+The sfmapi server, wire specification, plugin hub, and backend adapter code in
+this repository are licensed under `AGPL-3.0-or-later`; see `LICENSE`.
+
+Backend plugins and third-party SfM engines keep their own licenses. This
+repository does not vendor COLMAP, HLOC, InstantSfM, SphereSfM, RealityCapture,
+or RealityScan; check each backend repository's README and third-party notices
+before redistributing binaries, datasets, or models.
