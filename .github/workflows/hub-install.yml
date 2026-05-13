@@ -12,6 +12,9 @@ concurrency:
   group: hub-install-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  HUB_INSTALL_TOKEN: ${{ secrets.SFMAPI_HUB_INSTALL_TOKEN }}
+
 jobs:
   install-registry:
     runs-on: ubuntu-latest
@@ -22,7 +25,16 @@ jobs:
       - name: Install sfmapi
         run: |
           uv sync --extra dev --extra mcp
+      - name: Configure private GitHub plugin access
+        if: env.HUB_INSTALL_TOKEN != ''
+        run: |
+          git config --global url."https://x-access-token:${HUB_INSTALL_TOKEN}@github.com/".insteadOf "https://github.com/"
+      - name: Report manifest-only fallback
+        if: env.HUB_INSTALL_TOKEN == ''
+        run: |
+          echo "::notice::SFMAPI_HUB_INSTALL_TOKEN is not configured; validating bundled plugin manifests only. Add a fine-grained token with read access to official plugin repos to enable full install checks."
       - name: Install every GitHub plugin entry
+        if: env.HUB_INSTALL_TOKEN != ''
         run: |
           uv run python - <<'PY'
           import subprocess
@@ -46,4 +58,8 @@ jobs:
               )
           PY
       - name: Validate installed entry points
+        if: env.HUB_INSTALL_TOKEN != ''
         run: uv run python -m bench.cli plugins --require-entry-points
+      - name: Validate bundled manifests
+        if: env.HUB_INSTALL_TOKEN == ''
+        run: uv run python -m bench.cli plugins

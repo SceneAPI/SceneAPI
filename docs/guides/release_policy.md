@@ -28,6 +28,11 @@ large datasets. Scheduled/manual workflows cover plugin installation,
 real-data benchmarks, native tool checks, and external conformance
 targets.
 
+The hub install workflow needs `SFMAPI_HUB_INSTALL_TOKEN` when official
+plugin repos are private. Use a fine-grained token with read-only access
+to the plugin repositories. Without it, the workflow validates bundled
+manifests but skips GitHub install and entry-point checks.
+
 ## Branch policy
 
 `main` is protected in GitHub. Required checks are the normal push CI

@@ -39,15 +39,22 @@ def _isolate_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Itera
     # `get_backend()` resolves.
     monkeypatch.setenv("SFMAPI_BACKEND", "stub")
 
+    import sfm_hub.discovery as discovery
     from app.adapters.registry import _REGISTRY, register_backend
     from app.adapters.stub_backend import StubBackend
     from app.core import config as config_mod
     from app.core.capabilities import reset_capabilities_cache
     from app.db import session as session_mod
 
+    class EmptyEntryPoints(list[object]):
+        def select(self, *, group: str) -> list[object]:
+            assert group == discovery.ENTRY_POINT_GROUP
+            return []
+
     config_mod._settings = None
     session_mod._engine = None
     session_mod._session_factory = None
+    monkeypatch.setattr(discovery.metadata, "entry_points", lambda: EmptyEntryPoints())
     saved_registry = dict(_REGISTRY)
     register_backend("stub", StubBackend)
     reset_capabilities_cache()
