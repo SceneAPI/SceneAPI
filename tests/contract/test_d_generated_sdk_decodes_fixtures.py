@@ -122,6 +122,22 @@ def test_job_accepted_decodes_through_generated() -> None:
     assert len(js.task_ids) >= 1
 
 
+def test_job_accepted_merge_decodes_through_generated() -> None:
+    """The merge envelope must round-trip with its stage-specific typed
+    fields — target_recon_id / source_recon_ids — and the provider
+    selector intact, not collapsed to an untyped bag."""
+    _skip_if_not_generated()
+    mod = _load_gen_module("models.job_accepted_response")
+    body = load_fixture("job_accepted_merge")
+    js = mod.JobAcceptedResponse.from_dict(body)
+    assert js.job_id
+    assert js.target_recon_id
+    assert isinstance(js.source_recon_ids, list)
+    assert len(js.source_recon_ids) >= 1
+    # provider is a typed field on the generated model even when null.
+    assert hasattr(js, "provider")
+
+
 def test_snapshot_list_empty_decodes_through_generated() -> None:
     _skip_if_not_generated()
     mod = _load_gen_module("models.snapshot_list_response")

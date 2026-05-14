@@ -155,6 +155,22 @@ def test_job_accepted_features_decodes() -> None:
     assert len(js.task_ids) >= 1
 
 
+def test_job_accepted_merge_decodes() -> None:
+    """The merge envelope is the same JobAcceptedResponse wire shape as
+    a single-stage submit. The hand-rolled SDK's minimal JobSubmitResponse
+    only models the common fields; the merge-specific typed fields are
+    asserted against the generated SDK in test_d."""
+    body = load_fixture("job_accepted_merge")
+    JobAccepted = getattr(SDK, "JobAcceptedResponse", None) or getattr(
+        SDK, "JobSubmitResponse", None
+    )
+    if JobAccepted is None:
+        pytest.skip("SDK has no JobAccepted/JobSubmitResponse model")
+    js = JobAccepted.model_validate(body)
+    assert js.job_id
+    assert isinstance(js.task_ids, list)
+
+
 def test_snapshot_list_empty_decodes() -> None:
     body = load_fixture("snapshot_list_empty")
     SnapshotList = getattr(SDK, "SnapshotListResponse", None)

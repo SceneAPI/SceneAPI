@@ -180,6 +180,68 @@ async def test_record_features_submit_envelope(contract_client: AsyncClient) -> 
     save_fixture("job_accepted_features", submit.json())
 
 
+async def test_record_merge_submit_envelope(contract_client: AsyncClient) -> None:
+    """``POST /v1/reconstructions:merge`` returns the same canonical
+    202 ``JobAcceptedResponse`` envelope as the SfM stages, but with the
+    merge-specific fields (``target_recon_id`` / ``source_recon_ids``)
+    populated. Locking it as a fixture gives the SDK decoders a
+    provider-carrying surface beyond the single-stage shape."""
+    from app.adapters.registry import register_backend
+    from app.adapters.stub_backend import StubBackend
+    from app.core.capabilities import reset_capabilities_cache
+
+    class MergeCapableBackend(StubBackend):
+        def capabilities(self) -> set[str]:
+            return {"recon.merge", "map.incremental"}
+
+    register_backend("stub", MergeCapableBackend)
+    reset_capabilities_cache()
+
+    proj = (await contract_client.post("/v1/projects", json={"name": "merge-host"})).json()
+    pid = proj["project_id"]
+    ds = (
+        await contract_client.post(
+            f"/v1/projects/{pid}/datasets",
+            json={
+                "name": "merge-ds",
+                "source": {"kind": "upload", "entries": []},
+                "camera_model": "SIMPLE_PINHOLE",
+                "intrinsics_mode": "single_camera",
+                "is_spherical": False,
+                "respect_exif_orientation": False,
+            },
+        )
+    ).json()
+    did = ds["dataset_id"]
+    sha = await _stub_uploaded_blob(contract_client)
+    await contract_client.post(
+        f"/v1/datasets/{did}/images",
+        json={"name": "stub.jpg", "blob_sha": sha, "width": 100, "height": 100},
+    )
+
+    # Each pipeline submit allocates a reconstruction row up front; the
+    # worker run fails on the stub but the recon_id is what we need.
+    recon_ids: list[str] = []
+    for seed in (1, 2):
+        submit = await contract_client.post(
+            f"/v1/projects/{pid}/pipelines/incremental",
+            json={"dataset_id": did, "spec": {"kind": "incremental", "version": 1, "seed": seed}},
+        )
+        assert submit.status_code in (200, 201, 202), submit.text
+        recon_ids.append(submit.json()["recon_id"])
+
+    merge = await contract_client.post(
+        "/v1/reconstructions:merge",
+        json={"target_recon_id": recon_ids[0], "source_recon_ids": [recon_ids[1]]},
+    )
+    assert merge.status_code in (200, 201, 202), merge.text
+    body = merge.json()
+    assert body["target_recon_id"] == recon_ids[0]
+    assert body["source_recon_ids"] == [recon_ids[1]]
+    assert "provider" in body  # the field is on the wire even when null
+    save_fixture("job_accepted_merge", body)
+
+
 async def test_record_snapshot_list_empty(contract_client: AsyncClient) -> None:
     """``GET /v1/reconstructions/{id}/snapshots`` on a brand-new
     reconstruction returns an empty ``SnapshotListResponse``. The

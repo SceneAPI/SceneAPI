@@ -1,0 +1,19 @@
+{
+  "action_id": null,
+  "applied_sim3": null,
+  "artifact_id": null,
+  "backend": null,
+  "dataset_id": null,
+  "job_id": "01H00000000000000000006001",
+  "method": null,
+  "project_id": null,
+  "provider": null,
+  "recon_id": "01H00000000000000000010001",
+  "source_recon_ids": [
+    "01H00000000000000000004001"
+  ],
+  "strategy": null,
+  "target_format": null,
+  "target_recon_id": "01H00000000000000000010001",
+  "task_ids": []
+}

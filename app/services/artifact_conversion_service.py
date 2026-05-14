@@ -31,7 +31,7 @@ from app.schemas.api.artifacts import (
     ArtifactValidationIssueOut,
     ArtifactValidationOut,
 )
-from app.services import artifact_service
+from app.services import artifact_service, provider_routing_service
 from sfm_hub.routing import ensure_provider_enabled
 
 
@@ -265,15 +265,6 @@ async def submit_conversion(
         raise ValidationError(
             "artifact already uses the selected format; no conversion job created"
         )
-    backend = _resolve_backend(request.provider)
-    if not has_backend_method(backend, "convert_artifact"):
-        raise CapabilityUnavailableError(
-            capability="artifacts.convert",
-            reason=(
-                f"Backend {getattr(backend, 'name', 'unknown')!r} advertises a conversion "
-                "contract but does not implement convert_artifact()."
-            ),
-        )
 
     source_job = await session.get(Job, artifact.job_id)
     if source_job is None:
@@ -289,7 +280,7 @@ async def submit_conversion(
         "project_id": source_job.project_id,
         "plan": plan.model_dump(mode="json"),
     }
-    task_spec = {
+    task_spec: dict[str, Any] = {
         "target_format": plan.target_format,
         "target_kind": target_kind,
         "name": request.name,
@@ -297,6 +288,26 @@ async def submit_conversion(
     }
     if request.provider is not None:
         task_spec["provider"] = request.provider
+    # Resolve a provider through routing profiles when the request did
+    # not pin one — then the submit-time backend probe and the worker
+    # both act on the SAME resolved provider.
+    provider_routing_service.apply_provider_resolution(
+        task_spec,
+        stage="convert_artifact",
+        capability="artifacts.convert",
+        project_id=source_job.project_id,
+        workspace=str(get_settings().workspace_root),
+    )
+    backend = _resolve_backend(task_spec.get("provider"))
+    if not has_backend_method(backend, "convert_artifact"):
+        raise CapabilityUnavailableError(
+            capability="artifacts.convert",
+            reason=(
+                f"Backend {getattr(backend, 'name', 'unknown')!r} advertises a conversion "
+                "contract but does not implement convert_artifact()."
+            ),
+        )
+
     node = TaskNode(
         task_id=new_id(),
         kind="convert_artifact",

@@ -13,7 +13,7 @@ from datetime import timedelta
 import pytest
 
 from app.core.ids import new_id
-from app.db.models import Job, Project, RuntimeVersion, Task
+from app.db.models import Job, Project, RuntimeVersion, Task, Upload
 from app.orchestrator.lease import now_utc
 
 pytestmark = pytest.mark.integration
@@ -120,3 +120,36 @@ async def test_run_janitor_once_re_enqueues_reclaimed_task(session) -> None:
     await session.refresh(task)
     # InlineQueue.enqueue runs the task synchronously to a terminal state.
     assert task.status == "succeeded"
+
+
+async def _seed_upload(session, *, state: str, expires_offset_seconds: float) -> str:
+    upload = Upload(
+        upload_id=new_id(),
+        tenant_id="default",
+        expected_size=1024,
+        received_bytes=0,
+        state=state,
+        expires_at=now_utc() + timedelta(seconds=expires_offset_seconds),
+    )
+    session.add(upload)
+    await session.commit()
+    return upload.upload_id
+
+
+async def test_run_janitor_once_reaps_expired_unfinalized_upload(session) -> None:
+    """The janitor sweep also drops uploads past expires_at that were
+    never finalized — this is what backs the UploadState 'expired ...
+    reaped by the janitor' doc claim."""
+    from app.orchestrator.janitor import run_janitor_once
+
+    stale = await _seed_upload(session, state="open", expires_offset_seconds=-3600)
+    fresh = await _seed_upload(session, state="open", expires_offset_seconds=3600)
+    finalized = await _seed_upload(session, state="finalized", expires_offset_seconds=-3600)
+
+    await run_janitor_once(session)
+
+    assert await session.get(Upload, stale) is None
+    assert await session.get(Upload, fresh) is not None
+    # A finalized upload past expires_at is kept — its bytes are content
+    # addressed and may still be referenced.
+    assert await session.get(Upload, finalized) is not None

@@ -64,22 +64,38 @@ async def reclaim_expired_leases(session: AsyncSession) -> list[str]:
 
 
 async def run_janitor_once(session: AsyncSession) -> list[str]:
-    """Reclaim expired leases and re-enqueue the reclaimed tasks.
+    """Reclaim expired leases, re-enqueue the reclaimed tasks, and GC
+    expired uploads.
 
     ARQ is push-based — a bare status reset would leave the task
     ``pending`` with no queue message, and no worker would ever pick it
     up. Re-enqueue failures are tolerated (Redis may be transiently
     down): the task stays ``pending`` and the next sweep retries.
+
+    The same sweep also drops uploads past ``expires_at`` that were
+    never finalized (and their temp bytes) — this is what backs the
+    ``UploadState`` doc's "expired ... reaped by the janitor" claim.
+    Returns the reclaimed task ids.
     """
     reclaimed = await reclaim_expired_leases(session)
-    if not reclaimed:
-        return reclaimed
-    queue = get_queue()
-    try:
-        for task_id in reclaimed:
-            with contextlib.suppress(Exception):
-                await queue.enqueue(task_id)
-    finally:
-        await queue.close()
-    _log.info("janitor.reclaimed", count=len(reclaimed), task_ids=reclaimed)
+    if reclaimed:
+        queue = get_queue()
+        try:
+            for task_id in reclaimed:
+                with contextlib.suppress(Exception):
+                    await queue.enqueue(task_id)
+        finally:
+            await queue.close()
+        _log.info("janitor.reclaimed", count=len(reclaimed), task_ids=reclaimed)
+
+    # Sweep expired, never-finalized uploads. Tolerate failures — the
+    # next tick retries; a transient DB hiccup must not kill the loop.
+    with contextlib.suppress(Exception):
+        from app.services.upload_service import gc_expired_uploads
+
+        expired = await gc_expired_uploads(session)
+        await session.commit()
+        if expired:
+            _log.info("janitor.uploads_expired", count=expired)
+
     return reclaimed

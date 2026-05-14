@@ -574,6 +574,14 @@ async def submit_project_images(
         "materialization": materialization,
         "dataset_dir": str(dataset_dir),
     }
+    spec_dict = request.model_dump(mode="json")
+    provider_routing_service.apply_provider_resolution(
+        spec_dict,
+        stage=recipe,
+        capability=capability,
+        project_id=d.project_id,
+        workspace=_routing_workspace(),
+    )
     return await _submit_single_stage(
         session,
         tenant_id=tenant_id,
@@ -581,7 +589,7 @@ async def submit_project_images(
         recipe=recipe,
         kind="project_images",
         inputs=inputs,
-        spec=request.model_dump(mode="json"),
+        spec=spec_dict,
         inline=inline,
     )
 
@@ -674,6 +682,13 @@ async def submit_merge_recons(
     spec: dict[str, Any] = {"sim3_aligners": sim3_aligners or []}
     if provider is not None:
         spec["provider"] = provider
+    provider_routing_service.apply_provider_resolution(
+        spec,
+        stage="merge_recons",
+        capability="recon.merge",
+        project_id=target.project_id,
+        workspace=_routing_workspace(),
+    )
     inputs = {
         "target_recon_id": target.recon_id,
         "target_reconstruction_root": str(target_root),
@@ -728,6 +743,13 @@ async def submit_to_cubemap(
     spec: dict[str, Any] = {}
     if provider is not None:
         spec["provider"] = provider
+    provider_routing_service.apply_provider_resolution(
+        spec,
+        stage="to_cubemap",
+        capability="projection.cubemap_rig",
+        project_id=r.project_id,
+        workspace=_routing_workspace(),
+    )
     return await _submit_single_stage(
         session,
         tenant_id=tenant_id,
@@ -1140,9 +1162,16 @@ async def submit_localize(
     ``backend_for_stage(spec)`` to route the call to a specific backend.
     """
     require_capability("localize.from_memory")
-    spec = spec or {}
+    spec = spec if spec is not None else {}
     r = await reconstruction_service.get_reconstruction(
         session, tenant_id=tenant_id, recon_id=recon_id
+    )
+    provider_routing_service.apply_provider_resolution(
+        spec,
+        stage="localize",
+        capability="localize.from_memory",
+        project_id=r.project_id,
+        workspace=_routing_workspace(),
     )
     _, sparse_dir = _reconstruction_paths(tenant_id, r)
     inputs = {
@@ -1177,6 +1206,13 @@ async def submit_vlad_index(
     if provider is not None and "provider" not in spec:
         spec["provider"] = provider
     d = await dataset_service.get_dataset(session, tenant_id=tenant_id, dataset_id=dataset_id)
+    provider_routing_service.apply_provider_resolution(
+        spec,
+        stage="vlad_index",
+        capability="similarity.vlad",
+        project_id=d.project_id,
+        workspace=_routing_workspace(),
+    )
     materialization = await derive_materialization(session, tenant_id=tenant_id, dataset=d)
     rows = (
         await session.execute(
