@@ -66,6 +66,10 @@ OPTIONAL_CAPABILITIES: tuple[str, ...] = (
     "matchers.superglue",
     "matchers.lightglue",
     "matchers.loftr",
+    # Forward-looking matcher type: no reference backend advertises
+    # ``matchers.mast3r`` today. Kept in the vocabulary so a backend can
+    # declare it the moment it ships — the standard defines the name;
+    # backends implement the subset they support.
     "matchers.mast3r",
     "matches.verify",
     # Standalone two-view geometry estimation (E / F / H matrices,
@@ -129,10 +133,14 @@ OPTIONAL_CAPABILITIES: tuple[str, ...] = (
     "rigs.configure",
     # Inputs
     "pose_priors.read_write",
-    # The active backend CONSUMES pose priors during mapping (e.g. COLMAP
-    # pose_prior_mapper). Distinct from ``pose_priors.read_write``, which
-    # is the sfmapi-internal accept/store/forward affordance — a backend
-    # may forward priors it never uses.
+    # The active backend CONSUMES pose priors during *incremental* mapping
+    # (e.g. COLMAP's pose_prior_mapper). Scope note: global / hierarchical /
+    # spherical mapping have no pose-prior-aware variant in COLMAP (neither
+    # the CLI subcommands nor the pycolmap API take a prior input), so a
+    # backend advertising this flag is asserting incremental-mapping prior
+    # support only. Distinct from ``pose_priors.read_write``, which is the
+    # sfmapi-internal accept/store/forward affordance — a backend may
+    # forward priors it never uses.
     "pose_priors.mapping",
     "inputs.imu",
     "inputs.timestamps",

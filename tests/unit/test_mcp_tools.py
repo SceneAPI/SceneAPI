@@ -210,6 +210,7 @@ def test_create_mcp_server_registers_curated_tools(monkeypatch: pytest.MonkeyPat
     assert "validate_artifact" in server.tools
     assert "plan_artifact_conversion" in server.tools
     assert "list_projects" in server.tools
+    assert "list_portable_stages" in server.tools
     assert server.kwargs["strict_input_validation"] is False
     assert "read-only local adapter" in server.kwargs["instructions"].lower()
     assert server.tools["get_job_progress"]["annotations"]["readOnlyHint"] is True

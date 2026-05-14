@@ -40,34 +40,6 @@ class TaskNode:
         )
 
 
-@dataclass
-class JobDag:
-    nodes: list[TaskNode]
-
-    def topo_order(self) -> list[TaskNode]:
-        by_id = {n.task_id: n for n in self.nodes}
-        order: list[TaskNode] = []
-        permanent: set[str] = set()
-        temporary: set[str] = set()
-
-        def visit(node: TaskNode) -> None:
-            if node.task_id in permanent:
-                return
-            if node.task_id in temporary:
-                raise ValueError(f"Cycle through {node.task_id}")
-            temporary.add(node.task_id)
-            for dep in node.depends_on:
-                if dep in by_id:
-                    visit(by_id[dep])
-            temporary.discard(node.task_id)
-            permanent.add(node.task_id)
-            order.append(node)
-
-        for n in self.nodes:
-            visit(n)
-        return order
-
-
 def hash_params(spec: dict) -> str:
     return content_address(canonical_json(spec))
 

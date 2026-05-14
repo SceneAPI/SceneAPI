@@ -69,18 +69,13 @@ Shared S3 cache bytes and sealed snapshot bytes are not yet separately
 attributed in this quota gate; operators should treat the storage quota
 as upload-focused until that accounting is wired.
 
-## Fair-share scheduling
+## Cross-tenant task scheduling
 
-The picker (`app.orchestrator.fair_share.pick_next_task`) interleaves
-ready tasks across tenants:
-
-1. Among pending tasks, group by `tenant_id`.
-2. Skip tenants whose `consecutive_for(tid) >= max_consecutive_per_tenant`.
-3. Among remaining, prefer the tenant with the fewest running tasks.
-4. Within that tenant, FIFO by `created_at`.
-
-Tunable via the `FairShareState(max_consecutive_per_tenant=N)` arg;
-default 2.
+v0 has no fair-share interleaving: the queue (`ArqQueue` or
+`InlineQueue`) drains tasks in enqueue order regardless of tenant, and
+the locked "one GPU per instance" constraint means a single worker
+processes one task at a time. Cross-tenant fairness becomes meaningful
+only on a shared multi-worker pool — a deferred concern, not a v0 one.
 
 ## Tenant isolation tests
 

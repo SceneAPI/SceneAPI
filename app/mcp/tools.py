@@ -332,6 +332,126 @@ async def list_submodels(
     return _dump(page)
 
 
+# Curated catalog of the portable decomposed-pipeline stage routes.
+# Each entry maps a stage to its HTTP route template, the resource it
+# scopes to, and the capability flag(s) that gate it. Surfaced through
+# MCP so an agent can answer "what stages can I run, and how?" without
+# reverse-engineering the REST surface. Keep in sync with
+# ``app/api/v1/{recon_stages,dataset_stages,sfm_stages,localize}.py``.
+_PORTABLE_STAGES: tuple[dict[str, Any], ...] = (
+    {
+        "stage": "features",
+        "scope": "dataset",
+        "method": "POST",
+        "route": "/v1/datasets/{dataset_id}/features",
+        "capability": "features.extract.{type}",
+    },
+    {
+        "stage": "matches",
+        "scope": "dataset",
+        "method": "POST",
+        "route": "/v1/datasets/{dataset_id}/matches",
+        "capability": "pairs.{strategy} + matchers.{type}",
+    },
+    {
+        "stage": "verify",
+        "scope": "dataset",
+        "method": "POST",
+        "route": "/v1/datasets/{dataset_id}/verify",
+        "capability": "matches.verify",
+    },
+    {
+        "stage": "bundleAdjust",
+        "scope": "reconstruction",
+        "method": "POST",
+        "route": "/v1/reconstructions/{recon_id}:bundleAdjust",
+        "capability": "ba.{mode}",
+    },
+    {
+        "stage": "triangulate",
+        "scope": "reconstruction",
+        "method": "POST",
+        "route": "/v1/reconstructions/{recon_id}:triangulate",
+        "capability": "triangulate.retri",
+    },
+    {
+        "stage": "poseGraphOptimize",
+        "scope": "reconstruction",
+        "method": "POST",
+        "route": "/v1/reconstructions/{recon_id}:poseGraphOptimize",
+        "capability": "pgo.optimize",
+    },
+    {
+        "stage": "export",
+        "scope": "reconstruction",
+        "method": "POST",
+        "route": "/v1/reconstructions/{recon_id}:export",
+        "capability": "export.{format}",
+    },
+    {
+        "stage": "relocalize",
+        "scope": "reconstruction",
+        "method": "POST",
+        "route": "/v1/reconstructions/{recon_id}:relocalize",
+        "capability": "relocalize.images",
+    },
+    {
+        "stage": "undistort",
+        "scope": "reconstruction",
+        "method": "POST",
+        "route": "/v1/reconstructions/{recon_id}:undistort",
+        "capability": "image.undistort",
+    },
+    {
+        "stage": "georegister",
+        "scope": "reconstruction",
+        "method": "POST",
+        "route": "/v1/reconstructions/{recon_id}/georegister",
+        "capability": "georegister.sim3 | georegister.gps",
+    },
+    {
+        "stage": "localize",
+        "scope": "reconstruction",
+        "method": "POST",
+        "route": "/v1/reconstructions/{recon_id}/localize",
+        "capability": "localize.from_memory",
+    },
+    {
+        "stage": "buildVocabTree",
+        "scope": "dataset",
+        "method": "POST",
+        "route": "/v1/datasets/{dataset_id}:buildVocabTree",
+        "capability": "index.vocab_tree",
+    },
+    {
+        "stage": "configureRig",
+        "scope": "dataset",
+        "method": "POST",
+        "route": "/v1/datasets/{dataset_id}:configureRig",
+        "capability": "rigs.configure",
+    },
+    {
+        "stage": "estimateTwoView",
+        "scope": "dataset",
+        "method": "POST",
+        "route": "/v1/datasets/{dataset_id}:estimateTwoView",
+        "capability": "geometry.two_view",
+    },
+)
+
+
+async def list_portable_stages() -> dict[str, Any]:
+    """List the portable decomposed-pipeline stage routes.
+
+    Each entry carries the stage name, the resource it scopes to
+    (dataset / reconstruction), the HTTP route template, and the
+    capability flag(s) that gate it. Cross-reference with
+    :func:`sfmapi_capabilities` to see which stages this deployment's
+    backend can actually run.
+    """
+    return {"items": [dict(stage) for stage in _PORTABLE_STAGES]}
+
+
 async def list_snapshots(recon_id: str, tenant_id: str | None = None) -> dict[str, Any]:
     """List sealed snapshot sequence numbers for one reconstruction."""
     resolved_tenant = resolve_tenant(tenant_id)
@@ -363,6 +483,7 @@ async def list_snapshots(recon_id: str, tenant_id: str | None = None) -> dict[st
 TOOLS = (
     sfmapi_version,
     sfmapi_capabilities,
+    list_portable_stages,
     list_backend_actions,
     get_backend_action,
     list_projects,

@@ -24,7 +24,7 @@ explicit decision-record update.
 | L5 | DAG: in-house orchestrator + ARQ as per-task executor. One Task = one ARQ job. | `CLAUDE.md` §"Locked Tech Decisions" | DAG semantics are sfmapi's; ARQ is just a scheduler |
 | L6 | DB: SQLite for v0, Postgres-compatible. ANSI SQL only. CI runs both. | `CLAUDE.md` §"Locked Tech Decisions" | SQLite-as-prod is a real deployment target (single-user / on-prem / embedded) |
 | L7 | Upload: roll-our-own chunked. `POST /uploads → upload_id`, `PATCH` with `Content-Range`, `POST /finalize`. `Idempotency-Key` from day 1. | `CLAUDE.md` §"Locked Tech Decisions" | TUS-resumable was overkill; this is the minimum for our use case |
-| L8 | Points binary: 26 B/point + 32 B header. `application/x-sfm-points-v1`. Cursor pagination via HTTP `Range`. | `CLAUDE.md` §"Locked Tech Decisions" | 80% size reduction vs JSON; cache-friendly; standard HTTP semantics |
+| L8 | Points binary: 26 B/point + 44 B header. `application/x-sfm-points-v1`. Cursor pagination via HTTP `Range`. | `CLAUDE.md` §"Locked Tech Decisions" + `app/schemas/points_binary.py` | 80% size reduction vs JSON; cache-friendly; standard HTTP semantics |
 | L9 | Realtime: SSE-only for v0. Reserve `/ws/v1/...` for later. | `CLAUDE.md` §"Locked Tech Decisions" | SSE is one-directional, sufficient for progress; WebSocket would be premature |
 | L10 | Storage backends are pluggable: `BlobStore` Protocol + `Queue` Protocol; selected via env vars. | `CLAUDE.md` §"Locked Tech Decisions" | Real swap points (FS / S3 / memory; ARQ / inline) for different deploys |
 | L11 | Routes must declare `response_model`. SDK codegen falls back to `Any` otherwise. | `CLAUDE.md` §"Routes must declare `response_model`" | Typed SDKs depend on it; 16 intentionally-untyped binary/SSE/204 routes documented as the exception |
@@ -83,6 +83,7 @@ Each of these has a long-form design doc on disk. Status flips to
 | P3 | Postgres RLS for tenancy + 3-layer defense (app `WHERE` + DB policy + conformance audit). | Ready to ship if Postgres-only is committed (~6h for phases a+b). | `docs/guides/rls_postgres_tenancy_proposal.md` | **Postgres-only commit** (drops L6's dual-dialect rule) |
 | P4 | One-shot streaming endpoints under `/v1/oneshot/...`. Phase a (`oneshot/features`) **shipped as L17**. Phase b (`oneshot/localize`) **shipped as L18**. Phase c (`oneshot/match`) deferred until a real consumer asks. | Phases a + b shipped. | `docs/guides/oneshot_streaming_proposal.md` | Phase c: defer indefinitely |
 | P5 | Streaming SLAM endpoint at `/ws/v1/slam/sessions/{sid}/frames` with `Session` resource + `SlamBackend` Protocol + OpenVINS reference adapter. WebSocket bidirectional framing, frames in / poses out at ~30 Hz, sparse persistence (keyframes + on-demand map snapshots only). | Phases a-d ready to design; ~40-45h total. **Touches L4 (live map reads) + L9 (WebSocket)** — would unlock both. | `docs/guides/streaming_slam_proposal.md` | **Confirmed consumer with VIO data** + readiness to unlock L4 + L9. Otherwise: track as future architectural reference; recommend `slamapi` sibling service when needed. |
+| P6 | In-memory reconstruction handle for `compute.in_memory` backends. Analysis concludes a non-path `ReconstructionHandle` Protocol is **premature**: fork-per-task + one-Task-one-ARQ-job (L5) + sealed-snapshot-only reads (L4) bound any in-memory handle to within-Task scope, where it is an implementation detail of a not-yet-existing fused-recipe Task kind rather than a wire contract. Recommendation: document `compute.in_memory` as an advisory scheduler hint, keep `MappingInput` as the sole cross-Task serialization format, defer the handle Protocol. | Recommend approving the doc clarification (~30 min); defer the Protocol. | `docs/guides/in_memory_reconstruction_proposal.md` | Single user `OK` on the doc clarification; the deferred handle Protocol is blocked on a fused-recipe Task kind existing + profiling as I/O-bound. |
 
 ## Decision flow
 
@@ -105,8 +106,8 @@ When a new architectural question comes up:
 
 - Locked: 34
 - Cancelled: 6
-- Proposed: 5 (P4 phases a+b shipped as L17/L18; P1's direction shipped as L27; P5 + P2-P3 still proposed)
-- **Total tracked decisions: 43**
+- Proposed: 6 (P4 phases a+b shipped as L17/L18; P1's direction shipped as L27; P2-P3 + P5-P6 still proposed)
+- **Total tracked decisions: 44**
 
 Counts here exclude per-feature implementation decisions (route
 shapes, schema fields, SDK method names) — those live in their

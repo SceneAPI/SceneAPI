@@ -136,6 +136,18 @@ class ArtifactConvertRequest(ArtifactConversionPlanRequest):
     options: dict[str, Any] = Field(default_factory=dict)
 
 
+class ArtifactFileRef(BaseModel):
+    """One file that belongs to a portable artifact manifest."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    uri: str
+    media_type: str | None = None
+    sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    byte_size: int | None = Field(default=None, ge=0)
+
+
 class ArtifactImportRequest(BaseModel):
     """Register an existing artifact URI as a typed sfmapi artifact.
 
@@ -201,18 +213,6 @@ class ArtifactValidationOut(BaseModel):
     artifact_type: str | None = None
     checked_content: bool = False
     issues: list[ArtifactValidationIssueOut] = Field(default_factory=list)
-
-
-class ArtifactFileRef(BaseModel):
-    """One file that belongs to a portable artifact manifest."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    name: str
-    uri: str
-    media_type: str | None = None
-    sha256: str | None = Field(default=None, min_length=64, max_length=64)
-    byte_size: int | None = Field(default=None, ge=0)
 
 
 class StageArtifactOut(LinkedModel):

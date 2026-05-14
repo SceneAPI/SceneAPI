@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch: {}  # enables the manual-only real-engine job below
 
 permissions:
   contents: read
@@ -103,6 +104,49 @@ jobs:
         run: uv run alembic upgrade head
       - name: Test (Postgres)
         run: uv run pytest -q -m "not needs_pycolmap"
+
+  real-engine:
+    # Manual-only (workflow_dispatch). Building COLMAP + pulling the
+    # South Building sample is slow and runner-specific, so this lane
+    # does NOT gate PRs — trigger it from the Actions tab when
+    # validating engine-affecting changes. See
+    # docs/guides/real_engine_testing.md. SKELETON: the COLMAP build
+    # step is expected to be tuned per runner before this is relied on.
+    name: real-engine (manual)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    timeout-minutes: 90
+    env:
+      SFMAPI_DB_URL: "sqlite+aiosqlite:///./test_real_engine.db"
+      SFMAPI_AUTH_MODE: "none"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: SFMAPI/sfmapi-sdk
+          path: .cache/sfmapi-sdk
+      - uses: astral-sh/setup-uv@v7
+      - name: Install COLMAP
+        # Placeholder: apt's colmap is often stale. For a hardened lane,
+        # build from source or use a prebuilt image pinned to a known
+        # version (see docs/guides/real_engine_testing.md).
+        run: sudo apt-get update && sudo apt-get install -y colmap
+      - name: Install sfmapi + a COLMAP backend
+        run: |
+          uv sync --extra dev --extra mcp
+          uv pip install -e "$SFMAPI_SDK_REPO/python"
+          uv pip install -e "$SFMAPI_SDK_REPO/python/sfmapi_client_gen"
+          # A COLMAP-backed plugin lives in its own repo; install it
+          # here so it auto-registers via its sfmapi.backends entry point.
+          # uv pip install -e ../sfmapi_colmap_cli
+      - name: Download South Building sample
+        run: |
+          mkdir -p .cache/samples
+          # curl -L https://demuc.de/colmap/datasets/south-building.zip \
+          #   -o .cache/samples/south-building.zip
+          echo "TODO: wire the South Building fetch for the runner"
+      - name: Test (real engine)
+        run: uv run pytest -q -m "needs_pycolmap or needs_backend"
 
   smoke:
     name: smoke (compose stack)

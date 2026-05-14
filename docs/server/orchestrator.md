@@ -13,7 +13,11 @@
    :members:
    :no-index:
 
-.. automodule:: app.orchestrator.fair_share
+.. automodule:: app.orchestrator.janitor
+   :members:
+   :no-index:
+
+.. automodule:: app.orchestrator.queue
    :members:
    :no-index:
 

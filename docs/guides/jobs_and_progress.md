@@ -47,21 +47,26 @@ the second call hits cache.
 ```
 
 The pattern works on both SQLite and Postgres without dialect
-branches. Workers refresh every `lease_ttl_seconds // 3`. If a worker
-crashes, the next worker that scans pending tasks reclaims the lease
-once `lease_expires_at < now()`.
+branches. Workers refresh every `lease_ttl_seconds // 3`.
 
-## Fair-share scheduler
+## Lease-reclaim janitor
 
 ```{eval-rst}
-.. automodule:: app.orchestrator.fair_share
-   :members:
+.. autofunction:: app.orchestrator.janitor.reclaim_expired_leases
+   :no-index:
+
+.. autofunction:: app.orchestrator.janitor.run_janitor_once
    :no-index:
 ```
 
-Picks the next ready Task biased toward tenants with the smallest
-running-task count, capped by `max_consecutive_per_tenant` to prevent
-starvation when one tenant submits 100 jobs at once.
+If a worker crashes mid-task, its lease is never refreshed and
+`lease_expires_at` falls into the past. A background loop in
+`app.main` lifespan runs `run_janitor_once` every
+`janitor_interval_seconds`: it resets every `running` task with an
+expired lease back to `pending` (clearing `worker_id` /
+`lease_expires_at`) and re-enqueues it, since ARQ is push-based and a
+bare status reset would otherwise orphan the task. Skipped in
+ephemeral mode.
 
 ## ProgressEvent stream
 

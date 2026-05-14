@@ -348,7 +348,7 @@ server **MUST** respond:
 content-type: application/problem+json
 
 {
-  "type":       "https://sfmapi/errors/capability_unavailable",
+  "type":       "https://sfmapi.github.io/errors/capability_unavailable",
   "title":      "Capability not available in this deployment",
   "status":     501,
   "detail":     "capability 'map.hierarchical' not supported by the current backend",
@@ -583,8 +583,11 @@ segments. **Bold** = required. Italics = optional.
 | GET    | `/healthz`          | Liveness — always 200 if process alive  |
 | GET    | `/readyz`           | Readiness — DB/queue reachable, ...     |
 | GET    | `/version`          | Versions of server + engine             |
+| GET    | `/spec`             | Discovery — spec id/version + doc/OpenAPI pointers |
 | GET    | `/openapi.json`     | OpenAPI 3.1 document                    |
 | GET    | `/metrics`          | Prometheus exposition (optional)        |
+| GET    | `/v1/capabilities`  | Capability discovery (see §3.11)        |
+| GET    | `/v1/camera-models` | `Page<CameraModel>` — supported camera models |
 
 ### 6.2 Projects
 
@@ -695,11 +698,17 @@ body field or query parameter.
 
 | Method  | Path                          | Body / Headers                       | Returns             |
 |---------|-------------------------------|--------------------------------------|---------------------|
+| GET     | `/v1/jobs`                    | `?project_id=&status=&page_token=&page_size=` | `Page<Job>` |
 | GET     | `/v1/jobs/{jid}`              | —                                    | `JobDetail`         |
 | POST    | `/v1/jobs/{jid}:cancel`       | `?force=true`                        | `Job` (cancel set)  |
 | POST    | `/v1/jobs/{jid}:resume`       | —                                    | 202 + `Job`         |
+| GET     | `/v1/jobs/{jid}/progress`     | —                                    | `JobProgress` (compact polling snapshot) |
 | GET     | `/v1/jobs/{jid}/events`       | `Last-Event-ID: <int>`               | SSE (`ProgressEvent`) |
+| GET     | `/v1/jobs/{jid}/artifacts`    | `?kind=`                             | `Page<StageArtifact>` |
 | GET     | `/ws/v1/jobs/{jid}`           | WebSocket upgrade                    | (see §8)            |
+
+`GET /v1/jobs/{jid}/progress` complements `/events` for dashboards and
+CLIs that prefer polling over holding an SSE connection open.
 
 ### 6.8 Pipelines (recipe sugar)
 
@@ -734,11 +743,16 @@ backend installed through sfm_hub without changing the process-wide
 | GET    | `/v1/reconstructions/{rid}`                              | `Reconstruction`              |
 | GET    | `/v1/reconstructions/{rid}/submodels`                    | `Page<SubModel>`              |
 | GET    | `/v1/submodels/{smid}`                                   | `SubModel`                    |
+| GET    | `/v1/reconstructions/{rid}/artifacts`                    | `Page<StageArtifact>` (`?kind=`) |
 | GET    | `/v1/reconstructions/{rid}/snapshots`                    | `{seqs: int[], _links: {...}}`|
 | GET    | `/v1/reconstructions/{rid}/snapshots/{seq}/{name}`       | file bytes (ETag, immutable)  |
+| GET    | `/v1/reconstructions/{rid}/snapshots/{seq}/submodels/{idx}/{name}` | per-submodel file bytes (ETag, immutable) |
 
 Where `{name}` is one of `cameras.json | images.json | rigs.json |
-frames.json | points.bin | points_preview.bin | summary.json`.
+frames.json | points.bin | points_preview.bin | summary.json`. The
+top-level `.../{seq}/{name}` route serves the primary submodel
+(`sparse/0`); the `.../{seq}/submodels/{idx}/{name}` route addresses
+any submodel `idx` of a multi-model reconstruction.
 
 #### 6.9.1 Octree tiles (optional)
 
@@ -870,19 +884,30 @@ preserved on disk for future runs but not used.
 
 #### 6.9.5 Sim(3) georegistration (optional)
 
-Apply a similarity transform to a reconstruction (e.g., to align it to
-a GPS frame or to scale to metric units):
+Georegister a reconstruction (e.g., to align it to a GPS frame or to
+scale to metric units):
 
-| Method | Path                                                  | Body   | Returns      |
-|--------|-------------------------------------------------------|--------|--------------|
-| POST   | `/v1/reconstructions/{rid}/georegister`               | `Sim3` | 202 + job    |
+| Method | Path                                      | Body                | Returns   |
+|--------|-------------------------------------------|---------------------|-----------|
+| POST   | `/v1/reconstructions/{rid}/georegister`   | `GeoregisterRequest`| 202 + job |
 
-`Sim3` shape: `{ rotation: Rotation, translation: [x, y, z], scale: f }`
-(see §7.2.2). The worker reads the latest sealed snapshot, applies the
+`GeoregisterRequest` shape:
+`{ mode: "sim3" | "gps", sim3?: Sim3, provider?, backend_options? }`.
+
+- `mode="sim3"` (default) — `sim3` is **required**; the worker applies
+  the caller-supplied `Sim3` transform (capability `georegister.sim3`).
+  `Sim3` shape: `{ rotation: Rotation, translation: [x, y, z], scale: f }`
+  (see §7.2.2).
+- `mode="gps"` — `sim3` is **rejected**; the worker *solves* the
+  transform from georeferenced inputs (GPS / geo-tags / control points)
+  via the backend's `align_reconstruction` (capability
+  `georegister.gps`).
+
+Either way the worker reads the latest sealed snapshot, applies the
 transform to every camera + 3D point, and **seals a fresh snapshot**
 that clients can read the same way they read post-mapping snapshots.
 Servers **MUST** return 404 when `recon_id` is unknown and 422 on a
-malformed `Sim3` body.
+malformed body (including `mode="sim3"` without a `sim3` transform).
 
 #### 6.9.6 Spherical → cubemap conversion (optional)
 
@@ -1137,6 +1162,42 @@ against the reconstruction's largest sealed snapshot. The task's
 
 Servers **MUST** return 404 when `recon_id` is unknown and 422 when
 `blob_sha` is missing or the wrong length (must be 64 hex chars).
+
+#### 6.9.18 Portable post-mapping + retrieval stages (optional)
+
+The decomposed pipeline exposes the post-mapping and dataset-prep
+stages as standalone routes. Each takes a portable stage spec
+(`{ version, provider?, backend_options?, ... }`, `extra="forbid"`),
+enqueues a single Task, and returns the canonical 202 envelope with
+the resolved `provider` echoed back.
+
+Reconstruction-scoped:
+
+| Method | Path                                            | Body                | Capability          |
+|--------|-------------------------------------------------|---------------------|---------------------|
+| POST   | `/v1/reconstructions/{rid}:bundleAdjust`        | `BundleAdjustmentSpec` | `ba.{mode}`      |
+| POST   | `/v1/reconstructions/{rid}:triangulate`         | `TriangulateSpec`   | `triangulate.retri` |
+| POST   | `/v1/reconstructions/{rid}:poseGraphOptimize`   | `PoseGraphSpec`     | `pgo.optimize`      |
+| POST   | `/v1/reconstructions/{rid}:export`              | `ExportSpec`        | `export.{format}`   |
+| POST   | `/v1/reconstructions/{rid}:relocalize`          | `RelocalizeSpec`    | `relocalize.images` |
+| POST   | `/v1/reconstructions/{rid}:undistort`           | `UndistortSpec`     | `image.undistort`   |
+
+Dataset-scoped (operate on the dataset's feature database):
+
+| Method | Path                                       | Body              | Capability          |
+|--------|--------------------------------------------|-------------------|---------------------|
+| POST   | `/v1/datasets/{did}:buildVocabTree`        | `VocabTreeSpec`   | `index.vocab_tree`  |
+| POST   | `/v1/datasets/{did}:configureRig`          | `RigConfigSpec`   | `rigs.configure`    |
+| POST   | `/v1/datasets/{did}:estimateTwoView`       | `TwoViewSpec`     | `geometry.two_view` |
+
+`:bundleAdjust` selects its capability from `mode` (`ba.standard` /
+`ba.two_stage` / `ba.featuremetric` / `ba.rig`); `:export` from
+`format`. Servers **MUST** return 501 with the canonical capability
+name when the resolved backend does not advertise it, 404 when
+`rid` / `did` is unknown, and 422 on a malformed spec.
+`:triangulate` / `:relocalize` / `:undistort` need a local
+`image_root`; servers **MUST** return 422 for upload-source datasets
+the worker cannot materialize on demand.
 
 ### 6.10 Backend extensions [Reference-only]
 
@@ -1701,9 +1762,13 @@ A *conforming server* **MAY** additionally implement:
 - §6.11 admin / api-keys / plugin hub.
 - `local`/`s3` source kinds.
 - WebSocket peek+cancel.
-- Mask sets / segmentation (not yet specified).
-- Dense reconstruction / mesh extraction (not yet specified).
-- Geo-registration / submodel transforms (not yet specified).
+- Mask sets / segmentation (mask *input* support; the wire format is a
+  §12 future revision item).
+- Geo-registration / submodel transforms (§6.9.5).
+
+Dense MVS and mesh / texture generation are **out of scope** by design
+— see Appendix D — and a conforming server neither implements nor is
+expected to implement them.
 
 Clients **MUST** be prepared for *optional* features to return 404.
 

@@ -359,18 +359,29 @@ digests, and JSON manifests when bytes are available.
 
 `{name}` is one of `cameras.json | images.json | rigs.json |
 frames.json | pose_graph.json | summary.json | points.bin |
-points_preview.bin | tiles/index.json | dense/index.json |
-dense/fused.bin`.
+points_preview.bin | tiles/index.json`.
 
 ## Reconstruction-level stages (LRO)
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| POST | `/v1/reconstructions/{rid}/localize` | `LocalizationRequest{blob_sha, sift?}` | 202 + `JobAccepted` |
-| POST | `/v1/reconstructions/{rid}/georegister` | `Sim3` | 202 + `JobAccepted` |
-| POST | `/v1/reconstructions/{rid}/mesh` | `MeshRequest{method, options?}` | 202 + `JobAccepted` |
-| POST | `/v1/reconstructions/{rid}/dense` | — | 202 + `JobAccepted` |
+| POST | `/v1/reconstructions/{rid}/localize` | `LocalizationRequest{blob_sha, sift?, provider?}` | 202 + `JobAccepted` |
+| POST | `/v1/reconstructions/{rid}/georegister` | `GeoregisterRequest{mode, sim3?, provider?}` | 202 + `JobAccepted` |
 | POST | `/v1/reconstructions/{rid}:to_cubemap` | — | 202 + `JobAccepted` |
+| POST | `/v1/reconstructions/{rid}:bundleAdjust` | `BundleAdjustmentSpec` | 202 + `JobAccepted` |
+| POST | `/v1/reconstructions/{rid}:triangulate` | `TriangulateSpec` | 202 + `JobAccepted` |
+| POST | `/v1/reconstructions/{rid}:poseGraphOptimize` | `PoseGraphSpec` | 202 + `JobAccepted` |
+| POST | `/v1/reconstructions/{rid}:export` | `ExportSpec` | 202 + `JobAccepted` |
+| POST | `/v1/reconstructions/{rid}:relocalize` | `RelocalizeSpec` | 202 + `JobAccepted` |
+| POST | `/v1/reconstructions/{rid}:undistort` | `UndistortSpec` | 202 + `JobAccepted` |
+
+## Dataset-level stages (LRO)
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `/v1/datasets/{did}:buildVocabTree` | `VocabTreeSpec` | 202 + `JobAccepted` |
+| POST | `/v1/datasets/{did}:configureRig` | `RigConfigSpec` | 202 + `JobAccepted` |
+| POST | `/v1/datasets/{did}:estimateTwoView` | `TwoViewSpec` | 202 + `JobAccepted` |
 
 ## Similarity
 
