@@ -70,8 +70,10 @@ async def localize(
         blob_sha=body.blob_sha,
         spec=spec,
     )
+    # submit_localize resolves provider in place on spec — echo what
+    # routing actually chose, not just what the request pinned.
     return accepted_response(
-        JobAcceptedResponse(job_id=job_id, recon_id=recon_id, provider=body.provider)
+        JobAcceptedResponse(job_id=job_id, recon_id=recon_id, provider=spec.get("provider"))
     )
 
 
@@ -132,9 +134,9 @@ async def to_cubemap(
     rig + frames, and seals a fresh snapshot whose ``rigs.json`` and
     ``frames.json`` carry the cubemap layout.
     """
-    job_id, _tasks = await sfm_stage_service.submit_to_cubemap(
+    job_id, _tasks, resolved_provider = await sfm_stage_service.submit_to_cubemap(
         session, tenant_id=tenant_id, recon_id=recon_id, provider=provider
     )
     return accepted_response(
-        JobAcceptedResponse(job_id=job_id, recon_id=recon_id, provider=provider)
+        JobAcceptedResponse(job_id=job_id, recon_id=recon_id, provider=resolved_provider)
     )

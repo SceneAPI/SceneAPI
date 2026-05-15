@@ -252,7 +252,7 @@ async def submit_conversion(
     artifact_id: str,
     request: ArtifactConvertRequest,
     inline: bool = False,
-) -> tuple[str, list[Any], str]:
+) -> tuple[str, list[Any], str, str | None]:
     artifact = await artifact_service.get_artifact(
         session,
         tenant_id=tenant_id,
@@ -331,7 +331,7 @@ async def submit_conversion(
         nodes=[node],
         inline=inline,
     )
-    return job_id, tasks, plan.target_format
+    return job_id, tasks, plan.target_format, task_spec.get("provider")
 
 
 async def import_artifact(

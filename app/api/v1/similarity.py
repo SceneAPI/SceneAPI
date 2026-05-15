@@ -85,12 +85,15 @@ async def build(
     pointing at the job.
     """
     if strategy == "vlad":
-        job_id, _tasks = await sfm_stage_service.submit_vlad_index(
+        job_id, _tasks, resolved_provider = await sfm_stage_service.submit_vlad_index(
             session, tenant_id=tenant_id, dataset_id=dataset_id, provider=provider
         )
         return accepted_response(
             JobAcceptedResponse(
-                job_id=job_id, dataset_id=dataset_id, strategy="vlad", provider=provider
+                job_id=job_id,
+                dataset_id=dataset_id,
+                strategy="vlad",
+                provider=resolved_provider,
             )
         )
     index = await similarity_service.build_index(

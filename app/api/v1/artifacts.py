@@ -104,7 +104,12 @@ async def convert_artifact(
     session: AsyncSession = Depends(get_db),
 ) -> Response:
     """Submit an artifact format conversion as a normal sfmapi job."""
-    job_id, tasks, target_format = await artifact_conversion_service.submit_conversion(
+    (
+        job_id,
+        tasks,
+        target_format,
+        resolved_provider,
+    ) = await artifact_conversion_service.submit_conversion(
         session,
         tenant_id=tenant_id,
         artifact_id=artifact_id,
@@ -116,7 +121,7 @@ async def convert_artifact(
             task_ids=[task.task_id for task in tasks],
             artifact_id=artifact_id,
             target_format=target_format,
-            provider=body.provider,
+            provider=resolved_provider,
         )
     )
 

@@ -127,8 +127,9 @@ app/
   orchestrator/
     dag.py               Job→Task DAG construction
     scheduler.py         lease + cache-lookup + enqueue
-    cancel.py            cooperative cancel-flag + hard-kill protocol
-    janitor.py           reclaim expired leases
+    janitor.py           reclaim expired leases + GC expired uploads
+    queue.py             Queue Protocol (ArqQueue | InlineQueue)
+    lease.py resume.py   lease helpers, job resume
   services/              tenant-scoped CRUD; uses sessions + storage/orchestrator
     project_service.py dataset_service.py image_service.py
     job_service.py reconstruction_service.py

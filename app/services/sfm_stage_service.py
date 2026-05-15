@@ -509,7 +509,7 @@ async def submit_render_cubemap(
     spec: dict[str, Any] | None = None,
     provider: str | None = None,
     inline: bool = False,
-) -> tuple[str, list[Any]]:
+) -> tuple[str, list[Any], str | None]:
     """Render every spherical panorama into 6 cubemap faces.
 
     Refuses if the dataset isn't ``is_spherical=true``. The output is a
@@ -519,7 +519,7 @@ async def submit_render_cubemap(
     ``provider`` and any ``provider`` already on the supplied ``spec``
     dict (e.g. when callers passed a pre-built operation spec) are
     folded onto the ``ProjectionJobRequest`` so the worker can route
-    correctly.
+    correctly. Returns ``(job_id, tasks, resolved_provider)``.
     """
     spec_dict = dict(spec or {})
     inner_provider = spec_dict.pop("provider", None)
@@ -549,8 +549,11 @@ async def submit_project_images(
     spec: dict[str, Any],
     recipe: str = "project_images",
     inline: bool = False,
-) -> tuple[str, list[Any]]:
-    """Submit a portable image projection job over a dataset."""
+) -> tuple[str, list[Any], str | None]:
+    """Submit a portable image projection job over a dataset.
+
+    Returns ``(job_id, tasks, resolved_provider)`` — the third element
+    is the provider routing actually selected (echoed by the route)."""
     request = ProjectionJobRequest.model_validate(spec)
     capability = projection_capability(request.operation)
     require_capability(capability)
@@ -582,7 +585,7 @@ async def submit_project_images(
         project_id=d.project_id,
         workspace=_routing_workspace(),
     )
-    return await _submit_single_stage(
+    job_id, tasks = await _submit_single_stage(
         session,
         tenant_id=tenant_id,
         project_id=d.project_id,
@@ -592,6 +595,7 @@ async def submit_project_images(
         spec=spec_dict,
         inline=inline,
     )
+    return job_id, tasks, spec_dict.get("provider")
 
 
 async def submit_video_frames(
@@ -658,10 +662,13 @@ async def submit_merge_recons(
     sim3_aligners: list[dict[str, Any]] | None = None,
     provider: str | None = None,
     inline: bool = False,
-) -> tuple[str, list[Any]]:
+) -> tuple[str, list[Any], str | None]:
     """Merge several reconstructions into ``target_recon_id``.
 
-    All sources MUST belong to the same project as the target."""
+    All sources MUST belong to the same project as the target. Returns
+    ``(job_id, tasks, resolved_provider)`` — the third element is the
+    provider routing actually selected, which the route echoes on the
+    202 (it may differ from the request when a routing profile fired)."""
     require_capability("recon.merge")
     target = await reconstruction_service.get_reconstruction(
         session, tenant_id=tenant_id, recon_id=target_recon_id
@@ -694,7 +701,7 @@ async def submit_merge_recons(
         "target_reconstruction_root": str(target_root),
         "source_sparse_dirs": source_dirs,
     }
-    return await _submit_single_stage(
+    job_id, tasks = await _submit_single_stage(
         session,
         tenant_id=tenant_id,
         project_id=target.project_id,
@@ -704,6 +711,7 @@ async def submit_merge_recons(
         spec=spec,
         inline=inline,
     )
+    return job_id, tasks, spec.get("provider")
 
 
 async def submit_to_cubemap(
@@ -713,12 +721,13 @@ async def submit_to_cubemap(
     recon_id: str,
     provider: str | None = None,
     inline: bool = False,
-) -> tuple[str, list[Any]]:
+) -> tuple[str, list[Any], str | None]:
     """Convert a spherical reconstruction to a cubemap rig (worker job).
 
     Refuses if the reconstruction's dataset isn't marked
     ``is_spherical`` — this avoids running the converter against a
-    pinhole reconstruction (which produces nonsense)."""
+    pinhole reconstruction (which produces nonsense). Returns
+    ``(job_id, tasks, resolved_provider)``."""
     require_capability("projection.cubemap_rig")
     r = await reconstruction_service.get_reconstruction(
         session, tenant_id=tenant_id, recon_id=recon_id
@@ -750,7 +759,7 @@ async def submit_to_cubemap(
         project_id=r.project_id,
         workspace=_routing_workspace(),
     )
-    return await _submit_single_stage(
+    job_id, tasks = await _submit_single_stage(
         session,
         tenant_id=tenant_id,
         project_id=r.project_id,
@@ -760,6 +769,7 @@ async def submit_to_cubemap(
         spec=spec,
         inline=inline,
     )
+    return job_id, tasks, spec.get("provider")
 
 
 async def submit_georegister(
@@ -1199,8 +1209,10 @@ async def submit_vlad_index(
     spec: dict[str, Any] | None = None,
     provider: str | None = None,
     inline: bool = False,
-) -> tuple[str, list[Any]]:
-    """Build a VLAD descriptor index for the dataset (worker job)."""
+) -> tuple[str, list[Any], str | None]:
+    """Build a VLAD descriptor index for the dataset (worker job).
+
+    Returns ``(job_id, tasks, resolved_provider)``."""
     require_capability("similarity.vlad")
     spec = dict(spec or {})
     if provider is not None and "provider" not in spec:
@@ -1231,7 +1243,7 @@ async def submit_vlad_index(
         "image_id_by_name": image_id_by_name,
         "dataset_dir": str(dataset_dir),
     }
-    return await _submit_single_stage(
+    job_id, tasks = await _submit_single_stage(
         session,
         tenant_id=tenant_id,
         project_id=d.project_id,
@@ -1241,6 +1253,7 @@ async def submit_vlad_index(
         spec=spec,
         inline=inline,
     )
+    return job_id, tasks, spec.get("provider")
 
 
 async def submit_verify(

@@ -221,7 +221,7 @@ async def render_cubemap(
     """
     if body is None:
         body = CubemapProjectionRequest()
-    job_id, _tasks = await sfm_stage_service.submit_render_cubemap(
+    job_id, _tasks, resolved_provider = await sfm_stage_service.submit_render_cubemap(
         session,
         tenant_id=tenant_id,
         dataset_id=dataset_id,
@@ -230,7 +230,7 @@ async def render_cubemap(
         provider=body.provider,
     )
     return accepted_response(
-        JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id, provider=body.provider)
+        JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id, provider=resolved_provider)
     )
 
 
@@ -246,14 +246,14 @@ async def project_images(
     session: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     """Run a portable projection transform over the dataset images."""
-    job_id, _tasks = await sfm_stage_service.submit_project_images(
+    job_id, _tasks, resolved_provider = await sfm_stage_service.submit_project_images(
         session,
         tenant_id=tenant_id,
         dataset_id=dataset_id,
         spec=body.model_dump(mode="json"),
     )
     return accepted_response(
-        JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id, provider=body.provider)
+        JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id, provider=resolved_provider)
     )
 
 
@@ -271,7 +271,7 @@ async def render_equirectangular(
     """Render a cubemap dataset back to equirectangular panoramas."""
     if body is None:
         body = EquirectangularProjectionRequest()
-    job_id, _tasks = await sfm_stage_service.submit_project_images(
+    job_id, _tasks, resolved_provider = await sfm_stage_service.submit_project_images(
         session,
         tenant_id=tenant_id,
         dataset_id=dataset_id,
@@ -279,7 +279,7 @@ async def render_equirectangular(
         recipe="render_equirectangular",
     )
     return accepted_response(
-        JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id, provider=body.provider)
+        JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id, provider=resolved_provider)
     )
 
 
@@ -297,7 +297,7 @@ async def render_perspective(
     """Render pinhole perspective views from spherical panoramas."""
     if body is None:
         body = PerspectiveProjectionRequest()
-    job_id, _tasks = await sfm_stage_service.submit_project_images(
+    job_id, _tasks, resolved_provider = await sfm_stage_service.submit_project_images(
         session,
         tenant_id=tenant_id,
         dataset_id=dataset_id,
@@ -305,5 +305,5 @@ async def render_perspective(
         recipe="render_perspective",
     )
     return accepted_response(
-        JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id, provider=body.provider)
+        JobAcceptedResponse(job_id=job_id, dataset_id=dataset_id, provider=resolved_provider)
     )

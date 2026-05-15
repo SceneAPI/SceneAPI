@@ -466,7 +466,7 @@ async def merge_recons_endpoint(
     All sources MUST belong to the same project as the target. The
     merged result is sealed as a fresh snapshot under the target's
     workspace; the source reconstructions are left intact."""
-    job_id, _tasks = await sfm_stage_service.submit_merge_recons(
+    job_id, _tasks, provider = await sfm_stage_service.submit_merge_recons(
         session,
         tenant_id=tenant_id,
         target_recon_id=body.target_recon_id,
@@ -480,7 +480,7 @@ async def merge_recons_endpoint(
             recon_id=body.target_recon_id,
             target_recon_id=body.target_recon_id,
             source_recon_ids=body.source_recon_ids,
-            provider=body.provider,
+            provider=provider,
         )
     )
 
