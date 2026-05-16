@@ -36,6 +36,7 @@ from app.schemas.api.projections import CubemapProjectionSpec, ProjectionJobRequ
 from app.services import (
     artifact_service,
     dataset_service,
+    project_service,
     provider_routing_service,
     reconstruction_service,
     runtime_version_service,
@@ -610,6 +611,9 @@ async def submit_video_frames(
 ) -> tuple[str, list[Any]]:
     """Extract keyframes from a worker-local video file."""
     require_capability("video.frame_extract")
+    # 404 on an unknown project instead of creating an orphan Job
+    # (Job.project_id is an FK) — parity with the dataset-create route.
+    await project_service.get_project(session, tenant_id=tenant_id, project_id=project_id)
     paths = Paths(get_settings())
     output_dir = paths.workspace_root / "_video_frames" / new_id()
     spec = {"fps": fps, "max_frames": max_frames}
@@ -639,6 +643,7 @@ async def submit_kapture_import(
     with a ``POST /v1/projects/{pid}/datasets`` of kind=``local``
     pointing at the returned ``image_root``."""
     require_capability("import.kapture")
+    await project_service.get_project(session, tenant_id=tenant_id, project_id=project_id)
     spec: dict[str, Any] = {}
     inputs = {"archive_path": archive_path}
     return await _submit_single_stage(
@@ -677,6 +682,7 @@ async def submit_dataset_from_archive(
     import to a zip subpath (e.g. ``south-building/images/``); when
     unset the worker auto-detects the common image directory."""
     require_capability("import.archive")
+    await project_service.get_project(session, tenant_id=tenant_id, project_id=project_id)
     paths = Paths(get_settings())
     output_dir = paths.workspace_root / "_archive_import" / new_id()
     spec: dict[str, Any] = {

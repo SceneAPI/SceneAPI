@@ -156,3 +156,14 @@ async def test_from_archive_rejects_unknown_field(client) -> None:
         json={"blob_sha": "a" * 64, "bogus": 1},
     )
     assert resp.status_code == 422
+
+
+async def test_from_archive_unknown_project_is_404_not_orphan_job(client) -> None:
+    """A bogus project_id must 404 (parity with dataset-create), not
+    create an orphan Job under a non-existent project."""
+    sha = await _upload(client, _zip({"images/a.jpg": _jpeg((1, 2, 3))}))
+    resp = await client.post(
+        "/v1/projects/01HGHOST00000000000000000A/datasets:from_archive",
+        json={"blob_sha": sha},
+    )
+    assert resp.status_code == 404, resp.text
