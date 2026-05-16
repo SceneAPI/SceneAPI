@@ -39,6 +39,7 @@
     "image.undistort": false,
     "images.crud": true,
     "images.thumbnail": true,
+    "import.archive": true,
     "import.kapture": true,
     "index.vocab_tree": false,
     "inputs.imu": true,
