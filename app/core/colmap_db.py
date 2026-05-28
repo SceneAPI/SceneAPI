@@ -379,12 +379,78 @@ def is_extension_column(table: str, column: str) -> bool:
     return f"{table}.{column}" in EXTENSION_COLUMNS
 
 
+# --- serialized contract (the cross-tier parity artifact) -----------------
+#
+# contract_dict() renders the whole contract as a deterministic, language-
+# neutral dict. It is the single thing the cross-tier parity machinery
+# diffs: the Python source of truth is serialized here, the same bytes are
+# embedded into the C++ port via codegen, and a check_sync gate fails if
+# the two ever diverge. Ordering is the declaration order of
+# COLMAP_DB_TABLES / columns, so the JSON is stable across runs.
+
+CONTRACT_NAME = "colmap_db"
+CONTRACT_SCHEMA_VERSION = 1  # version of THIS serialization shape, not the DB
+
+
+def contract_dict() -> dict:
+    """The COLMAP scene-database contract as a deterministic dict.
+
+    This is the authoritative, repo-owned definition; ``tools/gen_contracts.py``
+    serializes it to JSON + a C++ ``.inc``, and check_sync's ``contract-parity``
+    gate enforces that the embedded C++ copy stays byte-identical.
+    """
+    return {
+        "contract": CONTRACT_NAME,
+        "contract_schema_version": CONTRACT_SCHEMA_VERSION,
+        "database_version": {
+            "number": DATABASE_VERSION_NUMBER,
+            "major": DATABASE_VERSION_MAJOR,
+            "minor": DATABASE_VERSION_MINOR,
+            "patch": DATABASE_VERSION_PATCH,
+            "revision": DATABASE_SCHEMA_REVISION,
+        },
+        "pair_id": {"max_num_images": MAX_NUM_IMAGES},
+        "extractor_types": {
+            "known": dict(COLMAP_KNOWN_EXTRACTOR_TYPES),
+            "undefined": UNDEFINED_EXTRACTOR_TYPE,
+            "open_registry": True,
+        },
+        "matcher_types": {
+            "known": list(COLMAP_KNOWN_MATCHER_TYPES),
+            "open_registry": True,
+        },
+        "tables": [
+            {
+                "name": t.name,
+                "extension": t.extension,
+                "note": t.note,
+                "columns": [
+                    {
+                        "name": c.name,
+                        "sql_type": c.sql_type,
+                        "extension": c.extension,
+                        "note": c.note,
+                    }
+                    for c in t.columns
+                ],
+            }
+            for t in COLMAP_DB_TABLES
+        ],
+        "upstream_tables": sorted(UPSTREAM_TABLES),
+        "extension_tables": sorted(EXTENSION_TABLES),
+        "extension_columns": sorted(EXTENSION_COLUMNS),
+    }
+
+
 __all__ = [
     "COLMAP_DB_TABLES",
     "COLMAP_DB_TABLES_BY_NAME",
     "COLMAP_KNOWN_EXTRACTOR_TYPES",
     "COLMAP_KNOWN_MATCHER_TYPES",
+    "CONTRACT_NAME",
+    "CONTRACT_SCHEMA_VERSION",
     "ColumnDef",
+    "contract_dict",
     "DATABASE_SCHEMA_REVISION",
     "DATABASE_VERSION_NUMBER",
     "EXTENSION_COLUMNS",

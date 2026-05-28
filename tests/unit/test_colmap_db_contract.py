@@ -118,6 +118,28 @@ def test_known_matcher_types_seed() -> None:
     )
 
 
+def test_contract_dict_is_json_serializable_and_self_describing() -> None:
+    import json
+
+    payload = db.contract_dict()
+    # Round-trips through JSON (it's the cross-tier artifact).
+    assert json.loads(json.dumps(payload)) == payload
+    assert payload["contract"] == db.CONTRACT_NAME == "colmap_db"
+    assert payload["contract_schema_version"] == db.CONTRACT_SCHEMA_VERSION
+    assert payload["database_version"]["number"] == db.DATABASE_VERSION_NUMBER
+    assert payload["pair_id"]["max_num_images"] == db.MAX_NUM_IMAGES
+
+
+def test_contract_dict_tables_match_the_table_model() -> None:
+    payload = db.contract_dict()
+    serialized = [(t["name"], t["extension"]) for t in payload["tables"]]
+    model = [(t.name, t.extension) for t in db.COLMAP_DB_TABLES]
+    # Same tables, same order, same extension flags as the structured model.
+    assert serialized == model
+    assert payload["extension_tables"] == sorted(db.EXTENSION_TABLES)
+    assert payload["extension_columns"] == sorted(db.EXTENSION_COLUMNS)
+
+
 def test_core_contract_does_not_import_colmap_plugin() -> None:
     # The contract is a data standard, not a dependency: importing it must
     # not pull in any sfmapi_colmap* plugin package. (The repo-wide guard
