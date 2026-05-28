@@ -6,18 +6,23 @@ backends produce and that portable tooling (the C++ port, importers,
 exporters, the bridge) reads. This module is the single source of truth
 for that schema in the framework.
 
-Important: this is a *data standard*, not a dependency. Core declares
-the schema here as plain data; it never imports the ``sfmapi_colmap``
-plugin or links the COLMAP C++ library. Implementations align to this
-contract; the contract does not depend on any implementation. (The
+Ownership: this contract is **owned here**. sfmapi defines the standard;
+implementations conform to it, not the reverse. The reference COLMAP
+fork (``Opsiclear-internal/colmap_mod``) is one such implementation and
+is expected to match this schema — if the two ever diverge, this module
+is authoritative and the divergence is a bug to reconcile, not a signal
+to re-sync from the fork. Changes here are deliberate contract decisions.
+
+This is also a *data standard*, not a dependency. Core declares the
+schema as plain data; it never imports the ``sfmapi_colmap`` plugin or
+links the COLMAP C++ library. (The
 ``test_core_does_not_import_plugin_distributions`` guard enforces the
 direction.)
 
-The contract tracks the **extended** schema shipped by the reference
-COLMAP fork (``Opsiclear-internal/colmap_mod``), which is a superset of
+The contract defines an **extended** COLMAP schema — a superset of
 vanilla upstream COLMAP. Tables/columns absent from upstream are marked
 ``extension=True`` so consumers can tell the portable core from the
-fork-specific surface. The fork-specific surface this contract adopts:
+extended surface. The extended surface:
 
 * ``images.time_id`` — per-image 4D / multi-time-frame capture tag
 * ``videos`` + ``video_frames`` — video ingestion + frame mapping
@@ -32,11 +37,14 @@ value. The column is nullable and ignored by non-4D readers, so the
 ``images`` table stays backward-compatible with vanilla upstream COLMAP
 (NULL ``time_id`` == static SfM).
 
-Synced from colmap_mod ``src/colmap/scene/database_sqlite.cc`` +
-``src/colmap/util/{version,types}.h`` at commit ``8f8e4dd92``
-(COLMAP 3.14.0.dev0, database schema revision 2). When the fork's
-schema changes, update this module and ``DATABASE_SCHEMA_REVISION``,
-then the contract test will confirm the version + extension set match.
+Provenance: the initial values here were established by reading the
+reference implementation (``colmap_mod`` ``src/colmap/scene/database_sqlite.cc``
++ ``src/colmap/util/{version,types}.h`` at commit ``8f8e4dd92``,
+COLMAP 3.14.0.dev0, database schema revision 2). That is provenance, not
+a sync source: evolving the contract is a deliberate edit to this module
+(bump ``DATABASE_SCHEMA_REVISION``, update the tables/registry), after
+which the reference implementation is expected to conform. The contract
+test pins the version + extension surface so unintended drift is caught.
 """
 
 from __future__ import annotations
@@ -59,7 +67,9 @@ DATABASE_SCHEMA_REVISION = 2
 def make_database_version_number(
     major: int, minor: int, patch: int, revision: int
 ) -> int:
-    """Mirror colmap_mod ``MakeDatabaseVersionNumber`` (util/version.cc)."""
+    """The contract's DB version-number encoding. The reference
+    implementation matches this in ``util/version.cc``
+    (``MakeDatabaseVersionNumber``)."""
     if not (minor < 100 and patch < 100 and revision < 100):
         raise ValueError("minor/patch/revision components must each be < 100")
     return major * 1_000_000 + minor * 10_000 + patch * 100 + revision
@@ -138,10 +148,11 @@ def matches_are_type_compatible(type_a: str, type_b: str) -> bool:
 # --- pair_id encoding -----------------------------------------------------
 #
 # matches / two_view_geometries are keyed by a single ``pair_id`` derived
-# from the two image ids. Mirrors colmap_mod ``util/types.h``: the cap is
-# INT32_MAX, and the pair id places the *smaller* image id in the high
-# digits. Encoding is part of the contract — any tool reading the matches
-# tables must decode pair_id the same way.
+# from the two image ids. The contract: the cap is INT32_MAX, and the pair
+# id places the *smaller* image id in the high digits (the reference
+# implementation matches this in ``util/types.h``). Encoding is part of
+# the standard — any tool reading the matches tables must decode pair_id
+# the same way.
 
 MAX_NUM_IMAGES = 2_147_483_647  # std::numeric_limits<int32_t>::max()
 
