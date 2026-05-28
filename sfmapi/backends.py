@@ -50,7 +50,6 @@ from app.adapters.backend_artifacts import (
     list_backend_artifact_contracts,
 )
 from app.adapters.backend_config import (
-    COLMAP_STAGE_CONFIGS,
     BackendConfigSchemaProvider,
     assert_backend_config_contract,
     backend_config_contract_violations,
@@ -170,7 +169,6 @@ __all__ = [
     "BackendConfigSchemaProvider",
     "BackendIdentity",
     "BatchLocalizationBackend",
-    "COLMAP_STAGE_CONFIGS",
     "ExportBackend",
     "FeatureBackend",
     "GeometryBackend",
