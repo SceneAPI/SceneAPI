@@ -105,6 +105,7 @@ First REST workflow with curl <reference/curl_tour>
 
 reference/api
 reference/openapi
+reference/job_configuration
 guides/mcp
 reference/auth
 reference/errors
@@ -117,6 +118,8 @@ reference/errors
 
 guides/backend_implementations
 guides/plugin_hub_checklist
+guides/container_plugin_runtime_checklist
+guides/plugin_runtime_api_gap_closure_checklist
 guides/architecture
 guides/storage
 guides/jobs_and_progress

@@ -1,5 +1,10 @@
 # Configuration
 
+This page covers **server configuration** — the `SFMAPI_*` environment
+variables that an operator sets on the process. If you're looking for how to
+**configure a job** (request fields, `backend_options`, config-schemas,
+canonical knob names), see {doc}`job_configuration` instead.
+
 All settings are env-vars prefixed with `SFMAPI_`. They're parsed by a
 single Pydantic `Settings` class:
 

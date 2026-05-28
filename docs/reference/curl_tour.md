@@ -128,7 +128,7 @@ curl -N $BASE/v1/jobs/$JOB_ID/events
 
 ```bash
 # Find the reconstruction this job produced.
-RECON_ID=$(curl -s $BASE/v1/jobs/$JOB_ID | jq -r .recon_id // empty)
+RECON_ID=$(curl -s $BASE/v1/jobs/$JOB_ID | jq -r '.recon_id // empty')
 
 # List snapshots; pick the latest seq.
 SEQ=$(curl -s $BASE/v1/reconstructions/$RECON_ID/snapshots \
