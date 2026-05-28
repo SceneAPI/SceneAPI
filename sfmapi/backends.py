@@ -120,11 +120,18 @@ class Plugin:
     it instead of the default loop, while ``manifest`` /
     ``backend_name`` / ``backend_factory`` still describe the plugin's
     canonical shape for everything else that introspects it.
+
+    For *manifest-only* plugins -- the splatting backends that run as
+    a separate container service rather than registering an in-process
+    Python backend -- leave ``backend_name`` and ``backend_factory``
+    at their ``None`` defaults. ``register()`` becomes a no-op for
+    that shape; the framework's plugin loader still picks up the
+    manifest via ``get_plugin_manifest()``.
     """
 
     manifest: dict[str, Any]
-    backend_name: str
-    backend_factory: Callable[[], Any]
+    backend_name: str | None = None
+    backend_factory: Callable[[], Any] | None = None
     register_hook: Callable[..., None] | None = None
 
     def get_plugin_manifest(self) -> dict[str, Any]:
@@ -133,6 +140,11 @@ class Plugin:
     def register(self, register_backend: Callable[..., None]) -> None:
         if self.register_hook is not None:
             self.register_hook(register_backend)
+            return
+        if self.backend_factory is None or self.backend_name is None:
+            # Manifest-only plugin (container_service integration): the
+            # plugin advertises its manifest but does not wire an
+            # in-process backend factory.
             return
         provider_ids = [
             str(provider["provider_id"])

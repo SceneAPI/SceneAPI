@@ -146,3 +146,35 @@ def test_register_hook_defaults_to_none_keeping_default_loop() -> None:
 
     plugin.register(modern_register)
     assert calls == [("demo", _DemoBackend, {"providers": ["alpha"]})]
+
+
+def test_manifest_only_plugin_skips_register_silently() -> None:
+    """Splatting plugins (brush, fastergs, gsplat, lfs, spirulae)
+    integrate via container_service rather than registering an
+    in-process backend factory. They construct a Plugin with manifest
+    only -- backend_name and backend_factory both default to None --
+    and rely on register() being a silent no-op so the framework's
+    plugin loader can still call it without crashing.
+    """
+    plugin = Plugin(manifest=_manifest_with_providers("brush_like"))
+    assert plugin.backend_name is None
+    assert plugin.backend_factory is None
+    assert plugin.register_hook is None
+
+    calls: list[Any] = []
+
+    def fake_register_backend(*args: Any, **kwargs: Any) -> None:
+        calls.append((args, kwargs))
+
+    plugin.register(fake_register_backend)
+    # register() ran successfully and did NOT call the registrar.
+    assert calls == []
+
+
+def test_manifest_only_plugin_still_exposes_manifest() -> None:
+    """The whole point of a manifest-only plugin is that
+    get_plugin_manifest() works. Regression guard.
+    """
+    manifest = _manifest_with_providers("brush")
+    plugin = Plugin(manifest=manifest)
+    assert plugin.get_plugin_manifest() is manifest
