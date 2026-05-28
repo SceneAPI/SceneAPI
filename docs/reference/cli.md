@@ -1,8 +1,78 @@
 # CLI / scripts
 
-sfmapi ships several operational scripts under `scripts/` and
-`deploy/`. None of them are required for normal use, but each
-captures a workflow that's tedious to do by hand.
+sfmapi ships the `sfmapi` Python CLI (subcommands listed below) plus
+several operational scripts under `scripts/` and `deploy/`. None of
+them are required for normal use, but each captures a workflow that's
+tedious to do by hand.
+
+## `sfmapi` Python CLI
+
+Installed alongside the `sfmapi` package; run via `uv run sfmapi
+<subcommand>` or directly once the venv is active. `sfmapi --help`
+lists every subcommand; the high-impact ones are noted here.
+
+### `sfmapi serve`
+
+Runs the REST API. Common flags: `--host`, `--port`, `--reload`,
+`--profile` (sets the default sfm_hub routing profile), `--mcp` (sets
+the API-process MCP mode for this run).
+
+### `sfmapi mcp`
+
+Runs the standalone MCP adapter (`--transport stdio` or `--transport
+http`). Defaults read `SFMAPI_MCP_MODE`.
+
+### `sfmapi check-backend`
+
+Validates a backend's capabilities, actions, and config-schema
+contract. `--import sfmapi_my_backend.plugin` registers an entry-point
+package before resolving `SFMAPI_BACKEND`; `--load-entry-points`
+loads every installed `[sfmapi.backends]` entry point.
+
+### `sfmapi plugins ...`
+
+Plugin-hub commands (`list`, `search`, `info`, `install`, `enable`,
+`disable`, `doctor`, `detect-tools`, `entry-points`). See
+{doc}`../guides/plugin_hub_checklist`.
+
+### `sfmapi scaffold-plugin <id>`
+
+Generates the smallest viable sfmapi backend plugin tree at
+`<output-dir>/sfmapi_<id>/`:
+
+```
+sfmapi_<id>/
+├── pyproject.toml          # entry point: [project.entry-points."sfmapi.backends"]
+├── README.md
+├── src/sfmapi_<id>/
+│   ├── __init__.py
+│   ├── plugin.py           # uses canonical sfmapi.backends.Plugin
+│   └── backend.py          # stub satisfies the framework contract
+└── tests/
+    ├── __init__.py
+    └── test_plugin.py
+```
+
+The generated `plugin.py` uses {class}`sfmapi.backends.Plugin` --
+the canonical entry-point shape -- so the new plugin starts in the
+same posture as every baseline plugin and passes
+`manifest-valid` immediately.
+
+Flags:
+
+| Flag | Purpose |
+|---|---|
+| `--output-dir DIR` | Where to create `sfmapi_<id>/`. Defaults to cwd. |
+| `--display-name NAME` | Human-readable name. Defaults to TitleCase of `plugin_id`. |
+| `--description TEXT` | One-line description for the manifest + README. |
+| `--vendor NAME` | Vendor name surfaced in the backend's `runtime_versions`. |
+| `--overwrite` | Replace existing files instead of erroring. |
+
+`plugin_id` must match `[a-z][a-z0-9_]*` -- it becomes the package
+suffix (`sfmapi_<id>`), the entry-point name, and the backend name.
+
+## Shell scripts
+
 
 ## `scripts/test_dual_db.{sh,ps1}`
 
