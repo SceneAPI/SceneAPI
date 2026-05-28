@@ -1,0 +1,148 @@
+{
+  "plugin_id": "brush",
+  "display_name": "Brush",
+  "description": "3D Gaussian Splatting plugin for Brush training and PLY snapshot export through the sfmapi radiance-field contract.",
+  "package_name": "sfmapi-brush",
+  "github_url": "https://github.com/SFMAPI/sfmapi_brush.git",
+  "entry_points": [
+    "sfmapi_brush.plugin:plugin"
+  ],
+  "providers": [
+    {
+      "provider_id": "brush",
+      "display_name": "Brush",
+      "capabilities": [
+        "radiance.train",
+        "radiance.export",
+        "radiance.evaluate",
+        "radiance.metrics.psnr",
+        "radiance.metrics.ssim"
+      ],
+      "backend_actions": [
+        "brush.*"
+      ],
+      "priority_hint": 72
+    }
+  ],
+  "runtime_modes": {
+    "uv": {
+      "source": "git",
+      "url": "https://github.com/SFMAPI/sfmapi_brush.git",
+      "ref": "main",
+      "package": "sfmapi-brush"
+    },
+    "docker": {
+      "image": null,
+      "build_context": "https://github.com/SFMAPI/sfmapi_brush.git"
+    },
+    "container_service": {
+      "protocol": "sfmapi-plugin-http-v1",
+      "protocol_version": "1.0",
+      "service": {
+        "default_url": "http://127.0.0.1:8096",
+        "url_env": "SFMAPI_BRUSH_SERVICE_URL"
+      },
+      "image": {
+        "build": {
+          "source": "git",
+          "context": "https://github.com/SFMAPI/sfmapi_brush.git",
+          "dockerfile": "Dockerfile",
+          "ref": "main",
+          "args": {
+            "SFMAPI_BRUSH_REF": "main"
+          }
+        }
+      },
+      "object_store": {
+        "url_env": "SFMAPI_PLUGIN_OBJECT_STORE_URL",
+        "input_prefix": "brush/input/",
+        "output_prefix": "brush/output/"
+      },
+      "cache": {
+        "policy": "read_write",
+        "scope": "plugin",
+        "path": "/sfmapi/cache"
+      },
+      "provenance": {
+        "image_digest_required": false,
+        "source_revision": "main"
+      },
+      "healthcheck": {
+        "path": "/healthz",
+        "timeout_seconds": 5
+      },
+      "execution": {
+        "path": "/execute",
+        "timeout_seconds": 86400,
+        "mounts": {
+          "input_path": "/sfmapi/input",
+          "output_path": "/sfmapi/output",
+          "work_path": "/sfmapi/work",
+          "log_path": "/sfmapi/logs"
+        },
+        "gpu": "required",
+        "env": [
+          "WGPU_BACKEND",
+          "NVIDIA_VISIBLE_DEVICES",
+          "NVIDIA_DRIVER_CAPABILITIES"
+        ],
+        "secrets": [],
+        "retry": {
+          "max_attempts": 1,
+          "backoff_seconds": 0
+        },
+        "shutdown_timeout_seconds": 30,
+        "log_collection": "both",
+        "artifact_collection": true
+      }
+    },
+    "external_tool": null
+  },
+  "capabilities": [
+    "radiance.train",
+    "radiance.export",
+    "radiance.evaluate",
+    "radiance.metrics.psnr",
+    "radiance.metrics.ssim"
+  ],
+  "backend_actions": [
+    "brush.*"
+  ],
+  "config_schemas": [
+    "radiance.train",
+    "brush.evaluate"
+  ],
+  "artifact_contracts": [
+    "sfmapi.radiance.snapshot.v1",
+    "sfmapi.radiance.variant.ply.v1",
+    "sfmapi.radiance.metrics.v1"
+  ],
+  "licenses": [
+    {
+      "name": "AGPL-3.0-or-later"
+    }
+  ],
+  "upstream_projects": [
+    {
+      "name": "Brush",
+      "url": "https://github.com/ArthurBrussee/brush",
+      "license": null
+    }
+  ],
+  "compatibility": {
+    "sfmapi": ">=0.0.1",
+    "python": ">=3.12,<3.13",
+    "os": [
+      "linux"
+    ],
+    "vulkan": "required",
+    "container_gpu_runtime": "requires hardware Vulkan; Docker Desktop WSL CUDA runtime is not sufficient",
+    "cuda": null,
+    "torch": null
+  },
+  "conformance": {
+    "status": "not_run",
+    "suite": "sfmapi-bench"
+  },
+  "trust_tier": "community"
+}

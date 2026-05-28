@@ -227,6 +227,90 @@ def _colmap_config_descriptors(backend: Any, *, include_schema: bool) -> list[di
     return rows
 
 
+_RADIANCE_TRAIN_CONFIG_ID = "radiance.train"
+
+
+def _radiance_train_option_schema() -> dict[str, Any]:
+    """Canonical cross-engine radiance/3DGS training knobs.
+
+    ``max_steps`` and ``eval`` are first-class typed fields on
+    ``RadianceTrainRequest``; these are the remaining splat-universal knobs
+    carried through ``backend_options``. Each plugin maps the canonical name to
+    its native option (``num_gaussians`` -> max_splats/max_cap/max_primitives/
+    model.cap_max). ``additionalProperties`` stays open so an engine may accept
+    its own extras.
+    """
+    return {
+        "type": "object",
+        "additionalProperties": True,
+        "properties": {
+            "num_gaussians": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Gaussian/primitive cap (mapped to each engine's native cap option).",
+            },
+            "max_resolution": {
+                "type": "integer",
+                "minimum": 1,
+                "description": (
+                    "Max training image dimension in px. Engines that train full-resolution "
+                    "or take a scale factor (e.g. fastergs image_scale_factor) document the "
+                    "deviation."
+                ),
+            },
+            "init": {
+                "type": "string",
+                "enum": ["colmap", "random"],
+                "default": "colmap",
+                "description": "Gaussian initialization source.",
+            },
+            "test_every": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 8,
+                "description": "Hold out every Nth registered view as the evaluation split.",
+            },
+        },
+    }
+
+
+def _radiance_config_descriptors(backend: Any, *, include_schema: bool) -> list[dict[str, Any]]:
+    """Framework-owned canonical ``radiance.train`` schema for any backend that
+    advertises the ``radiance.train`` capability (single source of truth; the
+    splatting plugins all map their native options to it). No-op for backends
+    without the capability (e.g. the stub), so existing responses are unchanged.
+    """
+    capabilities_fn = getattr(backend, "capabilities", None)
+    if not callable(capabilities_fn):
+        return []
+    try:
+        capabilities = set(capabilities_fn())
+    except Exception:
+        return []
+    if "radiance.train" not in capabilities:
+        return []
+    return [
+        _normalize_descriptor(
+            {
+                "config_id": _RADIANCE_TRAIN_CONFIG_ID,
+                "backend": _backend_name(backend),
+                "stage": "radiance",
+                "capability": "radiance.train",
+                "display_name": "Radiance training options",
+                "description": (
+                    "Canonical cross-engine radiance/3DGS training knobs accepted through "
+                    "`backend_options`. `max_steps` and `eval` are first-class "
+                    "RadianceTrainRequest fields."
+                ),
+                "option_schema": _radiance_train_option_schema() if include_schema else None,
+                "metadata": {"family": "radiance"},
+            },
+            backend=backend,
+            include_schema=include_schema,
+        )
+    ]
+
+
 def list_backend_config_schemas(
     backend: Any | None = None,
     *,
@@ -244,6 +328,7 @@ def list_backend_config_schemas(
             return _dedupe(rows)
 
     rows.extend(_colmap_config_descriptors(backend, include_schema=include_schemas))
+    rows.extend(_radiance_config_descriptors(backend, include_schema=include_schemas))
     return _dedupe(rows)
 
 

@@ -1,0 +1,150 @@
+{
+  "plugin_id": "lfs",
+  "display_name": "LichtFeld Studio",
+  "description": "3D Gaussian Splatting plugin for LichtFeld Studio headless training, conversion, and export through the sfmapi radiance-field contract.",
+  "package_name": "sfmapi-lfs",
+  "github_url": "https://github.com/SFMAPI/sfmapi_lfs.git",
+  "entry_points": [
+    "sfmapi_lfs.plugin:plugin"
+  ],
+  "providers": [
+    {
+      "provider_id": "lfs",
+      "display_name": "LichtFeld Studio",
+      "capabilities": [
+        "radiance.train",
+        "radiance.export",
+        "radiance.convert",
+        "radiance.evaluate",
+        "radiance.metrics.psnr",
+        "radiance.metrics.ssim"
+      ],
+      "backend_actions": [
+        "lfs.*"
+      ],
+      "priority_hint": 74
+    }
+  ],
+  "runtime_modes": {
+    "uv": {
+      "source": "git",
+      "url": "https://github.com/SFMAPI/sfmapi_lfs.git",
+      "ref": "master",
+      "package": "sfmapi-lfs"
+    },
+    "docker": {
+      "image": null,
+      "build_context": "https://github.com/SFMAPI/sfmapi_lfs.git"
+    },
+    "container_service": {
+      "protocol": "sfmapi-plugin-http-v1",
+      "protocol_version": "1.0",
+      "service": {
+        "default_url": "http://127.0.0.1:8095",
+        "url_env": "SFMAPI_LFS_SERVICE_URL"
+      },
+      "image": {
+        "build": {
+          "source": "git",
+          "context": "https://github.com/SFMAPI/sfmapi_lfs.git",
+          "dockerfile": "Dockerfile",
+          "ref": "master",
+          "args": {
+            "SFMAPI_LFS_REF": "master"
+          }
+        }
+      },
+      "object_store": {
+        "url_env": "SFMAPI_PLUGIN_OBJECT_STORE_URL",
+        "input_prefix": "lfs/input/",
+        "output_prefix": "lfs/output/"
+      },
+      "cache": {
+        "policy": "read_write",
+        "scope": "plugin",
+        "path": "/sfmapi/cache"
+      },
+      "provenance": {
+        "image_digest_required": false,
+        "source_revision": "master"
+      },
+      "healthcheck": {
+        "path": "/healthz",
+        "timeout_seconds": 5
+      },
+      "execution": {
+        "path": "/execute",
+        "timeout_seconds": 86400,
+        "mounts": {
+          "input_path": "/sfmapi/input",
+          "output_path": "/sfmapi/output",
+          "work_path": "/sfmapi/work",
+          "log_path": "/sfmapi/logs"
+        },
+        "gpu": "required",
+        "env": [
+          "CUDA_VISIBLE_DEVICES",
+          "NVIDIA_VISIBLE_DEVICES",
+          "NVIDIA_DRIVER_CAPABILITIES"
+        ],
+        "secrets": [],
+        "retry": {
+          "max_attempts": 1,
+          "backoff_seconds": 0
+        },
+        "shutdown_timeout_seconds": 30,
+        "log_collection": "both",
+        "artifact_collection": true
+      }
+    },
+    "external_tool": null
+  },
+  "capabilities": [
+    "radiance.train",
+    "radiance.export",
+    "radiance.convert",
+    "radiance.evaluate",
+    "radiance.metrics.psnr",
+    "radiance.metrics.ssim"
+  ],
+  "backend_actions": [
+    "lfs.*"
+  ],
+  "config_schemas": [
+    "radiance.train",
+    "lfs.convert",
+    "lfs.evaluate"
+  ],
+  "artifact_contracts": [
+    "sfmapi.radiance.snapshot.v1",
+    "sfmapi.radiance.variant.ply.v1",
+    "sfmapi.radiance.metrics.v1"
+  ],
+  "licenses": [
+    {
+      "name": "AGPL-3.0-or-later"
+    }
+  ],
+  "upstream_projects": [
+    {
+      "name": "LichtFeld Studio",
+      "url": "https://github.com/MrNeRF/LichtFeld-Studio",
+      "license": null
+    }
+  ],
+  "compatibility": {
+    "sfmapi": ">=0.0.1",
+    "python": ">=3.12,<3.13",
+    "os": [
+      "windows",
+      "linux"
+    ],
+    "cuda": "required",
+    "torch": null
+  },
+  "conformance": {
+    "status": "not_run",
+    "suite": "sfmapi-bench"
+  },
+  "trust_tier": "community"
+}
