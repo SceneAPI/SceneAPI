@@ -1,0 +1,318 @@
+"""COLMAP scene-database schema — the sfmapi core data-format contract.
+
+sfmapi treats the COLMAP SQLite scene database as a first-class core
+*contract*: the canonical on-disk representation that COLMAP-family
+backends produce and that portable tooling (the C++ port, importers,
+exporters, the bridge) reads. This module is the single source of truth
+for that schema in the framework.
+
+Important: this is a *data standard*, not a dependency. Core declares
+the schema here as plain data; it never imports the ``sfmapi_colmap``
+plugin or links the COLMAP C++ library. Implementations align to this
+contract; the contract does not depend on any implementation. (The
+``test_core_does_not_import_plugin_distributions`` guard enforces the
+direction.)
+
+The contract tracks the **extended** schema shipped by the reference
+COLMAP fork (``Opsiclear-internal/colmap_mod``), which is a superset of
+vanilla upstream COLMAP. Tables/columns absent from upstream are marked
+``extension=True`` so consumers can tell the portable core from the
+fork-specific surface. The fork-specific surface this contract adopts:
+
+* ``videos`` + ``video_frames`` — video ingestion + frame mapping
+* ``image_qualities`` — per-image blur/sharpness
+* ``markers`` + ``marker_projections`` — GCPs / named 3D points
+* ``descriptors.type`` — extractor type, blocks cross-extractor matching
+
+The fork's legacy ``images.time_id`` column is **deliberately excluded**:
+per-image 4D tagging is superseded by the frame / video-frame time
+model (``video_frames.time_id``), so the ``images`` table in this
+contract matches vanilla upstream exactly.
+
+Synced from colmap_mod ``src/colmap/scene/database_sqlite.cc`` +
+``src/colmap/util/{version,types}.h`` at commit ``8f8e4dd92``
+(COLMAP 3.14.0.dev0, database schema revision 2). When the fork's
+schema changes, update this module and ``DATABASE_SCHEMA_REVISION``,
+then the contract test will confirm the version + extension set match.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+# --- schema version -------------------------------------------------------
+#
+# colmap_mod versions the DB via ``PRAGMA user_version`` using a 4-part
+# number: major*10^6 + minor*10^4 + patch*100 + revision. The 4th
+# (revision) component is a fork extension so schema migrations can ship
+# within a single COLMAP release.
+
+DATABASE_VERSION_MAJOR = 3
+DATABASE_VERSION_MINOR = 14
+DATABASE_VERSION_PATCH = 0
+DATABASE_SCHEMA_REVISION = 2
+
+
+def make_database_version_number(
+    major: int, minor: int, patch: int, revision: int
+) -> int:
+    """Mirror colmap_mod ``MakeDatabaseVersionNumber`` (util/version.cc)."""
+    if not (minor < 100 and patch < 100 and revision < 100):
+        raise ValueError("minor/patch/revision components must each be < 100")
+    return major * 1_000_000 + minor * 10_000 + patch * 100 + revision
+
+
+DATABASE_VERSION_NUMBER = make_database_version_number(
+    DATABASE_VERSION_MAJOR,
+    DATABASE_VERSION_MINOR,
+    DATABASE_VERSION_PATCH,
+    DATABASE_SCHEMA_REVISION,
+)
+
+# --- pair_id encoding -----------------------------------------------------
+#
+# matches / two_view_geometries are keyed by a single ``pair_id`` derived
+# from the two image ids. Mirrors colmap_mod ``util/types.h``: the cap is
+# INT32_MAX, and the pair id places the *smaller* image id in the high
+# digits. Encoding is part of the contract — any tool reading the matches
+# tables must decode pair_id the same way.
+
+MAX_NUM_IMAGES = 2_147_483_647  # std::numeric_limits<int32_t>::max()
+
+
+def image_pair_to_pair_id(image_id1: int, image_id2: int) -> int:
+    """COLMAP pair_id from an unordered image-id pair."""
+    if image_id1 < 0 or image_id2 < 0:
+        raise ValueError("image ids must be non-negative")
+    if image_id1 >= MAX_NUM_IMAGES or image_id2 >= MAX_NUM_IMAGES:
+        raise ValueError("image id exceeds MAX_NUM_IMAGES")
+    if image_id1 > image_id2:
+        return MAX_NUM_IMAGES * image_id2 + image_id1
+    return MAX_NUM_IMAGES * image_id1 + image_id2
+
+
+def pair_id_to_image_pair(pair_id: int) -> tuple[int, int]:
+    """Inverse of :func:`image_pair_to_pair_id`."""
+    image_id2 = pair_id % MAX_NUM_IMAGES
+    image_id1 = (pair_id - image_id2) // MAX_NUM_IMAGES
+    return image_id1, image_id2
+
+
+# --- table / column model -------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ColumnDef:
+    name: str
+    sql_type: str  # INTEGER / TEXT / REAL / BLOB
+    #: True when the column does not exist in vanilla upstream COLMAP.
+    extension: bool = False
+    note: str = ""
+
+
+@dataclass(frozen=True)
+class TableDef:
+    name: str
+    columns: tuple[ColumnDef, ...]
+    #: True when the whole table is absent from vanilla upstream COLMAP.
+    extension: bool = False
+    note: str = ""
+
+    def column(self, name: str) -> ColumnDef | None:
+        return next((c for c in self.columns if c.name == name), None)
+
+    @property
+    def extension_columns(self) -> tuple[ColumnDef, ...]:
+        return tuple(c for c in self.columns if c.extension)
+
+
+def _col(name: str, sql_type: str, **kw: object) -> ColumnDef:
+    return ColumnDef(name=name, sql_type=sql_type, **kw)  # type: ignore[arg-type]
+
+
+# --- the schema -----------------------------------------------------------
+#
+# Ordering matches CreateTables() in colmap_mod database_sqlite.cc.
+
+COLMAP_DB_TABLES: tuple[TableDef, ...] = (
+    # ---- upstream-standard (COLMAP 3.10+ rig/frame/sensor model) ----
+    TableDef("rigs", (
+        _col("rig_id", "INTEGER"),
+        _col("ref_sensor_id", "INTEGER"),
+        _col("ref_sensor_type", "INTEGER"),
+    )),
+    TableDef("rig_sensors", (
+        _col("rig_id", "INTEGER"),
+        _col("sensor_id", "INTEGER"),
+        _col("sensor_type", "INTEGER"),
+        _col("sensor_from_rig", "BLOB"),
+    )),
+    TableDef("cameras", (
+        _col("camera_id", "INTEGER"),
+        _col("model", "INTEGER"),
+        _col("width", "INTEGER"),
+        _col("height", "INTEGER"),
+        _col("params", "BLOB"),
+        _col("prior_focal_length", "INTEGER"),
+    )),
+    TableDef("frames", (
+        _col("frame_id", "INTEGER"),
+        _col("rig_id", "INTEGER"),
+    )),
+    TableDef("frame_data", (
+        _col("frame_id", "INTEGER"),
+        _col("data_id", "INTEGER"),
+        _col("sensor_id", "INTEGER"),
+        _col("sensor_type", "INTEGER"),
+    )),
+    TableDef("images", (
+        _col("image_id", "INTEGER"),
+        _col("name", "TEXT"),
+        _col("camera_id", "INTEGER"),
+        # NOTE: the fork's legacy ``images.time_id`` column is intentionally
+        # NOT part of this contract. Per-image 4D tagging is superseded by
+        # the frame / video-frame time model (``video_frames.time_id``),
+        # which is where the contract carries capture time going forward.
+        # This keeps the ``images`` table identical to vanilla upstream.
+    )),
+    TableDef("pose_priors", (
+        _col("pose_prior_id", "INTEGER"),
+        _col("corr_data_id", "INTEGER"),
+        _col("corr_sensor_id", "INTEGER"),
+        _col("corr_sensor_type", "INTEGER"),
+        _col("position", "BLOB"),
+        _col("position_covariance", "BLOB"),
+        _col("gravity", "BLOB"),
+        _col("coordinate_system", "INTEGER"),
+        _col("rotation", "BLOB"),
+        _col("rotation_covariance", "BLOB"),
+        _col("pose_covariance", "BLOB"),
+    )),
+    TableDef("keypoints", (
+        _col("image_id", "INTEGER"),
+        _col("rows", "INTEGER"),
+        _col("cols", "INTEGER"),
+        _col("data", "BLOB"),
+    )),
+    TableDef("descriptors", (
+        _col("image_id", "INTEGER"),
+        _col("type", "INTEGER", extension=True,
+             note="Extractor type (SIFT/ALIKED/...) so cross-extractor "
+                  "matching is rejected. Added at schema revision 1 "
+                  "(default SIFT for migrated rows)."),
+        _col("rows", "INTEGER"),
+        _col("cols", "INTEGER"),
+        _col("data", "BLOB"),
+    )),
+    TableDef("matches", (
+        _col("pair_id", "INTEGER"),
+        _col("rows", "INTEGER"),
+        _col("cols", "INTEGER"),
+        _col("data", "BLOB"),
+    )),
+    TableDef("two_view_geometries", (
+        _col("pair_id", "INTEGER"),
+        _col("rows", "INTEGER"),
+        _col("cols", "INTEGER"),
+        _col("data", "BLOB"),
+        _col("config", "INTEGER"),
+        _col("F", "BLOB"),
+        _col("E", "BLOB"),
+        _col("H", "BLOB"),
+        _col("qvec", "BLOB"),
+        _col("tvec", "BLOB"),
+    )),
+    # ---- fork-specific extension tables (colmap_mod) ----
+    TableDef("videos", (
+        _col("video_id", "INTEGER"),
+        _col("name", "TEXT"),
+        _col("source_path", "TEXT"),
+        _col("content_hash", "TEXT"),
+        _col("width", "INTEGER"),
+        _col("height", "INTEGER"),
+        _col("num_frames", "INTEGER"),
+        _col("fps", "REAL"),
+        _col("duration_seconds", "REAL"),
+        _col("codec_name", "TEXT"),
+        _col("sync_group", "TEXT"),
+    ), extension=True, note="Video ingestion source metadata."),
+    TableDef("video_frames", (
+        _col("video_id", "INTEGER"),
+        _col("image_id", "INTEGER"),
+        _col("frame_id", "INTEGER"),
+        _col("pts_seconds", "REAL"),
+        _col("time_id", "INTEGER"),
+    ), extension=True, note="Maps decoded video frames to image ids."),
+    TableDef("image_qualities", (
+        _col("image_id", "INTEGER"),
+        _col("quality", "REAL"),
+    ), extension=True,
+        note="Per-image blur/sharpness (variance of Laplacian); written "
+             "when ImageReaderOptions.estimate_quality is on."),
+    TableDef("markers", (
+        _col("marker_id", "INTEGER"),
+        _col("label", "TEXT"),
+        _col("type", "INTEGER"),
+        _col("world_position", "BLOB"),
+        _col("world_position_cov", "BLOB"),
+        _col("point3D_id", "INTEGER"),
+        _col("enabled", "INTEGER"),
+    ), extension=True, note="Named 3D points / ground-control points with "
+                            "optional world-coordinate priors."),
+    TableDef("marker_projections", (
+        _col("marker_id", "INTEGER"),
+        _col("image_id", "INTEGER"),
+        _col("x", "REAL"),
+        _col("y", "REAL"),
+        _col("size", "REAL"),
+        _col("pinned", "INTEGER"),
+        _col("point2D_idx", "INTEGER"),
+    ), extension=True, note="Per-image 2D projections of markers."),
+)
+
+COLMAP_DB_TABLES_BY_NAME: dict[str, TableDef] = {t.name: t for t in COLMAP_DB_TABLES}
+
+#: Tables that exist only in the colmap_mod fork (not vanilla upstream).
+EXTENSION_TABLES: frozenset[str] = frozenset(
+    t.name for t in COLMAP_DB_TABLES if t.extension
+)
+
+#: ``table.column`` extension columns added to otherwise-upstream tables.
+EXTENSION_COLUMNS: frozenset[str] = frozenset(
+    f"{t.name}.{c.name}"
+    for t in COLMAP_DB_TABLES
+    if not t.extension
+    for c in t.extension_columns
+)
+
+#: Tables present in vanilla upstream COLMAP (the portable common core).
+UPSTREAM_TABLES: frozenset[str] = frozenset(
+    t.name for t in COLMAP_DB_TABLES if not t.extension
+)
+
+
+def is_extension_table(name: str) -> bool:
+    return name in EXTENSION_TABLES
+
+
+def is_extension_column(table: str, column: str) -> bool:
+    return f"{table}.{column}" in EXTENSION_COLUMNS
+
+
+__all__ = [
+    "COLMAP_DB_TABLES",
+    "COLMAP_DB_TABLES_BY_NAME",
+    "ColumnDef",
+    "DATABASE_SCHEMA_REVISION",
+    "DATABASE_VERSION_NUMBER",
+    "EXTENSION_COLUMNS",
+    "EXTENSION_TABLES",
+    "MAX_NUM_IMAGES",
+    "TableDef",
+    "UPSTREAM_TABLES",
+    "image_pair_to_pair_id",
+    "is_extension_column",
+    "is_extension_table",
+    "make_database_version_number",
+    "pair_id_to_image_pair",
+]
