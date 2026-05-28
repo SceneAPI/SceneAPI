@@ -72,6 +72,69 @@ DATABASE_VERSION_NUMBER = make_database_version_number(
     DATABASE_SCHEMA_REVISION,
 )
 
+# --- feature extractor / matcher type registry ---------------------------
+#
+# ``descriptors.type`` records WHICH extractor produced a descriptor set so
+# the matcher can refuse to join incompatible descriptor types. colmap_mod
+# backs this with a *closed* C++ enum (``FeatureExtractorType``), but the
+# sfmapi contract treats extractor identity as an **open registry**:
+#
+#   * The invariant is the GUARD, not a fixed enum -- "a match may only
+#     join two descriptor sets of the same extractor type." Arbitrary
+#     extractor ids are permitted; the contract does not cap the set.
+#   * ``descriptors.type`` (INTEGER) physically stores a colmap_mod
+#     ``FeatureExtractorType`` value, so a DB written by colmap_mod
+#     round-trips. The known seed mapping is below.
+#   * An extractor OUTSIDE the colmap_mod enum has two contract-legal
+#     homes: (a) extend the colmap_mod enum (a fork C++ change) to store
+#     it in ``descriptors.type``, or (b) emit portable
+#     ``matches.coordinates.v1`` / ``matches.dense.v1`` artifacts, which
+#     carry image-coordinate matches directly and never touch the COLMAP
+#     keypoint/descriptor tables -- the standard route for detector-free
+#     / dense models (LoFTR, RoMa, MASt3R) that have no descriptors at all.
+#
+# So "arbitrary matching model" is supported: detector-based extractors
+# beyond the seed extend the registry (and, for COLMAP-native storage, the
+# fork enum); detector-free models bypass descriptor typing via the
+# coordinate/dense match formats.
+
+#: Extractor-type ids known to the reference fork, mapped to their
+#: colmap_mod ``FeatureExtractorType`` integer values (the on-disk
+#: ``descriptors.type`` encoding). ``UNDEFINED`` is -1.
+COLMAP_KNOWN_EXTRACTOR_TYPES: dict[str, int] = {
+    "SIFT": 0,
+    "ALIKED_N16ROT": 1,
+    "ALIKED_N32": 2,
+}
+UNDEFINED_EXTRACTOR_TYPE = -1
+
+#: Matcher-type ids known to the reference fork (colmap_mod
+#: ``FeatureMatcherType``). Like extractors, the registry is open --
+#: this is the known seed, not a cap.
+COLMAP_KNOWN_MATCHER_TYPES: tuple[str, ...] = (
+    "SIFT_BRUTEFORCE",
+    "SIFT_LIGHTGLUE",
+    "ALIKED_BRUTEFORCE",
+    "ALIKED_LIGHTGLUE",
+)
+
+
+def is_colmap_native_extractor_type(name: str) -> bool:
+    """Whether ``name`` is storable as a colmap_mod ``descriptors.type``
+    integer today. A False result does NOT mean the extractor is invalid
+    -- it means it must either extend the fork enum or route through the
+    portable coordinate/dense match formats (see module docstring)."""
+    return name in COLMAP_KNOWN_EXTRACTOR_TYPES
+
+
+def matches_are_type_compatible(type_a: str, type_b: str) -> bool:
+    """The cross-extractor matching guard: a match may only join two
+    descriptor sets produced by the same extractor type. This is the
+    contract invariant -- it holds for arbitrary extractor ids, not just
+    the colmap_mod seed."""
+    return type_a == type_b
+
+
 # --- pair_id encoding -----------------------------------------------------
 #
 # matches / two_view_geometries are keyed by a single ``pair_id`` derived
@@ -308,6 +371,8 @@ def is_extension_column(table: str, column: str) -> bool:
 __all__ = [
     "COLMAP_DB_TABLES",
     "COLMAP_DB_TABLES_BY_NAME",
+    "COLMAP_KNOWN_EXTRACTOR_TYPES",
+    "COLMAP_KNOWN_MATCHER_TYPES",
     "ColumnDef",
     "DATABASE_SCHEMA_REVISION",
     "DATABASE_VERSION_NUMBER",
@@ -315,10 +380,13 @@ __all__ = [
     "EXTENSION_TABLES",
     "MAX_NUM_IMAGES",
     "TableDef",
+    "UNDEFINED_EXTRACTOR_TYPE",
     "UPSTREAM_TABLES",
     "image_pair_to_pair_id",
+    "is_colmap_native_extractor_type",
     "is_extension_column",
     "is_extension_table",
     "make_database_version_number",
+    "matches_are_type_compatible",
     "pair_id_to_image_pair",
 ]

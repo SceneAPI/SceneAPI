@@ -106,6 +106,7 @@ First REST workflow with curl <reference/curl_tour>
 reference/api
 reference/openapi
 reference/job_configuration
+reference/matching_models
 guides/mcp
 reference/auth
 reference/errors

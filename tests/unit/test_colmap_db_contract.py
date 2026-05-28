@@ -79,6 +79,45 @@ def test_upstream_and_extension_partition_is_complete() -> None:
     assert db.UPSTREAM_TABLES & db.EXTENSION_TABLES == frozenset()
 
 
+def test_known_extractor_types_seed_matches_colmap_mod_enum() -> None:
+    # The seed mirrors colmap_mod FeatureExtractorType integer values so a
+    # DB written by the fork round-trips. UNDEFINED is -1.
+    assert db.COLMAP_KNOWN_EXTRACTOR_TYPES == {
+        "SIFT": 0,
+        "ALIKED_N16ROT": 1,
+        "ALIKED_N32": 2,
+    }
+    assert db.UNDEFINED_EXTRACTOR_TYPE == -1
+
+
+def test_extractor_registry_is_open_not_a_cap() -> None:
+    # Seed members are colmap-native-storable...
+    assert db.is_colmap_native_extractor_type("SIFT")
+    assert db.is_colmap_native_extractor_type("ALIKED_N32")
+    # ...an arbitrary extractor id is NOT colmap-native-storable (it would
+    # need a fork enum extension or the coordinate/dense match route), but
+    # that's a routing fact, not a validity cap -- the contract permits it.
+    assert not db.is_colmap_native_extractor_type("SUPERPOINT")
+    assert not db.is_colmap_native_extractor_type("XFEAT")
+
+
+def test_cross_extractor_matching_guard() -> None:
+    # The invariant holds for arbitrary ids, not just the seed.
+    assert db.matches_are_type_compatible("SIFT", "SIFT")
+    assert db.matches_are_type_compatible("SUPERPOINT", "SUPERPOINT")
+    assert not db.matches_are_type_compatible("SIFT", "ALIKED_N32")
+    assert not db.matches_are_type_compatible("SUPERPOINT", "DISK")
+
+
+def test_known_matcher_types_seed() -> None:
+    assert db.COLMAP_KNOWN_MATCHER_TYPES == (
+        "SIFT_BRUTEFORCE",
+        "SIFT_LIGHTGLUE",
+        "ALIKED_BRUTEFORCE",
+        "ALIKED_LIGHTGLUE",
+    )
+
+
 def test_core_contract_does_not_import_colmap_plugin() -> None:
     # The contract is a data standard, not a dependency: importing it must
     # not pull in any sfmapi_colmap* plugin package. (The repo-wide guard
