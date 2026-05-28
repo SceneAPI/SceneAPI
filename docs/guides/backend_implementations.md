@@ -147,22 +147,61 @@ register_backend("my_backend", MyBackend, providers=["my_backend"])
 
 When the backend ships as a Python entry point under
 `[project.entry-points."sfmapi.backends"]`, sfm_hub loads it during
-lifespan startup and hands the plugin a `registrar(name, factory,
-*, providers=None)` callable. Pass provider aliases directly:
+lifespan startup. Plugin authors should use the canonical
+{class}`sfmapi.backends.Plugin` dataclass to express the entry point
+in three lines:
 
 ```python
-# my_backend/plugin.py
+# sfmapi_my_backend/plugin.py
+from sfmapi.backends import Plugin
+
 from .backend import MyBackend
 
-def register(registrar):
-    registrar("my_backend", MyBackend, providers=["my_provider"])
+MANIFEST = {...}  # PluginManifestDict-shaped
+
+plugin = Plugin(
+    manifest=MANIFEST,
+    backend_name="my_backend",
+    backend_factory=MyBackend,
+)
 ```
 
+The matching `pyproject.toml` declaration is:
+
+```toml
+[project.entry-points."sfmapi.backends"]
+my_backend = "sfmapi_my_backend.plugin:plugin"
+```
+
+`sfmapi scaffold-plugin <id>` generates this shape for you (see
+{doc}`../reference/cli`).
+
+`Plugin` supports three modes:
+
+- **Default** (the common case): pass `manifest`, `backend_name`, and
+  `backend_factory`. `register()` enumerates the manifest's
+  `providers[*].provider_id` and registers the factory under each one,
+  with a `TypeError` fallback for older sfmapi versions that don't
+  accept `providers=` on the registrar callback.
+- **Custom registration via `register_hook=`**: when one entry point
+  ships multiple backend factories (the COLMAP family registers four)
+  or registers the same backend under multiple alias ids (RealityScan
+  Cli), pass `register_hook=your_callable`. When set, `register()`
+  delegates to it instead of the default loop, while `manifest` /
+  `backend_name` / `backend_factory` still describe the plugin's
+  canonical "primary" provider for anything that introspects it.
+- **Manifest-only mode** (no in-process backend): for plugins that
+  integrate via `container_service` (the splatting backends do this),
+  omit `backend_name` and `backend_factory`. `register()` becomes a
+  silent no-op; the framework still picks up the manifest via
+  `get_plugin_manifest()`.
+
 The plugin's `PluginManifest.providers` list is consulted only as a
-fallback for entry points that don't pass `providers=` through the
-callback. When the manifest lists provider ids that don't match any
-backend the plugin registered, sfm_hub logs a warning and skips
-those provider aliases.
+fallback for entry points whose `register()` callback doesn't pass
+`providers=` through the registrar (legacy / manual `register(registrar)`
+functions). When the manifest lists provider ids that don't match any
+backend the plugin registered, sfm_hub logs a warning and skips those
+provider aliases.
 
 ## Reference backend packages
 
