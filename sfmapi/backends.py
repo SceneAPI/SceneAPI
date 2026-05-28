@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
+
 from app.adapters.backend import (
     ArtifactConversionBackend,
     Backend,
@@ -73,6 +77,64 @@ from app.adapters.registry import (
     register_backend_provider,
 )
 
+
+@dataclass(frozen=True)
+class Plugin:
+    """Canonical sfmapi plugin shape.
+
+    Every ``[sfmapi.backends]`` entry point in the baseline has
+    converged on this exact structure: a manifest dict, a backend name
+    in the sfmapi registry, a zero-arg factory that builds the
+    backend, and the ``register()`` method that wires the factory in
+    via :func:`app.adapters.registry.register_backend`. Plugin authors
+    typically instantiated their own dataclass per repo; importing
+    :class:`Plugin` removes that boilerplate.
+
+    Usage::
+
+        from sfmapi.backends import Plugin
+        from .backend import MyBackend
+
+        MANIFEST = {...}  # PluginManifestDict-shaped dict
+
+        plugin = Plugin(
+            manifest=MANIFEST,
+            backend_name="my_backend",
+            backend_factory=MyBackend,
+        )
+
+    The entry point in ``pyproject.toml`` is then::
+
+        [project.entry-points."sfmapi.backends"]
+        my_backend = "sfmapi_my_backend.plugin:plugin"
+
+    :attr:`register` is forward-compatible with older sfmapi versions
+    that do not accept a ``providers=`` keyword on the registrar.
+    """
+
+    manifest: dict[str, Any]
+    backend_name: str
+    backend_factory: Callable[[], Any]
+
+    def get_plugin_manifest(self) -> dict[str, Any]:
+        return self.manifest
+
+    def register(self, register_backend: Callable[..., None]) -> None:
+        provider_ids = [
+            str(provider["provider_id"])
+            for provider in self.manifest.get("providers", [])
+        ]
+        try:
+            register_backend(
+                self.backend_name,
+                self.backend_factory,
+                providers=provider_ids,
+            )
+        except TypeError:
+            # Older sfmapi without ``providers=`` kwarg on the registrar.
+            register_backend(self.backend_name, self.backend_factory)
+
+
 __all__ = [
     "ArtifactConversionBackend",
     "Backend",
@@ -89,6 +151,7 @@ __all__ = [
     "MappingBackend",
     "NoopProgressReporter",
     "ObservationBackend",
+    "Plugin",
     "ProgressReporter",
     "ReconstructionMergeBackend",
     "ReconstructionReaderBackend",
