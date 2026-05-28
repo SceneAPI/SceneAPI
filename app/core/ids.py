@@ -1,27 +1,15 @@
-"""Id helpers used across sfmapi.
+"""ULID factory.
 
-The codebase juggles two distinct id families that are easy to confuse:
-
-1. **Resource ids** — ULIDs identifying instances of mutable resources
-   (project_id, dataset_id, job_id, recon_id, ...). 26-char
-   Crockford-base32, lexicographically time-sortable, ~80 bits of
-   entropy per millisecond. Helpers: ``new_id`` / ``is_id``.
-2. **Contract ids** — namespaced strings identifying entries in the
-   *catalog* the backend advertises (config_id, action_id, contract_id,
-   provider_id). Constrained by regex, not by length. Helpers:
-   ``is_namespaced_id`` / ``is_provider_id``.
-
-See ``docs/reference/job_configuration.md`` for the contract-id table
-(which dotted segment means what in which field).
+ULIDs are 26-char Crockford-base32 strings, lexicographically time-sortable,
+case-insensitive, unique to ~80 bits of entropy per millisecond. We use them
+everywhere instead of integer auto-increment to (a) avoid Postgres-only
+sequences, (b) give clients an opaque, sortable, prefix-stable id, and (c)
+make multi-tenant collision avoidance trivial.
 """
 
 from __future__ import annotations
 
-import re
-
 from ulid import ULID
-
-# ---- resource ids (ULID-shaped) ----
 
 ID_LEN = 26
 
@@ -38,29 +26,3 @@ def is_id(value: str) -> bool:
     except (ValueError, TypeError):
         return False
     return True
-
-
-# ---- contract ids (namespaced / provider) ----
-#
-# These are the regexes downstream callers (sfm_hub.models,
-# app.adapters.backend_*) import instead of re-declaring the same literals.
-
-# config_id / action_id / artifact contract_id — namespaced dotted,
-# at least one `.`-separated segment after the first.
-NAMESPACED_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_-]*(?:\.[A-Za-z0-9][A-Za-z0-9_-]*)+$"
-NAMESPACED_ID_RE = re.compile(NAMESPACED_ID_PATTERN)
-
-# provider_id — looser; dots are allowed but not required.
-PROVIDER_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.-]*$"
-PROVIDER_ID_RE = re.compile(PROVIDER_ID_PATTERN)
-
-
-def is_namespaced_id(value: str) -> bool:
-    """Return whether ``value`` looks like a config_id / action_id /
-    contract_id (namespaced dotted)."""
-    return bool(NAMESPACED_ID_RE.match(value))
-
-
-def is_provider_id(value: str) -> bool:
-    """Return whether ``value`` looks like a provider_id."""
-    return bool(PROVIDER_ID_RE.match(value))

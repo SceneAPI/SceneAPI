@@ -4,28 +4,17 @@ from __future__ import annotations
 
 import re
 from typing import Literal
-from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-RuntimeMode = Literal["uv", "docker", "container_service", "external_tool"]
+RuntimeMode = Literal["uv", "docker", "external_tool"]
 TrustTier = Literal["official", "verified", "community", "local"]
 
 # A manifest is the contract a backend ships; malformed values here are
 # invisible until install / discovery time, so validate the shapes up front.
-# Provider-id pattern lives in app.core.ids (single source); the other
-# three are sfm_hub-specific and stay here.
+_PROVIDER_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 _ENTRY_POINT_RE = re.compile(r"^[A-Za-z_][\w.]*:[A-Za-z_]\w*$")
 _GITHUB_URL_RE = re.compile(r"^https://github\.com/[^/\s]+/[^/\s]+")
-_ENV_VAR_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
-
-
-def _provider_id_re() -> re.Pattern[str]:
-    """Late import: ``app.core.ids`` ships only stdlib but ``app`` and
-    ``sfm_hub`` cross-import elsewhere, so resolve lazily to avoid
-    Python's module-import-cycle serialization."""
-    from app.core.ids import PROVIDER_ID_RE
-    return PROVIDER_ID_RE
 
 
 def _known_capabilities() -> frozenset[str]:
@@ -66,259 +55,6 @@ class DockerRuntime(BaseModel):
     build_context: str | None = None
 
 
-class TorchRuntime(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    policy: Literal["optional", "recommended", "required"] = "recommended"
-    device: Literal["cpu", "cuda"] = "cuda"
-    index_url: str = "https://download.pytorch.org/whl/cu128"
-    cpu_index_url: str = "https://download.pytorch.org/whl/cpu"
-    packages: list[str] = Field(default_factory=lambda: ["torch", "torchvision", "torchaudio"])
-    install_env: dict[str, str] = Field(default_factory=dict)
-
-    @field_validator("index_url", "cpu_index_url")
-    @classmethod
-    def _url_is_https(cls, value: str) -> str:
-        parsed = urlsplit(value)
-        if parsed.scheme != "https" or not parsed.netloc:
-            raise ValueError("torch wheel index URLs must be https:// URLs")
-        return value
-
-    @field_validator("packages")
-    @classmethod
-    def _packages_are_non_empty_names(cls, value: list[str]) -> list[str]:
-        if not value:
-            raise ValueError("torch runtime packages must not be empty")
-        bad = [
-            item
-            for item in value
-            if not item or item != item.strip() or any(char.isspace() for char in item)
-        ]
-        if bad:
-            raise ValueError(f"torch runtime packages must be package names: {bad!r}")
-        return value
-
-    @field_validator("install_env")
-    @classmethod
-    def _install_env_uses_env_names(cls, value: dict[str, str]) -> dict[str, str]:
-        bad = [key for key in value if not _ENV_VAR_RE.match(key)]
-        if bad:
-            raise ValueError(f"torch install env names must match {_ENV_VAR_RE.pattern!r}")
-        return value
-
-
-class ContainerServiceEndpoint(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    default_url: str | None = None
-    url_env: str | None = None
-
-    @model_validator(mode="after")
-    def _has_endpoint(self) -> ContainerServiceEndpoint:
-        if not self.default_url and not self.url_env:
-            raise ValueError("container service requires default_url or url_env")
-        return self
-
-    @field_validator("default_url")
-    @classmethod
-    def _url_is_http(cls, value: str | None) -> str | None:
-        if value is None:
-            return value
-        parsed = urlsplit(value)
-        if parsed.scheme != "http":
-            raise ValueError("container service default_url must be http://")
-        if not parsed.hostname:
-            raise ValueError("container service default_url must include a host")
-        if parsed.username or parsed.password:
-            raise ValueError("container service default_url must not include credentials")
-        if parsed.fragment:
-            raise ValueError("container service default_url must not include a fragment")
-        if parsed.query:
-            raise ValueError("container service default_url must not include a query string")
-        if any(char.isspace() for char in value):
-            raise ValueError("container service default_url must not contain whitespace")
-        return value
-
-    @field_validator("url_env")
-    @classmethod
-    def _url_env_format(cls, value: str | None) -> str | None:
-        if value is None:
-            return value
-        if not _ENV_VAR_RE.match(value):
-            raise ValueError(f"url_env must match {_ENV_VAR_RE.pattern!r}: {value!r}")
-        return value
-
-
-class ContainerServiceHealthcheck(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    path: str = "/healthz"
-    timeout_seconds: int = Field(5, ge=1)
-
-    @field_validator("path")
-    @classmethod
-    def _path_is_non_empty(cls, value: str) -> str:
-        if not value:
-            raise ValueError("container service healthcheck path must be non-empty")
-        return value
-
-
-class ContainerServiceMounts(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    input_path: str = "/sfmapi/input"
-    output_path: str = "/sfmapi/output"
-    work_path: str = "/sfmapi/work"
-    log_path: str = "/sfmapi/logs"
-
-    @field_validator("input_path", "output_path", "work_path", "log_path")
-    @classmethod
-    def _path_is_absolute(cls, value: str) -> str:
-        if not value.startswith("/"):
-            raise ValueError("container service mount paths must be absolute")
-        if any(char.isspace() for char in value):
-            raise ValueError("container service mount paths must not contain whitespace")
-        return value
-
-
-class ContainerServiceRetry(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    max_attempts: int = Field(1, ge=1)
-    backoff_seconds: int = Field(0, ge=0)
-
-
-class ContainerServiceBuild(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    source: Literal["git", "local", "release"] = "git"
-    context: str | None = None
-    dockerfile: str = "Dockerfile"
-    ref: str | None = None
-    args: dict[str, str] = Field(default_factory=dict)
-
-
-class ContainerServiceImage(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    image: str | None = None
-    digest: str | None = None
-    registry: str | None = None
-    build: ContainerServiceBuild | None = None
-
-    @model_validator(mode="after")
-    def _has_image_or_build(self) -> ContainerServiceImage:
-        if not self.image and self.build is None:
-            raise ValueError("container service image requires image or build")
-        return self
-
-    @field_validator("digest")
-    @classmethod
-    def _digest_is_sha256(cls, value: str | None) -> str | None:
-        if value is None:
-            return value
-        if not value.startswith("sha256:") or len(value) != 71:
-            raise ValueError("container service image digest must be sha256:<64 hex chars>")
-        try:
-            int(value.removeprefix("sha256:"), 16)
-        except ValueError as exc:
-            raise ValueError("container service image digest must be hexadecimal") from exc
-        return value
-
-
-class ContainerServiceObjectStore(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    url_env: str | None = None
-    input_prefix: str | None = None
-    output_prefix: str | None = None
-
-    @field_validator("url_env")
-    @classmethod
-    def _url_env_format(cls, value: str | None) -> str | None:
-        if value is None:
-            return value
-        if not _ENV_VAR_RE.match(value):
-            raise ValueError(f"object store url_env must match {_ENV_VAR_RE.pattern!r}: {value!r}")
-        return value
-
-
-class ContainerServiceCache(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    policy: Literal["none", "read_only", "read_write"] = "none"
-    scope: Literal["request", "plugin", "global"] = "request"
-    path: str | None = None
-
-    @field_validator("path")
-    @classmethod
-    def _path_is_absolute(cls, value: str | None) -> str | None:
-        if value is None:
-            return value
-        if not value.startswith("/"):
-            raise ValueError("container service cache path must be absolute")
-        if any(char.isspace() for char in value):
-            raise ValueError("container service cache path must not contain whitespace")
-        return value
-
-
-class ContainerServiceProvenance(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    image_digest_required: bool = True
-    sbom_url: str | None = None
-    attestation_url: str | None = None
-    source_revision: str | None = None
-
-
-class ContainerServiceExecution(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    path: str = "/execute"
-    timeout_seconds: int = Field(3600, ge=1)
-    mounts: ContainerServiceMounts = Field(default_factory=ContainerServiceMounts)
-    gpu: Literal["none", "optional", "required"] = "optional"
-    env: list[str] = Field(default_factory=list)
-    secrets: list[str] = Field(default_factory=list)
-    retry: ContainerServiceRetry = Field(default_factory=ContainerServiceRetry)
-    shutdown_timeout_seconds: int = Field(10, ge=0)
-    log_collection: Literal["stdout", "file", "both"] = "both"
-    artifact_collection: bool = True
-
-    @field_validator("path")
-    @classmethod
-    def _path_is_absolute(cls, value: str) -> str:
-        if not value.startswith("/"):
-            raise ValueError("container service execution path must start with /")
-        if any(char.isspace() for char in value):
-            raise ValueError("container service execution path must not contain whitespace")
-        return value
-
-    @field_validator("env", "secrets")
-    @classmethod
-    def _names_are_env_vars(cls, values: list[str]) -> list[str]:
-        bad = [value for value in values if not _ENV_VAR_RE.match(value)]
-        if bad:
-            raise ValueError(
-                f"container service env/secret names must match {_ENV_VAR_RE.pattern!r}"
-            )
-        return values
-
-
-class ContainerServiceRuntime(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    protocol: Literal["sfmapi-plugin-http-v1"]
-    protocol_version: str
-    service: ContainerServiceEndpoint
-    image: ContainerServiceImage | None = None
-    object_store: ContainerServiceObjectStore | None = None
-    cache: ContainerServiceCache = Field(default_factory=ContainerServiceCache)
-    provenance: ContainerServiceProvenance = Field(default_factory=ContainerServiceProvenance)
-    healthcheck: ContainerServiceHealthcheck = Field(default_factory=ContainerServiceHealthcheck)
-    execution: ContainerServiceExecution = Field(default_factory=ContainerServiceExecution)
-
-
 class ExternalToolRuntime(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -332,7 +68,6 @@ class RuntimeModes(BaseModel):
 
     uv: UvRuntime | None = None
     docker: DockerRuntime | None = None
-    container_service: ContainerServiceRuntime | None = None
     external_tool: ExternalToolRuntime | None = None
 
     def enabled_modes(self) -> list[RuntimeMode]:
@@ -341,8 +76,6 @@ class RuntimeModes(BaseModel):
             out.append("uv")
         if self.docker is not None:
             out.append("docker")
-        if self.container_service is not None:
-            out.append("container_service")
         if self.external_tool is not None:
             out.append("external_tool")
         return out
@@ -361,9 +94,8 @@ class ProviderManifest(BaseModel):
     @field_validator("provider_id")
     @classmethod
     def _provider_id_format(cls, provider_id: str) -> str:
-        pattern = _provider_id_re()
-        if not pattern.match(provider_id):
-            raise ValueError(f"provider_id must match {pattern.pattern!r}: {provider_id!r}")
+        if not _PROVIDER_ID_RE.match(provider_id):
+            raise ValueError(f"provider_id must match {_PROVIDER_ID_RE.pattern!r}: {provider_id!r}")
         return provider_id
 
     @field_validator("capabilities")
@@ -399,7 +131,6 @@ class Compatibility(BaseModel):
     python: str | None = ">=3.12,<3.13"
     os: list[str] = Field(default_factory=lambda: ["windows", "linux", "macos"])
     cuda: str | None = None
-    torch: TorchRuntime | None = None
     tool_versions: dict[str, str] = Field(default_factory=dict)
 
 
