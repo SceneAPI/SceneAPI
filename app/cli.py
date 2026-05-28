@@ -112,6 +112,8 @@ def _plugins_install(args: argparse.Namespace) -> None:
         package_name=args.package,
         dry_run=args.dry_run,
         allow_unsafe_execution=not args.dry_run,
+        request_id=args.request_id,
+        provision_runtime=not args.no_provision_runtime,
         force=args.force,
     )
     _print_json(result)
@@ -204,6 +206,26 @@ def _profiles_assign_workspace(args: argparse.Namespace) -> None:
     _print_json(plugin_service.assign_workspace_profile(workspace, args.name))
 
 
+def _scaffold_plugin(args: argparse.Namespace) -> None:
+    from app.scaffolding import scaffold_plugin
+
+    output_dir = Path(args.output_dir).expanduser().resolve()
+    written = scaffold_plugin(
+        args.plugin_id,
+        output_dir=output_dir,
+        display_name=args.display_name,
+        description=args.description,
+        vendor=args.vendor,
+        overwrite=args.overwrite,
+    )
+    root = output_dir / f"sfmapi_{args.plugin_id}"
+    print(f"scaffolded {len(written)} files in {root}")
+    for entry in written:
+        print(f"  {entry.path.relative_to(output_dir)} ({entry.bytes_written} bytes)")
+    print()
+    print("Next: cd into the directory and run `uv pip install -e .` to register the entry point.")
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="sfmapi")
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -285,15 +307,21 @@ def main(argv: Sequence[str] | None = None) -> None:
     plugins_install = plugin_subcommands.add_parser("install", help="Install a plugin.")
     plugins_install.add_argument("plugin_id")
     plugins_install.add_argument(
-        "--method", choices=("uv", "docker", "external_tool"), default="uv"
+        "--method", choices=("uv", "docker", "container_service", "external_tool"), default="uv"
     )
     plugins_install.add_argument("--github", default=None, help="Install from a GitHub URL.")
     plugins_install.add_argument("--ref", default=None, help="Git branch, tag, or commit.")
     plugins_install.add_argument("--package", default=None, help="Python package name.")
+    plugins_install.add_argument("--request-id", default=None, help="UUID-style idempotency key.")
     plugins_install.add_argument(
         "--dry-run",
         action="store_true",
-        help="Plan the install without running uv/docker or recording state.",
+        help="Plan the install without running commands or recording state.",
+    )
+    plugins_install.add_argument(
+        "--no-provision-runtime",
+        action="store_true",
+        help="Install only the wrapper package; skip plugin-owned runtime provisioning.",
     )
     plugins_install.add_argument(
         "--force",
@@ -363,6 +391,48 @@ def main(argv: Sequence[str] | None = None) -> None:
     profiles_workspace.add_argument("name")
     profiles_workspace.add_argument("--workspace", default=None)
     profiles_workspace.set_defaults(func=_profiles_assign_workspace)
+
+    scaffold = subcommands.add_parser(
+        "scaffold-plugin",
+        help=(
+            "Scaffold a minimal sfmapi backend plugin: pyproject.toml + "
+            "src/sfmapi_<id>/{plugin,backend,__init__}.py + tests + README. "
+            "Uses the canonical sfmapi.backends.Plugin class."
+        ),
+    )
+    scaffold.add_argument(
+        "plugin_id",
+        help=(
+            "Lowercase plugin id (used as the entry-point name, package "
+            "suffix, and backend name). Must match [a-z][a-z0-9_]*."
+        ),
+    )
+    scaffold.add_argument(
+        "--output-dir",
+        default=".",
+        help="Directory to create sfmapi_<plugin_id>/ inside. Defaults to cwd.",
+    )
+    scaffold.add_argument(
+        "--display-name",
+        default=None,
+        help="Human-readable display name. Defaults to TitleCase(plugin_id).",
+    )
+    scaffold.add_argument(
+        "--description",
+        default=None,
+        help="One-line plugin description used in the manifest + README.",
+    )
+    scaffold.add_argument(
+        "--vendor",
+        default="unknown",
+        help="Vendor name surfaced in the backend's runtime_versions metadata.",
+    )
+    scaffold.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Replace any existing scaffolded files instead of erroring.",
+    )
+    scaffold.set_defaults(func=_scaffold_plugin)
 
     args = parser.parse_args(argv)
     args.func(args)
