@@ -110,16 +110,30 @@ class Plugin:
 
     :attr:`register` is forward-compatible with older sfmapi versions
     that do not accept a ``providers=`` keyword on the registrar.
+
+    For plugins whose registration is more involved than "register the
+    one ``backend_factory`` under each provider id in the manifest" --
+    e.g. multi-backend COLMAP family that wires four different
+    factories under different provider ids, or RealityScan Cli which
+    registers the same backend under multiple alias ids -- pass a
+    ``register_hook`` callable. When set, ``register()`` delegates to
+    it instead of the default loop, while ``manifest`` /
+    ``backend_name`` / ``backend_factory`` still describe the plugin's
+    canonical shape for everything else that introspects it.
     """
 
     manifest: dict[str, Any]
     backend_name: str
     backend_factory: Callable[[], Any]
+    register_hook: Callable[..., None] | None = None
 
     def get_plugin_manifest(self) -> dict[str, Any]:
         return self.manifest
 
     def register(self, register_backend: Callable[..., None]) -> None:
+        if self.register_hook is not None:
+            self.register_hook(register_backend)
+            return
         provider_ids = [
             str(provider["provider_id"])
             for provider in self.manifest.get("providers", [])
