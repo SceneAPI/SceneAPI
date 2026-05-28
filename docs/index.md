@@ -159,6 +159,9 @@ spec
 
 guides/contributing
 guides/release_policy
+guides/real_engine_testing
+guides/gap_closure_checklist
+guides/in_memory_reconstruction_proposal
 server/orchestrator
 server/storage
 server/workers
