@@ -35,6 +35,7 @@ _STAGE_ORDER = {
     "verify": 40,
     "mapping": 50,
     "bundle_adjustment": 60,
+    "radiance": 70,
 }
 _VALID_STAGES = frozenset(_STAGE_ORDER)
 _NAMESPACED_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*(?:\.[A-Za-z0-9][A-Za-z0-9_-]*)+$")
@@ -47,6 +48,9 @@ _COLMAP_STAGE_CONFIGS: tuple[tuple[str, str, str, str, str], ...] = (
     ("colmap.pairs.spatial", "pairs", "pairs.spatial", "colmap", "spatial_matcher"),
     ("colmap.pairs.vocabtree", "pairs", "pairs.vocabtree", "colmap", "vocab_tree_matcher"),
     ("colmap.pairs.explicit", "pairs", "pairs.explicit", "colmap", "matches_importer"),
+    # from_poses selects pairs by camera-position proximity, reusing the
+    # spatial_matcher option surface (same COLMAP command).
+    ("colmap.pairs.from_poses", "pairs", "pairs.from_poses", "colmap", "spatial_matcher"),
     ("colmap.matcher.sift", "matcher", "matchers.nn-mutual", "colmap", "exhaustive_matcher"),
     ("colmap.verify", "verify", "matches.verify", "colmap", "geometric_verifier"),
     ("colmap.mapping.incremental", "mapping", "map.incremental", "colmap", "mapper"),
@@ -54,6 +58,12 @@ _COLMAP_STAGE_CONFIGS: tuple[tuple[str, str, str, str, str], ...] = (
     ("colmap.mapping.hierarchical", "mapping", "map.hierarchical", "colmap", "hierarchical_mapper"),
     ("colmap.ba.standard", "bundle_adjustment", "ba.standard", "colmap", "bundle_adjuster"),
 )
+
+# Public, stable alias of the canonical COLMAP stage-config table. The COLMAP
+# family plugins (sfmapi_colmap / sfmapi_pycolmap / sfmapi_colmap_cli) import
+# THIS as their single source of truth rather than each keeping a local copy
+# (which had already drifted on the from_poses row).
+COLMAP_STAGE_CONFIGS = _COLMAP_STAGE_CONFIGS
 
 _RUNTIME_MANAGED_COLMAP_OPTIONS = {
     "database_path",
@@ -113,6 +123,8 @@ def _infer_stage(capability: str | None) -> str:
         return "mapping"
     if capability.startswith("ba."):
         return "bundle_adjustment"
+    if capability.startswith("radiance."):
+        return "radiance"
     return "other"
 
 
@@ -215,7 +227,7 @@ def _colmap_config_descriptors(backend: Any, *, include_schema: bool) -> list[di
                     "display_name": f"COLMAP {stage} options",
                     "description": (
                         f"Backend-specific COLMAP `{command}` options accepted through "
-                        "`backend_options` for {capability}."
+                        f"`backend_options` for `{capability}`."
                     ),
                     "option_schema": option_schema,
                     "metadata": metadata,
@@ -237,12 +249,15 @@ def _radiance_train_option_schema() -> dict[str, Any]:
     ``RadianceTrainRequest``; these are the remaining splat-universal knobs
     carried through ``backend_options``. Each plugin maps the canonical name to
     its native option (``num_gaussians`` -> max_splats/max_cap/max_primitives/
-    model.cap_max). ``additionalProperties`` stays open so an engine may accept
-    its own extras.
+    model.cap_max). This describes the CANONICAL (closed) knob set only --
+    ``additionalProperties: false`` is the config-schema contract requirement;
+    genuinely engine-specific extras still flow through the open
+    ``backend_options`` envelope (radiance training does not strict-validate
+    backend_options against this schema -- it is for discovery/portability).
     """
     return {
         "type": "object",
-        "additionalProperties": True,
+        "additionalProperties": False,
         "properties": {
             "num_gaussians": {
                 "type": "integer",
@@ -303,7 +318,34 @@ def _radiance_config_descriptors(backend: Any, *, include_schema: bool) -> list[
                     "RadianceTrainRequest fields."
                 ),
                 "option_schema": _radiance_train_option_schema() if include_schema else None,
-                "metadata": {"family": "radiance"},
+                # Defaults are also inlined in option_schema.properties[*].default
+                # (e.g. test_every=8, init="colmap"); duplicate at the descriptor
+                # level so the dedicated `defaults` field stops being empty.
+                "defaults": {"init": "colmap", "test_every": 8},
+                # Canonical -> native option mapping per known provider. The
+                # canonical name is what the client should use; each plugin
+                # back-fills its native flag from it (see _apply_canonical_options
+                # in each splatting trainer). Engine-specific knobs not in the
+                # canonical set still flow through `backend_options`.
+                "metadata": {
+                    "family": "radiance",
+                    "native_aliases": {
+                        "num_gaussians": {
+                            "gsplat": "num_gaussians",
+                            "brush": "max_splats",
+                            "lfs": "max_cap",
+                            "fastergs": "max_primitives",
+                            "spirulae": "model.cap_max",
+                        },
+                        "max_resolution": {
+                            "gsplat": "target_size",
+                            "brush": "max_resolution",
+                            "lfs": "max_width",
+                            "fastergs": "image_scale_factor (scale, not max-dim)",
+                            "spirulae": "n/a (trains full-resolution)",
+                        },
+                    },
+                },
             },
             backend=backend,
             include_schema=include_schema,

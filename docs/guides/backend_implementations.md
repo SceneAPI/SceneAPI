@@ -184,6 +184,11 @@ These packages use distinct Python import packages so agents and
 tools can install or inspect more than one backend in the same
 environment without module-name collisions.
 
+RealityScan/RealityCapture, InstantSfM, and SphereSfM remain dependent
+on their upstream binary, license, model, and solver stacks at runtime.
+The C++ bridge e2e classifies those rows separately: proprietary or
+missing upstream dependencies are not treated as sfmapi API failures.
+
 ## Capability strings
 
 The capability vocabulary is canonical and stable. Backends advertise
@@ -207,6 +212,7 @@ Common categories:
 | Mapping | `map.{incremental, global, hierarchical, spherical}` |
 | Bundle adjustment | `ba.{standard, two_stage, featuremetric}` |
 | Dense | `dense.patch_match_stereo`, `dense.fusion`, `mesh.{poisson, delaunay}` |
+| Radiance / 3DGS | `radiance.{train, evaluate, render, export, resume, convert}`, `radiance.metrics.{psnr, ssim, lpips}` |
 | Projection | `projection.{equirectangular_to_cubemap, cubemap_to_equirectangular, equirectangular_to_perspective, cubemap_rig}` |
 | Other | `relocalize.images`, `pgo.optimize`, `triangulate.retri`, `export.{ply, nvm, txt, bin}`, legacy `spherical.{to_cubemap, render_cubemap}` |
 
@@ -483,8 +489,9 @@ Descriptor rules:
 
 - `config_id` is a stable, dot-namespaced id such as
   `colmap.features.sift`.
-- `stage` is the portable stage (`features`, `pairs`, `matcher`,
-  `verify`, `mapping`, or `bundle_adjustment`).
+- `stage` is the portable stage: `features`, `pairs`, `matcher`,
+  `verify`, `mapping`, `bundle_adjustment`, or `radiance` (for 3DGS / radiance
+  training schemas like `radiance.train`).
 - `capability` should be the portable capability the schema applies
   to, such as `features.extract.sift` or `map.incremental`.
 - `provider` should match the request spec's optional provider
@@ -496,6 +503,28 @@ Descriptor rules:
 Set `additionalProperties: false` on every `option_schema`. The
 contract checker rejects schemas without it so sfmapi can catch
 misspelled `backend_options` before a job is queued.
+
+### Framework-owned canonical schemas
+
+sfmapi serves a few config schemas itself for any backend that advertises
+the matching capability — a single source of truth that backends do not
+re-declare:
+
+- **COLMAP stage options** (`colmap.features.sift`, `colmap.pairs.*`
+  including `colmap.pairs.from_poses`, `colmap.matcher.sift`, `colmap.verify`,
+  `colmap.mapping.*`, `colmap.ba.standard`) are built from the backend's
+  `colmap_command_schema()`. The COLMAP-family plugins import this one
+  canonical table instead of each keeping a copy.
+- **`radiance.train`** is the cross-engine 3DGS training contract: canonical
+  knobs `num_gaussians`, `max_resolution`, `init`, and `test_every` (with
+  `max_steps` and `eval` as typed `RadianceTrainRequest` fields). Each radiance
+  backend maps the canonical name to its native option (`num_gaussians` →
+  `max_splats` / `max_cap` / `max_primitives` / `model.cap_max`); genuinely
+  engine-specific knobs still pass through the open `backend_options` envelope.
+
+These appear under `GET /v1/backend/config-schemas?provider=<id>` whenever the
+provider advertises the capability; the stub backend advertises neither, so the
+default catalog is empty.
 
 ## Backend actions
 
@@ -628,9 +657,14 @@ delivery failed.
 
 ## What sfmapi does NOT do
 
-- **Install your engine.** Bring your own pycolmap / OpenSfM /
-  hloc / custom binary. Backends typically declare them as
-  Python deps and let `pip install` resolve.
+- **Own your engine lifecycle.** Backends declare Python dependencies in
+  their package metadata. If they need release assets, native builds, or
+  model downloads, they may expose `package.provisioning.provision()` so
+  `sfmapi plugins install --method uv` can plan or run that setup.
+  Provisioners may return `steps`, `warnings`, `metadata`, `env`, and
+  `outputs`; sfmapi serializes environment values only as `env_keys` and
+  `redacted_env`, and redacts secret-looking keys such as `TOKEN`, `SECRET`,
+  `KEY`, `PASSWORD`, `CREDENTIAL`, or `AUTH`.
 - **Configure CUDA.** Backends that need a GPU must check at startup
   and either work in CPU-fallback mode or raise from `__init__`.
 - **Validate your dicts.** The `dict` return shape is loose; clients
