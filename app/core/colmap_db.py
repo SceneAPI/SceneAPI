@@ -19,15 +19,18 @@ vanilla upstream COLMAP. Tables/columns absent from upstream are marked
 ``extension=True`` so consumers can tell the portable core from the
 fork-specific surface. The fork-specific surface this contract adopts:
 
+* ``images.time_id`` — per-image 4D / multi-time-frame capture tag
 * ``videos`` + ``video_frames`` — video ingestion + frame mapping
 * ``image_qualities`` — per-image blur/sharpness
 * ``markers`` + ``marker_projections`` — GCPs / named 3D points
 * ``descriptors.type`` — extractor type, blocks cross-extractor matching
 
-The fork's legacy ``images.time_id`` column is **deliberately excluded**:
-per-image 4D tagging is superseded by the frame / video-frame time
-model (``video_frames.time_id``), so the ``images`` table in this
-contract matches vanilla upstream exactly.
+4D support: ``images.time_id`` is the canonical per-image capture-time
+store (every image read populates ``Image.time_id`` from it);
+``video_frames.time_id`` is the video-source-specific echo of the same
+value. The column is nullable and ignored by non-4D readers, so the
+``images`` table stays backward-compatible with vanilla upstream COLMAP
+(NULL ``time_id`` == static SfM).
 
 Synced from colmap_mod ``src/colmap/scene/database_sqlite.cc`` +
 ``src/colmap/util/{version,types}.h`` at commit ``8f8e4dd92``
@@ -169,11 +172,14 @@ COLMAP_DB_TABLES: tuple[TableDef, ...] = (
         _col("image_id", "INTEGER"),
         _col("name", "TEXT"),
         _col("camera_id", "INTEGER"),
-        # NOTE: the fork's legacy ``images.time_id`` column is intentionally
-        # NOT part of this contract. Per-image 4D tagging is superseded by
-        # the frame / video-frame time model (``video_frames.time_id``),
-        # which is where the contract carries capture time going forward.
-        # This keeps the ``images`` table identical to vanilla upstream.
+        _col("time_id", "INTEGER", extension=True,
+             note="4D / multi-time-frame tag — the canonical per-image "
+                  "capture-time store. Read into Image.time_id for every "
+                  "image (photos, rig captures, and video frames alike); "
+                  "video_frames.time_id is the video-source-specific echo. "
+                  "NULL = untagged (static SfM). Nullable + ignored on "
+                  "SELECT * by non-4D tools, so it stays backward-compatible "
+                  "with vanilla upstream COLMAP readers."),
     )),
     TableDef("pose_priors", (
         _col("pose_prior_id", "INTEGER"),

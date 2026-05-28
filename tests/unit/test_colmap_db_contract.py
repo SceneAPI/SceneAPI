@@ -45,22 +45,29 @@ def test_extension_tables_are_exactly_the_fork_additions() -> None:
     )
 
 
-def test_extension_columns_are_only_descriptors_type() -> None:
-    # Legacy images.time_id is intentionally excluded; the only extension
-    # column on an otherwise-upstream table is descriptors.type.
-    assert db.EXTENSION_COLUMNS == frozenset({"descriptors.type"})
+def test_extension_columns_are_4d_time_and_descriptor_type() -> None:
+    # Two extension columns on otherwise-upstream tables: the 4D
+    # per-image capture tag, and the descriptor extractor type.
+    assert db.EXTENSION_COLUMNS == frozenset(
+        {"images.time_id", "descriptors.type"}
+    )
 
 
-def test_images_table_matches_vanilla_upstream() -> None:
+def test_images_time_id_is_the_canonical_4d_extension() -> None:
     images = db.COLMAP_DB_TABLES_BY_NAME["images"]
-    assert [c.name for c in images.columns] == ["image_id", "name", "camera_id"]
-    # The legacy 4D column must not be present.
-    assert images.column("time_id") is None
+    assert [c.name for c in images.columns] == [
+        "image_id", "name", "camera_id", "time_id",
+    ]
+    time_id = images.column("time_id")
+    assert time_id is not None
+    # 4D tag is an extension over vanilla upstream, not part of the
+    # portable core; images table itself stays an upstream table.
+    assert time_id.extension
     assert not images.extension
 
 
-def test_video_frames_still_carries_time_id() -> None:
-    # The current time model lives on video_frames, not images.
+def test_video_frames_also_carries_time_id() -> None:
+    # video_frames.time_id is the video-source echo of the per-image tag.
     vf = db.COLMAP_DB_TABLES_BY_NAME["video_frames"]
     assert vf.column("time_id") is not None
     assert vf.extension
