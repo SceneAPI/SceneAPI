@@ -38,8 +38,10 @@ _STAGE_ORDER = {
     "radiance": 70,
 }
 _VALID_STAGES = frozenset(_STAGE_ORDER)
-_NAMESPACED_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*(?:\.[A-Za-z0-9][A-Za-z0-9_-]*)+$")
-_PROVIDER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+# Canonical patterns live in app.core.ids; re-export under the local
+# underscore names to keep existing call sites in this file untouched.
+from app.core.ids import NAMESPACED_ID_RE as _NAMESPACED_ID_RE  # noqa: E402
+from app.core.ids import PROVIDER_ID_RE as _PROVIDER_RE  # noqa: E402
 
 _COLMAP_STAGE_CONFIGS: tuple[tuple[str, str, str, str, str], ...] = (
     ("colmap.features.sift", "features", "features.extract.sift", "colmap", "feature_extractor"),
