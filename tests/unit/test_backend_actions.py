@@ -192,13 +192,23 @@ async def test_backend_action_catalog_validate_and_run_job(
         assert actions_with_schema.status_code == 200
         assert actions_with_schema.json()["items"][0]["input_schema"]["properties"]["message"]
 
-        invalid = await client.post(
+        # :validate is shallow-by-contract (identical to the C++ tier): a
+        # known action returns valid:true + echoed inputs for any envelope.
+        shallow = await client.post(
             "/v1/backend/actions/echo.echo:validate",
             json={"inputs": {}},
         )
-        assert invalid.status_code == 200
-        assert invalid.json()["valid"] is False
-        assert invalid.json()["errors"][0]["field"] == "message"
+        assert shallow.status_code == 200
+        assert shallow.json()["valid"] is True
+        assert shallow.json()["normalized_inputs"] == {}
+
+        # Deep validation runs at :run -- the missing required "message" is
+        # rejected there (422), not at :validate.
+        rejected = await client.post(
+            "/v1/backend/actions/echo.echo:run",
+            json={"project_id": project["project_id"], "inputs": {}},
+        )
+        assert rejected.status_code == 422, rejected.text
 
         accepted = await client.post(
             "/v1/backend/actions/echo.echo:run",
@@ -283,26 +293,20 @@ async def test_colmap_command_surface_is_adapted_as_backend_actions(
         assert "database_path" in body["input_schema"]["properties"]
         assert "SiftExtraction.max_num_features" in body["input_schema"]["properties"]
 
-        invalid = await client.post(
+        # :validate is shallow -- a known action returns valid:true for any
+        # inputs; the unknown-option rejection happens at :run (below).
+        shallow = await client.post(
             "/v1/backend/actions/colmap.feature_extractor:validate",
             json={"inputs": {"bad_option": 1}},
         )
-        assert invalid.status_code == 200
-        assert invalid.json()["valid"] is False
-        assert "unknown option" in invalid.json()["errors"][0]["message"]
+        assert shallow.status_code == 200
+        assert shallow.json()["valid"] is True
 
-        valid = await client.post(
-            "/v1/backend/actions/colmap.feature_extractor:validate",
-            json={
-                "inputs": {
-                    "database_path": "database.db",
-                    "SiftExtraction.max_num_features": 1024,
-                    "ImageReader.single_camera": True,
-                }
-            },
+        rejected = await client.post(
+            "/v1/backend/actions/colmap.feature_extractor:run",
+            json={"project_id": project["project_id"], "inputs": {"bad_option": 1}},
         )
-        assert valid.status_code == 200
-        assert valid.json()["valid"] is True
+        assert rejected.status_code == 422, rejected.text
 
         accepted = await client.post(
             "/v1/backend/actions/colmap.feature_extractor:run",

@@ -136,7 +136,23 @@ def validate_action(
     *,
     provider: str | None = None,
 ) -> dict[str, Any]:
-    return backend_actions.validate_backend_action(action_id, inputs, _resolve_backend(provider))
+    """:validate is shallow-by-contract, identical across the C++ and
+    Python tiers: it confirms the action exists and the envelope is
+    well-formed, then echoes the inputs. Deep input validation runs at
+    :run / :submit (Python is the single authority, via the bridge) -- a
+    deep check here would diverge from the C++ port, which cannot
+    replicate engine validation (no sync RPC, no C++ validation engine).
+    """
+    backend = _resolve_backend(provider)
+    # Existence check: raises NotFoundError (-> 404) for an unknown action,
+    # matching the C++ kBackendActionsMap lookup.
+    backend_actions.get_backend_action(action_id, backend)
+    return {
+        "action_id": action_id,
+        "valid": True,
+        "errors": [],
+        "normalized_inputs": dict(inputs or {}),
+    }
 
 
 async def submit_action(

@@ -313,6 +313,26 @@ def get_backend_action(action_id: str, backend: Any | None = None) -> dict[str, 
     raise NotFoundError(f"Backend action {action_id!r} not found")
 
 
+def _validate_json_inputs(
+    action_id: str,
+    input_schema: dict[str, Any],
+    inputs: dict[str, Any],
+) -> dict[str, Any]:
+    """The "json" kind: validate inputs against an action's declared object
+    schema, reusing the same engine as backend config-option validation so
+    both interpret a JSON schema identically."""
+    from app.adapters import backend_config  # local: avoid import cycle
+
+    values = dict(inputs or {})
+    errors = backend_config.validate_against_schema(action_id, values, input_schema)
+    return {
+        "action_id": action_id,
+        "valid": not errors,
+        "errors": errors,
+        "normalized_inputs": values,
+    }
+
+
 def validate_backend_action(
     action_id: str,
     inputs: dict[str, Any],
@@ -343,10 +363,21 @@ def validate_backend_action(
 
     handler = _resolve_action_namespace(action_id)
     if handler is not None:
+        # cli kind: namespaced standard (e.g. colmap) validates against the
+        # backend-reported native option schema.
         native_schema = descriptor.get("metadata", {}).get("native_schema") or {}
         result = handler.validate(action_id.partition(".")[2], native_schema, inputs)
         return {"action_id": action_id, **result}
 
+    input_schema = descriptor.get("input_schema")
+    if isinstance(input_schema, dict) and isinstance(input_schema.get("properties"), dict):
+        # json kind: validate against the action's declared object schema.
+        return _validate_json_inputs(action_id, input_schema, inputs)
+
+    # passthrough kind: the action declares no input schema, so inputs pass
+    # through unchecked. Explicit by contract -- a descriptor whose
+    # input_schema is null opts out of validation, distinct from one that
+    # has simply not declared a schema yet.
     return {
         "action_id": action_id,
         "valid": True,

@@ -460,6 +460,19 @@ def _validate_against_schema(
     return errors
 
 
+def validate_against_schema(
+    identifier: str,
+    values: dict[str, Any],
+    schema: dict[str, Any] | None,
+) -> list[dict[str, str | None]]:
+    """Validate a flat ``values`` dict against a JSON object ``schema``
+    (unknown keys when ``additionalProperties`` is false, enum, basic
+    types). Public entry point shared by config-option and backend-action
+    ("json" kind) validation so both interpret a schema identically.
+    """
+    return _validate_against_schema(config_id=identifier, options=values, schema=schema)
+
+
 def validate_backend_options(
     *,
     stage: str,
