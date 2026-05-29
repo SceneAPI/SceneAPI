@@ -29,6 +29,10 @@ expressed through the same contract mechanism as every other.
 
 from __future__ import annotations
 
+from typing import Any
+
+from app.core.errors import ValidationError
+
 # --- action namespace + validation kind -----------------------------------
 
 # action_id prefix for every COLMAP command action
@@ -88,6 +92,130 @@ def requires_gpu(command: str) -> bool:
     return command not in GPU_EXEMPT_COMMANDS
 
 
+# --- CLI input validation (the "cli" kind's reference semantics) -----------
+#
+# Validate an action's inputs against the backend-reported native option
+# schema. Pure: takes the runtime native_schema + inputs, returns a
+# {valid, errors, normalized_inputs} verdict. No HTTP / backend coupling,
+# so the generic adapter can delegate here by schema kind rather than by
+# backend name.
+
+
+def _normalize_option_key(key: str) -> str:
+    return key.strip().lstrip("-").replace("-", "_").lower()
+
+
+def _option_lookup(native_schema: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    lookup: dict[str, dict[str, Any]] = {}
+    for option in native_schema.get("options") or []:
+        names = [str(option.get("name") or "")]
+        names.extend(str(flag).lstrip("-") for flag in option.get("flags") or [])
+        for name in names:
+            if name:
+                lookup[_normalize_option_key(name)] = option
+    return lookup
+
+
+def split_cli_inputs(inputs: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Split inputs into (named options, positional args). Shared by
+    validation and execution so both interpret the CLI shape identically."""
+    data = dict(inputs or {})
+    positional_raw = data.pop("positional_args", data.pop("positional", []))
+    if positional_raw is None:
+        positional: list[str] = []
+    elif isinstance(positional_raw, list):
+        positional = [str(item) for item in positional_raw]
+    else:
+        raise ValidationError("positional_args must be an array of strings")
+
+    if set(data) == {"options"} and isinstance(data.get("options"), dict):
+        options = dict(data["options"])
+    else:
+        options = data
+    return options, positional
+
+
+def _validate_scalar(value: Any, option: dict[str, Any], command: str) -> str | None:
+    name = str(option.get("name") or "option")
+    schema = option.get("schema") or {}
+    expected = str(option.get("type") or schema.get("type") or "string")
+    choices = [str(choice) for choice in option.get("choices") or schema.get("enum") or []]
+
+    if choices and str(value) not in choices:
+        return f"--{name} for COLMAP {command} must be one of: {', '.join(choices)}"
+    if (
+        expected == "boolean"
+        and not isinstance(value, bool)
+        and str(value).lower() not in {"0", "1", "true", "false", "yes", "no", "on", "off"}
+    ):
+        return f"--{name} for COLMAP {command} expects boolean"
+    if expected == "integer":
+        if isinstance(value, bool):
+            return f"--{name} for COLMAP {command} expects integer"
+        try:
+            int(value)
+        except (TypeError, ValueError):
+            return f"--{name} for COLMAP {command} expects integer"
+    if expected == "number":
+        if isinstance(value, bool):
+            return f"--{name} for COLMAP {command} expects number"
+        try:
+            float(value)
+        except (TypeError, ValueError):
+            return f"--{name} for COLMAP {command} expects number"
+    return None
+
+
+def validate_cli_inputs(
+    command: str,
+    native_schema: dict[str, Any],
+    inputs: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate ``inputs`` for a COLMAP ``command`` against its native option
+    schema. Returns ``{valid, errors, normalized_inputs}`` (the caller adds
+    ``action_id``). Unknown options, type mismatches, and missing required
+    options are reported; positional args pass through normalized.
+    """
+    native_schema = native_schema or {}
+    lookup = _option_lookup(native_schema)
+    options, positional = split_cli_inputs(inputs)
+    errors: list[dict[str, str | None]] = []
+    normalized: dict[str, Any] = {}
+    if positional:
+        normalized["positional_args"] = positional
+
+    provided: set[str] = set()
+    for raw_key, value in sorted(options.items()):
+        if value is None:
+            continue
+        option = lookup.get(_normalize_option_key(str(raw_key)))
+        if option is None:
+            errors.append(
+                {"field": str(raw_key), "message": f"unknown option for COLMAP {command}"}
+            )
+            continue
+        name = str(option.get("name") or raw_key)
+        problem = _validate_scalar(value, option, command)
+        if problem:
+            errors.append({"field": name, "message": problem})
+            continue
+        provided.add(name)
+        normalized[name] = value
+
+    for option in native_schema.get("options") or []:
+        name = str(option.get("name") or "")
+        if name and option.get("required") is True and name not in provided:
+            errors.append(
+                {"field": name, "message": f"missing required option for COLMAP {command}"}
+            )
+
+    return {
+        "valid": not errors,
+        "errors": errors,
+        "normalized_inputs": normalized,
+    }
+
+
 # --- declared contract -----------------------------------------------------
 
 CONTRACT_NAME = "colmap_actions"
@@ -124,4 +252,6 @@ __all__ = [
     "contract_dict",
     "is_read_only",
     "requires_gpu",
+    "split_cli_inputs",
+    "validate_cli_inputs",
 ]

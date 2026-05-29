@@ -72,6 +72,51 @@ def test_contract_dict_is_json_serializable_and_self_describing() -> None:
     assert payload["gpu_exempt_commands"] == sorted(ca.GPU_EXEMPT_COMMANDS)
 
 
+_SCHEMA = {
+    "options": [
+        {"name": "max_num_features", "type": "integer", "required": True},
+        {"name": "use_gpu", "type": "boolean"},
+        {"name": "quality", "type": "string", "choices": ["low", "high"]},
+    ]
+}
+
+
+def test_validate_cli_inputs_accepts_good_inputs() -> None:
+    result = ca.validate_cli_inputs(
+        "feature_extractor",
+        _SCHEMA,
+        {"max_num_features": 8000, "quality": "high", "positional_args": ["db"]},
+    )
+    assert result["valid"]
+    assert result["errors"] == []
+    assert result["normalized_inputs"]["max_num_features"] == 8000
+    assert result["normalized_inputs"]["positional_args"] == ["db"]
+
+
+def test_validate_cli_inputs_flags_unknown_required_and_type() -> None:
+    # Missing required option.
+    missing = ca.validate_cli_inputs("feature_extractor", _SCHEMA, {})
+    assert not missing["valid"]
+    assert any("missing required" in e["message"] for e in missing["errors"])
+    # Unknown option + bad enum + non-integer.
+    bad = ca.validate_cli_inputs(
+        "feature_extractor",
+        _SCHEMA,
+        {"max_num_features": "not-an-int", "quality": "ultra", "nope": 1},
+    )
+    assert not bad["valid"]
+    fields = {e["field"] for e in bad["errors"]}
+    assert {"max_num_features", "quality", "nope"} <= fields
+
+
+def test_split_cli_inputs_separates_options_and_positional() -> None:
+    options, positional = ca.split_cli_inputs(
+        {"options": {"a": 1}, "positional_args": ["x", "y"]}
+    )
+    assert options == {"a": 1}
+    assert positional == ["x", "y"]
+
+
 def test_core_contract_does_not_import_colmap_plugin() -> None:
     # A data standard, not a dependency: importing it must not pull in any
     # sfmapi_colmap* plugin package.

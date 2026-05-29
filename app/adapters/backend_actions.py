@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, cast
 from urllib.parse import quote
@@ -203,21 +204,8 @@ def list_backend_actions(
                 _normalize_descriptor(raw, backend=backend, include_schema=include_schemas)
             )
 
-    colmap_list = getattr(backend, "list_colmap_commands", None)
-    if callable(colmap_list):
-        for command in colmap_list():
-            normalized = str(command).replace("-", "_").lower()
-            schema = None
-            if include_schemas:
-                schema = _colmap_schema(backend, normalized)
-            actions.append(
-                _colmap_descriptor(
-                    backend,
-                    normalized,
-                    schema=schema,
-                    include_schema=include_schemas,
-                )
-            )
+    for namespace in _ACTION_NAMESPACES.values():
+        actions.extend(namespace.list_descriptors(backend, include_schemas=include_schemas))
 
     return _dedupe(actions)
 
@@ -235,6 +223,69 @@ def _colmap_schema(backend: Any, command: str) -> dict[str, Any]:
     if not callable(schema_fn):
         raise NotFoundError(f"Backend action colmap.{command} not found")
     return cast(dict[str, Any], schema_fn(command))
+
+
+@dataclass(frozen=True)
+class _ActionNamespace:
+    """How the generic adapter handles one namespaced action standard.
+
+    Dispatch is keyed by the action_id's namespace (the segment before the
+    first dot), which the standard module owns
+    (e.g. ``colmap_actions.ACTION_NAMESPACE``). Adding a CLI-family
+    standard is a registry entry, not another ``startswith`` branch that
+    names a specific backend in this generic adapter.
+    """
+
+    list_descriptors: Callable[..., list[dict[str, Any]]]
+    build_descriptor: Callable[[Any, str], dict[str, Any]]
+    validate: Callable[[str, dict[str, Any], dict[str, Any]], dict[str, Any]]
+    run: Callable[[Any, str, dict[str, Any]], dict[str, Any]]
+
+
+def _list_colmap_descriptors(backend: Any, *, include_schemas: bool) -> list[dict[str, Any]]:
+    list_fn = getattr(backend, "list_colmap_commands", None)
+    if not callable(list_fn):
+        return []
+    descriptors: list[dict[str, Any]] = []
+    for command in list_fn():
+        normalized = str(command).replace("-", "_").lower()
+        schema = _colmap_schema(backend, normalized) if include_schemas else None
+        descriptors.append(
+            _colmap_descriptor(backend, normalized, schema=schema, include_schema=include_schemas)
+        )
+    return descriptors
+
+
+def _build_colmap_descriptor(backend: Any, command: str) -> dict[str, Any]:
+    normalized = command.replace("-", "_").lower()
+    schema = _colmap_schema(backend, normalized)
+    return _colmap_descriptor(backend, normalized, schema=schema, include_schema=True)
+
+
+def _run_colmap_command(backend: Any, command: str, inputs: dict[str, Any]) -> dict[str, Any]:
+    run_colmap = getattr(backend, "run_colmap_command", None)
+    if not callable(run_colmap):
+        action_id = f"{colmap_actions.ACTION_NAMESPACE}.{command}"
+        raise NotFoundError(f"Backend action {action_id!r} not found")
+    options, positional = colmap_actions.split_cli_inputs(inputs)
+    return cast(dict[str, Any], run_colmap(command, options=options, positional=positional))
+
+
+# Namespaced action standards. The descriptor assembly + execution stay
+# here (HTTP/backend-coupled — _links, backend name, run_colmap_command);
+# the standard module owns the namespace and the pure input validator.
+_ACTION_NAMESPACES: dict[str, _ActionNamespace] = {
+    colmap_actions.ACTION_NAMESPACE: _ActionNamespace(
+        list_descriptors=_list_colmap_descriptors,
+        build_descriptor=_build_colmap_descriptor,
+        validate=colmap_actions.validate_cli_inputs,
+        run=_run_colmap_command,
+    ),
+}
+
+
+def _resolve_action_namespace(action_id: str) -> _ActionNamespace | None:
+    return _ACTION_NAMESPACES.get(action_id.partition(".")[0])
 
 
 def get_backend_action(action_id: str, backend: Any | None = None) -> dict[str, Any]:
@@ -255,122 +306,11 @@ def get_backend_action(action_id: str, backend: Any | None = None) -> dict[str, 
         if action["action_id"] == action_id:
             return action
 
-    if action_id.startswith("colmap."):
-        command = action_id.removeprefix("colmap.").replace("-", "_").lower()
-        schema = _colmap_schema(backend, command)
-        return _colmap_descriptor(backend, command, schema=schema, include_schema=True)
+    handler = _resolve_action_namespace(action_id)
+    if handler is not None:
+        return handler.build_descriptor(backend, action_id.partition(".")[2])
 
     raise NotFoundError(f"Backend action {action_id!r} not found")
-
-
-def _normalize_option_key(key: str) -> str:
-    return key.strip().lstrip("-").replace("-", "_").lower()
-
-
-def _colmap_option_lookup(schema: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    lookup: dict[str, dict[str, Any]] = {}
-    for option in schema.get("options") or []:
-        names = [str(option.get("name") or "")]
-        names.extend(str(flag).lstrip("-") for flag in option.get("flags") or [])
-        for name in names:
-            if name:
-                lookup[_normalize_option_key(name)] = option
-    return lookup
-
-
-def _split_colmap_inputs(inputs: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
-    data = dict(inputs or {})
-    positional_raw = data.pop("positional_args", data.pop("positional", []))
-    if positional_raw is None:
-        positional: list[str] = []
-    elif isinstance(positional_raw, list):
-        positional = [str(item) for item in positional_raw]
-    else:
-        raise ValidationError("positional_args must be an array of strings")
-
-    if set(data) == {"options"} and isinstance(data.get("options"), dict):
-        options = dict(data["options"])
-    else:
-        options = data
-    return options, positional
-
-
-def _validate_scalar(value: Any, option: dict[str, Any], command: str) -> str | None:
-    name = str(option.get("name") or "option")
-    schema = option.get("schema") or {}
-    expected = str(option.get("type") or schema.get("type") or "string")
-    choices = [str(choice) for choice in option.get("choices") or schema.get("enum") or []]
-
-    if choices and str(value) not in choices:
-        return f"--{name} for COLMAP {command} must be one of: {', '.join(choices)}"
-    if (
-        expected == "boolean"
-        and not isinstance(value, bool)
-        and str(value).lower() not in {"0", "1", "true", "false", "yes", "no", "on", "off"}
-    ):
-        return f"--{name} for COLMAP {command} expects boolean"
-    if expected == "integer":
-        if isinstance(value, bool):
-            return f"--{name} for COLMAP {command} expects integer"
-        try:
-            int(value)
-        except (TypeError, ValueError):
-            return f"--{name} for COLMAP {command} expects integer"
-    if expected == "number":
-        if isinstance(value, bool):
-            return f"--{name} for COLMAP {command} expects number"
-        try:
-            float(value)
-        except (TypeError, ValueError):
-            return f"--{name} for COLMAP {command} expects number"
-    return None
-
-
-def _validate_colmap_action(
-    action_id: str,
-    descriptor: dict[str, Any],
-    inputs: dict[str, Any],
-) -> dict[str, Any]:
-    command = action_id.removeprefix("colmap.")
-    native_schema = descriptor.get("metadata", {}).get("native_schema") or {}
-    lookup = _colmap_option_lookup(native_schema)
-    options, positional = _split_colmap_inputs(inputs)
-    errors: list[dict[str, str | None]] = []
-    normalized: dict[str, Any] = {}
-    if positional:
-        normalized["positional_args"] = positional
-
-    provided: set[str] = set()
-    for raw_key, value in sorted(options.items()):
-        if value is None:
-            continue
-        option = lookup.get(_normalize_option_key(str(raw_key)))
-        if option is None:
-            errors.append(
-                {"field": str(raw_key), "message": f"unknown option for COLMAP {command}"}
-            )
-            continue
-        name = str(option.get("name") or raw_key)
-        problem = _validate_scalar(value, option, command)
-        if problem:
-            errors.append({"field": name, "message": problem})
-            continue
-        provided.add(name)
-        normalized[name] = value
-
-    for option in native_schema.get("options") or []:
-        name = str(option.get("name") or "")
-        if name and option.get("required") is True and name not in provided:
-            errors.append(
-                {"field": name, "message": f"missing required option for COLMAP {command}"}
-            )
-
-    return {
-        "action_id": action_id,
-        "valid": not errors,
-        "errors": errors,
-        "normalized_inputs": normalized,
-    }
 
 
 def validate_backend_action(
@@ -401,8 +341,11 @@ def validate_backend_action(
                 "normalized_inputs": dict(result.get("normalized_inputs") or inputs),
             }
 
-    if action_id.startswith("colmap."):
-        return _validate_colmap_action(action_id, descriptor, inputs)
+    handler = _resolve_action_namespace(action_id)
+    if handler is not None:
+        native_schema = descriptor.get("metadata", {}).get("native_schema") or {}
+        result = handler.validate(action_id.partition(".")[2], native_schema, inputs)
+        return {"action_id": action_id, **result}
 
     return {
         "action_id": action_id,
@@ -441,13 +384,9 @@ def run_backend_action(
             ),
         )
 
-    if action_id.startswith("colmap."):
-        run_colmap = getattr(backend, "run_colmap_command", None)
-        if not callable(run_colmap):
-            raise NotFoundError(f"Backend action {action_id!r} not found")
-        command = action_id.removeprefix("colmap.")
-        options, positional = _split_colmap_inputs(normalized_inputs)
-        return cast(dict[str, Any], run_colmap(command, options=options, positional=positional))
+    handler = _resolve_action_namespace(action_id)
+    if handler is not None:
+        return handler.run(backend, action_id.partition(".")[2], normalized_inputs)
 
     raise NotFoundError(f"Backend action {action_id!r} not found")
 
