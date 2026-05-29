@@ -1,0 +1,18 @@
+sfmapi
+Copyright 2026 the sfmapi authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product integrates, but does not vendor, third-party Structure-from-
+Motion and radiance-field engines through separately-distributed backend
+plugins. Each engine keeps its own upstream license; representative ones:
+
+  COLMAP / glomap / pycolmap   BSD-3-Clause
+  Hierarchical-Localization    Apache-2.0
+  gsplat / nerfstudio          Apache-2.0
+  InstantSfM (cre185)          CC-BY-NC-4.0 (non-commercial; binds the operator)
+  RealityCapture / RealityScan proprietary (vendor terms)
+
+Backend plugins record their wrapped engine's license under their own
+LICENSES/ directory. See LICENSING.md for how sfmapi's Apache-2.0 grant
+relates to these upstream licenses.

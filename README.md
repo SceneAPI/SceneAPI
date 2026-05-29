@@ -193,7 +193,9 @@ Both SQLite and Postgres are supported; CI tests both.
 ## License
 
 The sfmapi server, wire specification, plugin hub, and backend adapter code in
-this repository are licensed under `AGPL-3.0-or-later`; see `LICENSE`.
+this repository are licensed under `Apache-2.0`; see `LICENSE` and `NOTICE`.
+Licensing intent for integrators (open core, third-party engines, contributing)
+is in `LICENSING.md`.
 
 Backend plugins and third-party SfM engines keep their own licenses. This
 repository does not vendor COLMAP, HLOC, InstantSfM, SphereSfM, RealityCapture,

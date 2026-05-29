@@ -3,9 +3,9 @@ name = "sfmapi"
 version = "0.0.1"
 description = "Generic HTTP/REST API and wire contract for Structure-from-Motion tasks."
 readme = "README.md"
-license = { text = "AGPL-3.0-or-later" }
+license = { text = "Apache-2.0" }
 classifiers = [
-    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "License :: OSI Approved :: Apache Software License",
 ]
 requires-python = ">=3.12,<3.13"
 dependencies = [

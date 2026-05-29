@@ -56,7 +56,7 @@ build-backend = "hatchling.build"
 name = "sfmapi-${plugin_id_dash}"
 version = "0.0.0"
 description = "${description}"
-license = { text = "AGPL-3.0-or-later" }
+license = { text = "Apache-2.0" }
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "sfmapi>=0.0.1",
@@ -118,7 +118,7 @@ MANIFEST: dict = {
     "backend_actions": [],
     "config_schemas": [],
     "artifact_contracts": [],
-    "licenses": [{"name": "AGPL-3.0-or-later"}],
+    "licenses": [{"name": "Apache-2.0"}],
     "upstream_projects": [],
     "compatibility": {"sfmapi": ">=0.0.1"},
     "conformance": {"status": "not_run", "suite": "sfmapi-bench"},

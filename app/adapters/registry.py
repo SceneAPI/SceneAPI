@@ -1,5 +1,5 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright the sfmapi authors. See LICENSE (GNU AGPLv3).
+# SPDX-License-Identifier: Apache-2.0
+# Copyright the sfmapi authors. See LICENSE (Apache-2.0).
 """Backend registry and provider-aware resolver.
 
 sfmapi ships no concrete SfM backend. The wire surface is engine-independent;

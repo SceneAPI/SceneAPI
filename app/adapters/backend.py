@@ -1,6 +1,6 @@
-# SPDX-License-Identifier: AGPL-3.0-or-later
-# Copyright the sfmapi authors. A backend that imports this Protocol is
-# a work based on sfmapi and is covered by the GNU AGPLv3 (see LICENSE).
+# SPDX-License-Identifier: Apache-2.0
+# Copyright the sfmapi authors. Licensed under the Apache License, 2.0
+# (see LICENSE).
 """Backend contracts for sfmapi engine integrations.
 
 sfmapi is a wire standard with multiple possible engines. The web tier
