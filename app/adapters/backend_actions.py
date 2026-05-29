@@ -16,6 +16,7 @@ from typing import Any, Protocol, cast
 from urllib.parse import quote
 
 from app.adapters.registry import get_backend
+from app.core import colmap_actions
 from app.core.capabilities import ALL_KNOWN
 from app.core.errors import NotFoundError, ValidationError
 
@@ -39,7 +40,6 @@ class BackendActionProvider(Protocol):
     ) -> dict[str, Any]: ...
 
 
-READ_ONLY_COLMAP_COMMANDS = {"help", "version", "model_analyzer", "model_comparer"}
 ACTION_STABILITIES = {"stable", "experimental", "backend_extension", "deprecated"}
 ACTION_SIDE_EFFECTS = {"none", "read", "write", "unknown"}
 
@@ -106,22 +106,6 @@ def _call_with_supported_kwargs(fn: Callable[..., Any], /, *args: Any, **kwargs:
     return fn(*args, **supported)
 
 
-def _colmap_category(command: str) -> str:
-    if "matcher" in command or "verifier" in command:
-        return "matching"
-    if command in {"feature_extractor", "feature_importer"}:
-        return "features"
-    if "mapper" in command or command in {"point_triangulator", "bundle_adjuster"}:
-        return "mapping"
-    if command.startswith("model_") or command in {"image_registrator", "image_deleter"}:
-        return "model"
-    if command in {"patch_match_stereo", "stereo_fusion", "poisson_mesher", "delaunay_mesher"}:
-        return "dense"
-    if command.startswith("database_"):
-        return "database"
-    return "utility"
-
-
 def _schema_for_colmap_command(schema: dict[str, Any]) -> dict[str, Any]:
     properties: dict[str, Any] = {
         "positional_args": {
@@ -158,7 +142,7 @@ def _colmap_descriptor(
     schema: dict[str, Any] | None = None,
     include_schema: bool = False,
 ) -> dict[str, Any]:
-    read_only = command in READ_ONLY_COLMAP_COMMANDS
+    read_only = colmap_actions.is_read_only(command)
     metadata: dict[str, Any] = {"family": "colmap", "command": command}
     if schema is not None:
         metadata["native_schema"] = schema
@@ -169,14 +153,13 @@ def _colmap_descriptor(
         "backend": _backend_name(backend),
         "display_name": f"COLMAP {command}",
         "description": f"Run the upstream COLMAP `{command}` command through the active backend.",
-        "category": _colmap_category(command),
+        "category": colmap_actions.category_for(command),
         "stability": "backend_extension",
         "side_effects": "read" if read_only else "write",
         "long_running": not read_only,
         "supports_progress": False,
         "idempotent": read_only,
-        "gpu_required": command
-        not in {"help", "version", "model_analyzer", "model_comparer", "database_cleaner"},
+        "gpu_required": colmap_actions.requires_gpu(command),
         "required_capabilities": [],
         "input_schema": _schema_for_colmap_command(schema) if include_schema and schema else None,
         "output_schema": {
