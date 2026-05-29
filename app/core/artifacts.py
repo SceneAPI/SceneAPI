@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Any
 
-ARTIFACT_KEY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$")
+# The artifact-key pattern is owned by app.core.ids (one home per id
+# class); re-exported here so callers keep using artifacts.ARTIFACT_KEY_RE.
+from app.core.ids import ARTIFACT_KEY_RE
+
 CORE_ARTIFACT_TYPES = frozenset({"features", "pairs", "matches", "reconstruction", "projection"})
 
 

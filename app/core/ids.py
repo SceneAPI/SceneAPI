@@ -54,6 +54,13 @@ NAMESPACED_ID_RE = re.compile(NAMESPACED_ID_PATTERN)
 PROVIDER_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.-]*$"
 PROVIDER_ID_RE = re.compile(PROVIDER_ID_PATTERN)
 
+# artifact key (artifact kind / format id) — provider-id shape with a
+# 96-char cap. Re-exported by app.core.artifacts (the artifact vocabulary
+# module) so callers keep using artifacts.ARTIFACT_KEY_RE; the pattern
+# lives here so every id class has one home.
+ARTIFACT_KEY_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$"
+ARTIFACT_KEY_RE = re.compile(ARTIFACT_KEY_PATTERN)
+
 
 def is_namespaced_id(value: str) -> bool:
     """Return whether ``value`` looks like a config_id / action_id /
@@ -64,3 +71,8 @@ def is_namespaced_id(value: str) -> bool:
 def is_provider_id(value: str) -> bool:
     """Return whether ``value`` looks like a provider_id."""
     return bool(PROVIDER_ID_RE.match(value))
+
+
+def is_artifact_key(value: str) -> bool:
+    """Return whether ``value`` is a valid artifact key (kind / format id)."""
+    return bool(ARTIFACT_KEY_RE.fullmatch(value))
