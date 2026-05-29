@@ -175,3 +175,74 @@ def test_cli_scaffold_plugin_creates_files(tmp_path: Path) -> None:
     # The description we passed should be in the README.
     readme = (tmp_path / "sfmapi_clitest" / "README.md").read_text(encoding="utf-8")
     assert "Verifies the cli wiring." in readme
+
+
+# ---- scaffold_contract -----------------------------------------------------
+
+
+def test_validate_contract_name_accepts_and_rejects() -> None:
+    from app.scaffolding import validate_contract_name
+
+    validate_contract_name("colmap_db")
+    validate_contract_name("a1")
+    for bad in ("BadName", "1leading", "with-dash", "with.dot"):
+        with pytest.raises(ValueError, match="contract name must match"):
+            validate_contract_name(bad)
+
+
+def _load_module(path: Path, name: str):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_scaffold_contract_writes_module_and_test(tmp_path: Path) -> None:
+    from app.scaffolding import scaffold_contract
+
+    core = tmp_path / "core"
+    tests = tmp_path / "tests"
+    written = scaffold_contract("demo_std", core_dir=core, tests_dir=tests)
+    paths = {f.path for f in written}
+    assert paths == {core / "demo_std.py", tests / "test_demo_std_contract.py"}
+    for f in written:
+        assert f.path.exists() and f.bytes_written == f.path.stat().st_size
+
+
+def test_scaffolded_contract_module_satisfies_the_protocol(tmp_path: Path) -> None:
+    import json
+
+    from app.scaffolding import scaffold_contract
+
+    scaffold_contract("demo_std", core_dir=tmp_path, tests_dir=tmp_path)
+    mod = _load_module(tmp_path / "demo_std.py", "demo_std")
+    # The contract-coverage gate keys off exactly these two symbols.
+    assert mod.CONTRACT_NAME == "demo_std"
+    assert callable(mod.contract_dict)
+    payload = mod.contract_dict()
+    assert json.loads(json.dumps(payload)) == payload  # JSON round-trips
+    assert payload["contract"] == "demo_std"
+
+
+def test_scaffolded_contract_test_is_valid_python(tmp_path: Path) -> None:
+    from app.scaffolding import scaffold_contract
+
+    scaffold_contract("demo_std", core_dir=tmp_path, tests_dir=tmp_path)
+    src = (tmp_path / "test_demo_std_contract.py").read_text(encoding="utf-8")
+    compile(src, "test_demo_std_contract.py", "exec")  # parses/compiles
+
+
+def test_scaffold_contract_overwrite_semantics(tmp_path: Path) -> None:
+    from app.scaffolding import scaffold_contract
+
+    scaffold_contract("demo_std", core_dir=tmp_path, tests_dir=tmp_path)
+    with pytest.raises(FileExistsError, match="refusing to overwrite"):
+        scaffold_contract("demo_std", core_dir=tmp_path, tests_dir=tmp_path)
+    # overwrite=True succeeds
+    again = scaffold_contract(
+        "demo_std", core_dir=tmp_path, tests_dir=tmp_path, overwrite=True
+    )
+    assert len(again) == 2

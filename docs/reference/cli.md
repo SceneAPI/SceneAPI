@@ -71,6 +71,34 @@ Flags:
 `plugin_id` must match `[a-z][a-z0-9_]*` -- it becomes the package
 suffix (`sfmapi_<id>`), the entry-point name, and the backend name.
 
+### `sfmapi scaffold-contract <name>`
+
+Scaffolds an **off-wire core contract** -- a repo-owned data standard
+(like the COLMAP scene-database schema) that has no HTTP endpoint but is
+parity-checked across the Python and C++ tiers. Generates two files:
+
+```
+app/core/<name>.py                    # CONTRACT_NAME + contract_dict()
+tests/unit/test_<name>_contract.py    # contract test skeleton
+```
+
+The generated module is the source of truth; the cross-tier machinery
+(`tools/gen_contracts.py` + the `contract-parity` / `contract-coverage`
+check_sync gates) serializes it to a JSON artifact + a C++ `.inc` and
+proves the two tiers never diverge.
+
+Flags: `--title`, `--core-dir`, `--tests-dir`, `--overwrite`.
+
+After scaffolding, the command prints the remaining steps -- the one
+cross-repo action is registering the contract in
+`sfmapi-cpp/tools/gen_contracts.py`'s `CONTRACTS` dict, then running
+`gen_contracts.py`. The `contract-coverage` gate fails until the
+contract is registered, generated into both tiers, and tested -- so a
+new off-wire contract can't be added Python-only.
+
+`name` must match `[a-z][a-z0-9_]*` -- it becomes the `app/core` module
+name, the test/artifact filenames, and the C++ accessor stem.
+
 ## Shell scripts
 
 

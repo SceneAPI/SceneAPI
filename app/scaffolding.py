@@ -313,8 +313,136 @@ def scaffold_plugin(
     return written
 
 
+# ----- off-wire contract scaffolding ----------------------------------------
+#
+# Mirrors scaffold_plugin but for an app.core off-wire contract (a data
+# standard with cross-tier parity, e.g. colmap_db). Generates the two
+# repo-side files; the single cross-repo step (registering in
+# sfmapi-cpp/tools/gen_contracts.py) is printed for the author, since that
+# file lives in the C++ port repo.
+
+
+# A contract name becomes a Python module name (app/core/<name>.py), a
+# test filename, an artifact filename, and the C++ accessor stem — same
+# constraints as a plugin id.
+_CONTRACT_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def validate_contract_name(name: str) -> None:
+    if not _CONTRACT_NAME_RE.match(name):
+        raise ValueError(
+            f"contract name must match {_CONTRACT_NAME_RE.pattern!r} "
+            f"(lowercase letters/digits/underscores, leading letter): got {name!r}"
+        )
+
+
+_CONTRACT_MODULE_TEMPLATE = string.Template(
+    '''\
+"""${title} — an sfmapi off-wire core contract.
+
+A repo-owned data standard with no HTTP endpoint. This module is the
+single source of truth; ``tools/gen_contracts.py`` serializes
+:func:`contract_dict` to ``parity/contracts/${name}.contract.json`` +
+``src/contracts/${name}_contract.inc``, and check_sync's contract-parity
+gate fails if the C++ embed drifts. Implementations conform to this
+contract; the contract depends on no implementation.
+"""
+
+from __future__ import annotations
+
+CONTRACT_NAME = "${name}"
+# Version of THIS serialization shape (bump on a breaking shape change).
+CONTRACT_SCHEMA_VERSION = 1
+
+
+def contract_dict() -> dict:
+    """The ${name} contract as a deterministic, JSON-serializable dict.
+
+    Flesh out the payload with the actual standard. Keep ordering stable
+    (declaration order / sorted) so the generated artifact is reproducible.
+    """
+    return {
+        "contract": CONTRACT_NAME,
+        "contract_schema_version": CONTRACT_SCHEMA_VERSION,
+        # TODO: add the contract's fields here.
+    }
+
+
+__all__ = ["CONTRACT_NAME", "CONTRACT_SCHEMA_VERSION", "contract_dict"]
+'''
+)
+
+
+_CONTRACT_TEST_TEMPLATE = string.Template(
+    '''\
+"""Contract test for app.core.${name} (off-wire core contract)."""
+
+from __future__ import annotations
+
+import json
+
+from app.core import ${name} as contract
+
+
+def test_contract_dict_is_json_serializable_and_self_describing() -> None:
+    payload = contract.contract_dict()
+    assert json.loads(json.dumps(payload)) == payload
+    assert payload["contract"] == contract.CONTRACT_NAME == "${name}"
+    assert payload["contract_schema_version"] == contract.CONTRACT_SCHEMA_VERSION
+
+
+# TODO: pin the contract's real fields here (the structured standard),
+# so drift from the intended schema is caught at the source.
+'''
+)
+
+
+def scaffold_contract(
+    name: str,
+    *,
+    core_dir: Path,
+    tests_dir: Path,
+    title: str | None = None,
+    overwrite: bool = False,
+) -> list[ScaffoldedFile]:
+    """Create the two repo-side files for a new off-wire core contract:
+    ``<core_dir>/<name>.py`` and ``<tests_dir>/test_<name>_contract.py``.
+
+    Returns the written files. The caller is expected to surface the
+    remaining (cross-repo) step: registering the contract in
+    ``sfmapi-cpp/tools/gen_contracts.py``.
+
+    Raises ``ValueError`` for an invalid name, ``FileExistsError`` on a
+    clash when ``overwrite`` is False.
+    """
+    validate_contract_name(name)
+    subst = {"name": name, "title": title or _to_class_name(name)}
+    plan: list[tuple[Path, str]] = [
+        (core_dir / f"{name}.py", _CONTRACT_MODULE_TEMPLATE.substitute(subst)),
+        (tests_dir / f"test_{name}_contract.py",
+         _CONTRACT_TEST_TEMPLATE.substitute(subst)),
+    ]
+    if not overwrite:
+        clashes = [p for p, _ in plan if p.exists()]
+        if clashes:
+            joined = ", ".join(str(p) for p in clashes)
+            raise FileExistsError(
+                f"refusing to overwrite existing files: {joined}; "
+                "pass overwrite=True to force"
+            )
+    written: list[ScaffoldedFile] = []
+    for path, body in plan:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        encoded = body.encode("utf-8")
+        path.write_bytes(encoded)
+        written.append(ScaffoldedFile(path=path, bytes_written=len(encoded)))
+    return written
+
+
 __all__ = [
     "ScaffoldedFile",
+    "scaffold_contract",
     "scaffold_plugin",
+    "validate_contract_name",
     "validate_plugin_id",
 ]

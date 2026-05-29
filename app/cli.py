@@ -226,6 +226,40 @@ def _scaffold_plugin(args: argparse.Namespace) -> None:
     print("Next: cd into the directory and run `uv pip install -e .` to register the entry point.")
 
 
+def _scaffold_contract(args: argparse.Namespace) -> None:
+    from app import scaffolding
+
+    # app/core lives next to this CLI module; tests/unit is repo-relative.
+    app_dir = Path(scaffolding.__file__).resolve().parent
+    repo_root = app_dir.parent
+    core_dir = Path(args.core_dir).expanduser().resolve() if args.core_dir else app_dir / "core"
+    tests_dir = (
+        Path(args.tests_dir).expanduser().resolve()
+        if args.tests_dir
+        else repo_root / "tests" / "unit"
+    )
+    written = scaffolding.scaffold_contract(
+        args.name,
+        core_dir=core_dir,
+        tests_dir=tests_dir,
+        title=args.title,
+        overwrite=args.overwrite,
+    )
+    print(f"scaffolded {len(written)} files for contract {args.name!r}:")
+    for entry in written:
+        print(f"  {entry.path} ({entry.bytes_written} bytes)")
+    print()
+    print("Next steps:")
+    print(f"  1. flesh out contract_dict() in app/core/{args.name}.py with the real standard")
+    print(f"  2. register it in sfmapi-cpp/tools/gen_contracts.py:")
+    print(f"       from app.core import {args.name}")
+    print(f"       CONTRACTS = {{..., {args.name}.CONTRACT_NAME: {args.name}.contract_dict}}")
+    print("  3. run:  uv run python ../sfmapi-cpp/tools/gen_contracts.py")
+    print("  4. commit the app/core module, the test, and the generated "
+          "parity/contracts + src/contracts artifacts.")
+    print("  The contract-coverage gate enforces all four are present.")
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="sfmapi")
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -433,6 +467,43 @@ def main(argv: Sequence[str] | None = None) -> None:
         help="Replace any existing scaffolded files instead of erroring.",
     )
     scaffold.set_defaults(func=_scaffold_plugin)
+
+    scaffold_contract = subcommands.add_parser(
+        "scaffold-contract",
+        help=(
+            "Scaffold an off-wire core contract: app/core/<name>.py "
+            "(CONTRACT_NAME + contract_dict) + tests/unit/test_<name>_contract.py. "
+            "Prints the one cross-repo registration step."
+        ),
+    )
+    scaffold_contract.add_argument(
+        "name",
+        help=(
+            "Lowercase contract name (module name, test/artifact filename, "
+            "C++ accessor stem). Must match [a-z][a-z0-9_]*."
+        ),
+    )
+    scaffold_contract.add_argument(
+        "--title",
+        default=None,
+        help="Human-readable title in the module docstring. Defaults to TitleCase(name).",
+    )
+    scaffold_contract.add_argument(
+        "--core-dir",
+        default=None,
+        help="Override the app/core directory (defaults to the installed app/core).",
+    )
+    scaffold_contract.add_argument(
+        "--tests-dir",
+        default=None,
+        help="Override the tests/unit directory (defaults to the repo's tests/unit).",
+    )
+    scaffold_contract.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Replace existing files instead of erroring.",
+    )
+    scaffold_contract.set_defaults(func=_scaffold_contract)
 
     args = parser.parse_args(argv)
     args.func(args)
