@@ -1,8 +1,9 @@
 """Locks the pipeline composition core contract (app.core.pipelines).
 
-Pins the nominal chain/DAG type-checker and the canonical pipelines: valid
-chains pass, type breaks are caught, and bridging a mismatch requires an
-explicit conversion (never implicit).
+The type-availability validator: a pipeline is valid iff each operation's
+inputs are produced upstream (or supplied initially). Canonical pipelines
+type-check; missing inputs and unknown operations are caught; multi-input
+operations are satisfied by any upstream stage, not just the predecessor.
 """
 
 from __future__ import annotations
@@ -12,50 +13,39 @@ import json
 from app.core import pipelines as pl
 
 
-def test_canonical_pipelines_type_compose() -> None:
+def test_canonical_pipelines_type_check() -> None:
     for name, steps in pl.CANONICAL_PIPELINES.items():
-        errors = pl.validate_linear(list(steps))
+        errors = pl.validate_pipeline(list(steps))
         assert errors == [], (name, [e.message for e in errors])
 
 
-def test_linear_type_break_is_caught() -> None:
-    # feature_extractor produces feature_set; mapper consumes match_graph ->
-    # no shared type, must report a break (the matcher is missing).
-    errors = pl.validate_linear(["colmap.feature_extractor", "colmap.mapper"])
+def test_multi_input_op_satisfied_by_upstream_not_just_predecessor() -> None:
+    # `map` consumes feature_set (from step 0) AND match_graph (from step 3);
+    # the immediate predecessor (verify) only produces match_graph -- the
+    # availability model must still accept it.
+    assert pl.validate_pipeline(
+        ["features", "pairs", "matches", "verify", "map"]) == []
+
+
+def test_missing_input_is_reported() -> None:
+    # map without any matching upstream: feature_set is available (features)
+    # but match_graph is not.
+    errors = pl.validate_pipeline(["features", "map"])
     assert len(errors) == 1
-    assert "no shared type" in errors[0].message
+    assert "missing input(s): match_graph" in errors[0].message
+    assert errors[0].where == "step 1 'map'"
 
 
-def test_unsignatured_action_is_reported() -> None:
-    errors = pl.validate_linear(["colmap.help", "colmap.mapper"])
-    assert any("no declared signature" in e.message for e in errors)
+def test_unknown_operation_is_reported() -> None:
+    errors = pl.validate_pipeline(["features", "frobnicate"])
+    assert any("unknown operation 'frobnicate'" in e.message for e in errors)
 
 
-def test_dag_validation_checks_each_typed_edge() -> None:
-    # point_triangulator consumes BOTH sparse_reconstruction and match_graph.
-    nodes = [
-        {"node_id": "m", "action_id": "colmap.exhaustive_matcher"},
-        {"node_id": "map", "action_id": "colmap.mapper"},
-        {"node_id": "tri", "action_id": "colmap.point_triangulator"},
-    ]
-    edges = [
-        {"src": "m", "dst": "map", "type_id": "match_graph"},
-        {"src": "map", "dst": "tri", "type_id": "sparse_reconstruction"},
-        {"src": "m", "dst": "tri", "type_id": "match_graph"},
-    ]
-    assert pl.validate_chain(nodes, edges) == []
-
-
-def test_dag_rejects_a_type_the_source_does_not_produce() -> None:
-    nodes = [
-        {"node_id": "fe", "action_id": "colmap.feature_extractor"},
-        {"node_id": "map", "action_id": "colmap.mapper"},
-    ]
-    # feature_extractor produces feature_set, not match_graph.
-    edges = [{"src": "fe", "dst": "map", "type_id": "match_graph"}]
-    errors = pl.validate_chain(nodes, edges)
+def test_initial_inputs_gate_the_first_stage() -> None:
+    # With no images supplied, even `features` fails.
+    errors = pl.validate_pipeline(["features"], initial_inputs=())
     assert len(errors) == 1
-    assert "does not produce" in errors[0].message
+    assert "missing input(s): image_sequence" in errors[0].message
 
 
 def test_contract_dict_is_json_serializable_and_self_describing() -> None:
@@ -63,6 +53,7 @@ def test_contract_dict_is_json_serializable_and_self_describing() -> None:
     assert json.loads(json.dumps(payload)) == payload
     assert payload["contract"] == pl.CONTRACT_NAME == "pipelines"
     assert set(payload["canonical_pipelines"]) == set(pl.CANONICAL_PIPELINES)
+    assert payload["initial_inputs"] == list(pl.DEFAULT_INITIAL_INPUTS)
 
 
 def test_core_contract_does_not_import_plugin() -> None:

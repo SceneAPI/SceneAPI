@@ -35,10 +35,11 @@ class PipelineValidateResponse(BaseModel):
 
 @router.post(":validate", response_model=PipelineValidateResponse)
 async def validate_pipeline(body: PipelineValidateRequest) -> PipelineValidateResponse:
-    """Type-check a linear pipeline. Returns ``valid`` + per-step ``errors``;
-    a type break or unsignatured action makes it invalid. Bridging a type
-    mismatch requires an explicit conversion action (nominal typing)."""
-    errors = pipelines.validate_linear(list(body.steps))
+    """Type-check a pipeline of operations. Returns ``valid`` + per-step
+    ``errors``: an operation whose inputs are not produced upstream (or an
+    unknown operation) makes it invalid. Bridging a missing input requires an
+    explicit conversion operation (nominal typing)."""
+    errors = pipelines.validate_pipeline(list(body.steps))
     return PipelineValidateResponse(
         valid=not errors,
         errors=[ChainErrorOut(where=e.where, message=e.message) for e in errors],

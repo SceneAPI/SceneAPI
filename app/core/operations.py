@@ -1,0 +1,109 @@
+"""Operation registry — the typed verbs of the pipeline.
+
+An Operation is a typed, engine-independent transform: it ``consumes`` and
+``produces`` DataTypes (:mod:`app.core.datatypes`). Operations are the
+*portable* pipeline stages -- ``features``, ``pairs``, ``matches`` -- not
+engine commands. The specific algorithm (SIFT vs SuperPoint, exhaustive vs
+retrieval, incremental vs global mapping) is a *parameter* of the operation,
+not a new operation: the type system is about data, not algorithms.
+
+This is the composition unit. A pipeline is a sequence of operations whose
+types thread together (:mod:`app.core.pipelines`); at execution each operation
+is bound to a provider (engine) that implements it. Engine-specific raw
+commands (``colmap.feature_extractor``) are a separate escape hatch, outside
+this typed model.
+
+Repo-owned core contract / data standard (no plugin import). ``op_id`` is the
+portable operation name; providers advertise which operations they implement.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from app.core.datatypes import is_data_type
+
+
+@dataclass(frozen=True)
+class Operation:
+    op_id: str                  # portable operation name (the pipeline stage)
+    title: str
+    consumes: tuple[str, ...]   # DataType ids on the input edges
+    produces: tuple[str, ...]   # DataType ids on the output edges
+    description: str
+
+
+# The core SfM / 3DGS pipeline operations. Declaration order = serialization
+# order. Multi-input operations (matches, map) are why a pipeline is a typed
+# DAG, not a strict chain: an operation may need data from several upstream
+# stages, not just its immediate predecessor.
+CORE_OPERATIONS: tuple[Operation, ...] = (
+    Operation("features", "Feature extraction",
+              ("image_sequence",), ("feature_set",),
+              "Detect keypoints + compute descriptors per image."),
+    Operation("pairs", "Pair selection",
+              ("feature_set",), ("pair_set",),
+              "Choose which image pairs to match (exhaustive, retrieval, ...)."),
+    Operation("matches", "Feature matching",
+              ("feature_set", "pair_set"), ("match_graph",),
+              "Match features across the selected pairs."),
+    Operation("verify", "Geometric verification",
+              ("match_graph",), ("match_graph",),
+              "Filter matches by two-view geometry."),
+    Operation("map", "Mapping (SfM)",
+              ("feature_set", "match_graph"), ("sparse_model",),
+              "Reconstruct camera poses + sparse points (incremental, global, ...)."),
+    Operation("dense", "Dense reconstruction",
+              ("sparse_model",), ("dense_model",),
+              "Dense depth/normal estimation, fusion, and meshing."),
+    Operation("splat", "Gaussian splatting",
+              ("sparse_model",), ("splat",),
+              "Train a 3D Gaussian splatting model from the sparse SfM."),
+)
+
+OPERATIONS_BY_ID: dict[str, Operation] = {op.op_id: op for op in CORE_OPERATIONS}
+
+# Fail fast at import if an edge references an unknown DataType.
+for _op in CORE_OPERATIONS:
+    for _t in (*_op.consumes, *_op.produces):
+        if not is_data_type(_t):
+            raise ValueError(
+                f"operation {_op.op_id!r} references unknown DataType {_t!r}"
+            )
+
+
+def operation_for(op_id: str) -> Operation | None:
+    return OPERATIONS_BY_ID.get(op_id)
+
+
+CONTRACT_NAME = "operations"
+CONTRACT_SCHEMA_VERSION = 1
+
+
+def contract_dict() -> dict:
+    """The operation registry as a deterministic, JSON-serializable dict."""
+    return {
+        "contract": CONTRACT_NAME,
+        "contract_schema_version": CONTRACT_SCHEMA_VERSION,
+        "operations": [
+            {
+                "op_id": op.op_id,
+                "title": op.title,
+                "consumes": list(op.consumes),
+                "produces": list(op.produces),
+                "description": op.description,
+            }
+            for op in CORE_OPERATIONS
+        ],
+    }
+
+
+__all__ = [
+    "CORE_OPERATIONS",
+    "CONTRACT_NAME",
+    "CONTRACT_SCHEMA_VERSION",
+    "OPERATIONS_BY_ID",
+    "Operation",
+    "contract_dict",
+    "operation_for",
+]
