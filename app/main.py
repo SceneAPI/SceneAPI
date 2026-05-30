@@ -293,6 +293,7 @@ def create_app() -> FastAPI:
         backend,
         camera_models,
         capabilities,
+        dataflow,
         dataset_stages,
         datasets,
         images,
@@ -301,6 +302,7 @@ def create_app() -> FastAPI:
         oneshot,
         pipelines,
         projects,
+        radiance,
         recon_stages,
         reconstructions,
         resume,
@@ -326,6 +328,8 @@ def create_app() -> FastAPI:
     app.include_router(reconstructions.router, prefix="/v1")
     app.include_router(recon_stages.router, prefix="/v1")
     app.include_router(pipelines.router, prefix="/v1")
+    app.include_router(dataflow.router, prefix="/v1")
+    app.include_router(radiance.router, prefix="/v1")
     app.include_router(resume.router, prefix="/v1")
     app.include_router(admin.router, prefix="/v1")
     app.include_router(similarity.router, prefix="/v1")
