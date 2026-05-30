@@ -168,12 +168,15 @@ async def submit_action(
     await project_service.get_project(session, tenant_id=tenant_id, project_id=project_id)
     backend = _resolve_backend(provider)
     action = backend_actions.get_backend_action(action_id, backend)
-    validation = backend_actions.validate_backend_action(action_id, inputs, backend)
-    if not validation.get("valid"):
-        detail = "; ".join(str(error.get("message")) for error in validation.get("errors") or [])
-        raise ValidationError(detail or f"invalid inputs for backend action {action_id!r}")
-
-    normalized_inputs = dict(validation.get("normalized_inputs") or inputs or {})
+    # :submit is shallow-by-contract (parity with the C++ port): it confirms
+    # the project + action exist and creates the job, passing inputs through
+    # unchanged. Input-semantic validation runs at execution in the bridge
+    # worker (run_backend_action -> validate_backend_action), the single
+    # authority -- a deep check here would diverge from the C++ tier, which
+    # creates the job and defers validation to the bridge (no sync RPC, no
+    # C++ validation engine). Invalid inputs therefore surface as a failed
+    # job, not a rejected submit.
+    normalized_inputs = dict(inputs or {})
     task_inputs: dict[str, Any] = {
         "action_id": action_id,
         "project_id": project_id,

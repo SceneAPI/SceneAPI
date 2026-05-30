@@ -202,13 +202,17 @@ async def test_backend_action_catalog_validate_and_run_job(
         assert shallow.json()["valid"] is True
         assert shallow.json()["normalized_inputs"] == {}
 
-        # Deep validation runs at :run -- the missing required "message" is
-        # rejected there (422), not at :validate.
-        rejected = await client.post(
+        # :submit is shallow (parity with the C++ port): it creates the job
+        # without input-semantic validation. The missing required "message"
+        # is caught at execution by the bridge worker, so the submit is
+        # accepted (202) and the JOB fails.
+        submitted_bad = await client.post(
             "/v1/backend/actions/echo.echo:run",
             json={"project_id": project["project_id"], "inputs": {}},
         )
-        assert rejected.status_code == 422, rejected.text
+        assert submitted_bad.status_code == 202, submitted_bad.text
+        bad_job = (await client.get(f"/v1/jobs/{submitted_bad.json()['job_id']}")).json()
+        assert bad_job["status"] == "failed", bad_job
 
         accepted = await client.post(
             "/v1/backend/actions/echo.echo:run",
@@ -302,11 +306,15 @@ async def test_colmap_command_surface_is_adapted_as_backend_actions(
         assert shallow.status_code == 200
         assert shallow.json()["valid"] is True
 
-        rejected = await client.post(
+        # :submit shallow -- the unknown option is caught at execution, so
+        # the submit is accepted (202) and the job fails.
+        submitted_bad = await client.post(
             "/v1/backend/actions/colmap.feature_extractor:run",
             json={"project_id": project["project_id"], "inputs": {"bad_option": 1}},
         )
-        assert rejected.status_code == 422, rejected.text
+        assert submitted_bad.status_code == 202, submitted_bad.text
+        bad_job = (await client.get(f"/v1/jobs/{submitted_bad.json()['job_id']}")).json()
+        assert bad_job["status"] == "failed", bad_job
 
         accepted = await client.post(
             "/v1/backend/actions/colmap.feature_extractor:run",
