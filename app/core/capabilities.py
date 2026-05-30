@@ -153,6 +153,17 @@ OPTIONAL_CAPABILITIES: tuple[str, ...] = (
     # Snapshot inspection
     "observations.by_image",
     "observations.by_point",
+    # Radiance-field / 3D Gaussian Splatting resources. These stay
+    # separate from sparse-SfM reconstruction snapshots.
+    "radiance.train",
+    "radiance.resume",
+    "radiance.render",
+    "radiance.evaluate",
+    "radiance.metrics.psnr",
+    "radiance.metrics.ssim",
+    "radiance.metrics.lpips",
+    "radiance.export",
+    "radiance.convert",
     # Backend extension action catalog. These flags mean the server
     # can expose backend-native operations without adding each
     # backend-specific command to the portable capability registry.
@@ -172,6 +183,25 @@ OPTIONAL_CAPABILITIES: tuple[str, ...] = (
 )
 
 ALL_KNOWN: frozenset[str] = frozenset(CORE_CAPABILITIES + OPTIONAL_CAPABILITIES)
+
+# Capability families that are NOT typed pipeline-data operations:
+# infrastructure (CRUD/jobs/events/spec), ingestion (video/import), inputs
+# (pose_priors/inputs), inspection (observations), retrieval (similarity/index),
+# query (localize), output (export), radiance-field resources, backend meta,
+# and assorted tooling (rigs/segment/compute). Every capability is partitioned
+# into exactly one of: covered by an operation family (app.core.operations) or
+# matching one of these prefixes -- enforced by the operation<->capability gate,
+# so a capability can never be added without being classified.
+NON_PIPELINE_CAPABILITY_PREFIXES: frozenset[str] = frozenset({
+    # core infrastructure
+    "projects", "datasets", "images", "uploads", "jobs", "events", "spec",
+    # ingestion / inputs / inspection
+    "video", "import", "pose_priors", "inputs", "observations",
+    # retrieval / query / output
+    "similarity", "index", "localize", "export",
+    # radiance-field (3DGS resources) / backend meta / tooling
+    "radiance", "backend", "compute", "segment", "rigs",
+})
 
 
 @dataclass(frozen=True)

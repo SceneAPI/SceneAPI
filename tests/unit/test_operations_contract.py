@@ -41,6 +41,26 @@ def test_operation_capability_families_are_valid_and_disjoint() -> None:
             claimed[family] = op.op_id
 
 
+def test_every_capability_is_an_operation_or_explicit_infrastructure() -> None:
+    # The bidirectional gate: every capability in the live vocabulary is
+    # partitioned into EXACTLY ONE of -- covered by a typed operation family,
+    # or matching a declared non-pipeline (infrastructure) prefix. So a
+    # capability can never be added without classifying it, and the typed
+    # operation layer stays the authority for what a pipeline-data stage is.
+    from app.core.capabilities import ALL_KNOWN, NON_PIPELINE_CAPABILITY_PREFIXES
+
+    op_families = {f for op in ops.CORE_OPERATIONS for f in op.capabilities}
+
+    def matches(cap: str, prefix: str) -> bool:
+        return cap == prefix or cap.startswith(prefix + ".")
+
+    for cap in sorted(ALL_KNOWN):
+        is_op = any(matches(cap, f) for f in op_families)
+        is_infra = any(matches(cap, p) for p in NON_PIPELINE_CAPABILITY_PREFIXES)
+        assert is_op or is_infra, f"unclassified capability: {cap!r}"
+        assert not (is_op and is_infra), f"capability {cap!r} is both op and infra"
+
+
 def test_pipeline_data_operations_cover_the_sfm_families() -> None:
     families = {f for op in ops.CORE_OPERATIONS for f in op.capabilities}
     # the SfM spine + the modeled post-processing
