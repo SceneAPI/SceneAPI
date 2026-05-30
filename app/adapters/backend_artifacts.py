@@ -20,15 +20,10 @@ class BackendArtifactContractProvider(Protocol):
     def list_backend_artifact_contracts(self) -> list[dict[str, Any]]: ...
 
 
-_STAGE_ORDER = {
-    "features": 10,
-    "pairs": 20,
-    "matcher": 30,
-    "verify": 40,
-    "mapping": 50,
-    "bundle_adjustment": 60,
-}
-_VALID_STAGES = frozenset(_STAGE_ORDER)
+# The config-stage vocabulary is core-owned (app.core.config_stages); the
+# adapter keeps the local underscore names for its existing call sites.
+from app.core.config_stages import CONFIG_STAGE_ORDER as _STAGE_ORDER  # noqa: E402
+from app.core.config_stages import VALID_CONFIG_STAGES as _VALID_STAGES  # noqa: E402
 # Canonical patterns live in app.core.ids; re-export under the local
 # underscore names to keep existing call sites in this file untouched.
 from app.core.ids import NAMESPACED_ID_RE as _NAMESPACED_ID_RE  # noqa: E402

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.core.config_stages import VALID_CONFIG_STAGES
 from app.core.datatypes import is_data_type
 
 
@@ -112,13 +113,18 @@ CORE_OPERATIONS: tuple[Operation, ...] = (
 
 OPERATIONS_BY_ID: dict[str, Operation] = {op.op_id: op for op in CORE_OPERATIONS}
 
-# Fail fast at import if an edge references an unknown DataType.
+# Fail fast at import if an edge references an unknown DataType, or an
+# operation links to a config stage outside the core vocabulary.
 for _op in CORE_OPERATIONS:
     for _t in (*_op.consumes, *_op.produces):
         if not is_data_type(_t):
             raise ValueError(
                 f"operation {_op.op_id!r} references unknown DataType {_t!r}"
             )
+    if _op.config_stage is not None and _op.config_stage not in VALID_CONFIG_STAGES:
+        raise ValueError(
+            f"operation {_op.op_id!r} has unknown config_stage {_op.config_stage!r}"
+        )
 
 
 def operation_for(op_id: str) -> Operation | None:

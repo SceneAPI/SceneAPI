@@ -94,11 +94,11 @@ def test_config_stage_links_to_a_valid_param_stage() -> None:
     # An operation's config_stage points at the backend config-schema stage
     # carrying its parameters (the algorithm knobs). When set it must be a real
     # config stage; the SfM spine + refine carry parameters.
-    from app.adapters.backend_artifacts import _VALID_STAGES
+    from app.core.config_stages import VALID_CONFIG_STAGES
 
     for op in ops.CORE_OPERATIONS:
         if op.config_stage is not None:
-            assert op.config_stage in _VALID_STAGES, (op.op_id, op.config_stage)
+            assert op.config_stage in VALID_CONFIG_STAGES, (op.op_id, op.config_stage)
     staged = {op.op_id for op in ops.CORE_OPERATIONS if op.config_stage}
     assert {"features", "pairs", "matches", "verify", "map", "refine"} <= staged
 
