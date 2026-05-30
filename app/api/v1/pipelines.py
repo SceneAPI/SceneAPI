@@ -270,5 +270,10 @@ async def run_pipeline(
         nodes=nodes,
     )
     return accepted_response(
-        JobAcceptedResponse(job_id=job_id, task_ids=[t.task_id for t in tasks])
+        JobAcceptedResponse(
+            job_id=job_id,
+            task_ids=[t.task_id for t in tasks],
+            project_id=project_id,
+            dataset_id=body.dataset_id,
+        )
     )
