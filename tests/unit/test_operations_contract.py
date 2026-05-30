@@ -128,6 +128,21 @@ def test_operations_for_provider_capability_set() -> None:
     assert ops.operations_for_capabilities(caps) == {"features", "matches", "map"}
 
 
+def test_post_processing_operations_preserve_sparse_model() -> None:
+    # E8 decision (accept): post-processing operations are sparse_model ->
+    # sparse_model by design -- a reconstruction's identity is its DataType, and
+    # refined/merged/georegistered are provenance, not distinct types. This pins
+    # the decision so a future "distinguish the outputs" change is deliberate.
+    post = {
+        "triangulate", "refine", "optimize_poses", "relocalize",
+        "merge", "georegister", "undistort",
+    }
+    for op_id in post:
+        op = ops.OPERATIONS_BY_ID[op_id]
+        assert "sparse_model" in op.consumes, op_id
+        assert op.produces == ("sparse_model",), op_id
+
+
 def test_contract_dict_is_json_serializable_and_self_describing() -> None:
     payload = ops.contract_dict()
     assert json.loads(json.dumps(payload)) == payload
