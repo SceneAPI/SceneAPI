@@ -9,11 +9,18 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from typing import Any
+
 from app.api.v1._helpers import accepted_response
+from app.core import operations as core_operations
+from app.core import pipelines as core_pipelines
 from app.core.errors import ValidationError
+from app.core.ids import new_id
 from app.core.tenancy import current_tenant
 from app.db.session import get_db
+from app.orchestrator.dag import TaskNode, hash_inputs, hash_params
 from app.orchestrator.scheduler import submit_job_dag
+from app.services import project_service
 from app.schemas.api.artifacts import ArtifactInputMap
 from app.schemas.api.jobs import JobAcceptedResponse
 from app.schemas.pipeline_spec import (
@@ -170,4 +177,98 @@ async def run_recipe(
             task_ids=[t.task_id for t in tasks],
             recon_id=r.recon_id,
         )
+    )
+
+
+class PipelineStep(BaseModel):
+    """One operation in a custom typed pipeline."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    op: str
+    provider: str | None = None
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+class PipelineRunRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dataset_id: str
+    steps: list[PipelineStep]
+
+
+@router.post(
+    ":run",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=JobAcceptedResponse,
+)
+async def run_pipeline(
+    project_id: str,
+    body: PipelineRunRequest,
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """Submit a custom typed-operation pipeline.
+
+    The operation sequence is type-checked against the operation contract
+    BEFORE any job is created -- a type break or unknown operation is rejected
+    with 422. This is where the typed model guards real submissions (unlike the
+    fixed recipes, an arbitrary pipeline can be invalid). Each step binds an
+    operation to an optional provider + params; the binding is resolved at
+    execution by the bridge worker (shallow-by-contract submit), so submission
+    is accepted once the pipeline type-checks.
+    """
+    await project_service.get_project(
+        session, tenant_id=tenant_id, project_id=project_id
+    )
+    errors = core_pipelines.validate_pipeline([s.op for s in body.steps])
+    if errors:
+        detail = "; ".join(f"{e.where}: {e.message}" for e in errors)
+        raise ValidationError(f"pipeline failed type-check: {detail}")
+    await dataset_service.get_dataset(
+        session, tenant_id=tenant_id, dataset_id=body.dataset_id
+    )
+
+    nodes: list[TaskNode] = []
+    prev: str | None = None
+    for step in body.steps:
+        op = core_operations.operation_for(step.op)  # non-None: type-check passed
+        assert op is not None
+        task_id = new_id()
+        nodes.append(
+            TaskNode(
+                task_id=task_id,
+                kind="operation",
+                inputs_hash=hash_inputs(
+                    {"dataset_id": body.dataset_id, "depends_on": [prev] if prev else []}
+                ),
+                params_hash=hash_params(
+                    {"op": step.op, "provider": step.provider, "params": step.params}
+                ),
+                depends_on=[prev] if prev else [],
+                gpu_required=True,
+                metadata={
+                    "operation": step.op,
+                    "provider": step.provider,
+                    "params": step.params,
+                    "consumes": list(op.consumes),
+                    "produces": list(op.produces),
+                },
+            )
+        )
+        prev = task_id
+
+    job_id, tasks = await submit_job_dag(
+        session,
+        tenant_id=tenant_id,
+        project_id=project_id,
+        recipe="pipeline",
+        spec={
+            "dataset_id": body.dataset_id,
+            "steps": [s.model_dump(mode="json") for s in body.steps],
+        },
+        nodes=nodes,
+    )
+    return accepted_response(
+        JobAcceptedResponse(job_id=job_id, task_ids=[t.task_id for t in tasks])
     )
