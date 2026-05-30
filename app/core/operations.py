@@ -31,6 +31,12 @@ class Operation:
     consumes: tuple[str, ...]   # DataType ids on the input edges
     produces: tuple[str, ...]   # DataType ids on the output edges
     description: str
+    # The capability family/families that implement this operation -- the
+    # link from the portable capability vocabulary (app.core.capabilities) to
+    # the typed operation. The algorithm within a family (sift vs superpoint,
+    # incremental vs global) is a parameter, not a separate operation. The
+    # operation<->capability consistency gate keeps the two in lockstep.
+    capabilities: tuple[str, ...] = ()
 
 
 # The core SfM / 3DGS pipeline operations. Declaration order = serialization
@@ -40,19 +46,58 @@ class Operation:
 CORE_OPERATIONS: tuple[Operation, ...] = (
     Operation("features", "Feature extraction",
               ("image_sequence",), ("feature_set",),
-              "Detect keypoints + compute descriptors per image."),
+              "Detect keypoints + compute descriptors per image.",
+              capabilities=("features.extract",)),
     Operation("pairs", "Pair selection",
               ("feature_set",), ("pair_set",),
-              "Choose which image pairs to match (exhaustive, retrieval, ...)."),
+              "Choose which image pairs to match (exhaustive, retrieval, ...).",
+              capabilities=("pairs",)),
     Operation("matches", "Feature matching",
               ("feature_set", "pair_set"), ("match_graph",),
-              "Match features across the selected pairs."),
+              "Match features across the selected pairs.",
+              capabilities=("matchers",)),
     Operation("verify", "Geometric verification",
               ("match_graph",), ("match_graph",),
-              "Filter matches by two-view geometry."),
+              "Filter matches by two-view geometry.",
+              capabilities=("matches.verify", "geometry.two_view")),
     Operation("map", "Mapping (SfM)",
               ("feature_set", "match_graph"), ("sparse_model",),
-              "Reconstruct camera poses + sparse points (incremental, global, ...)."),
+              "Reconstruct camera poses + sparse points (incremental, global, ...).",
+              capabilities=("map",)),
+    # --- sparse-model post-processing (sparse_model -> sparse_model) ---
+    Operation("triangulate", "Triangulation",
+              ("sparse_model", "match_graph"), ("sparse_model",),
+              "Triangulate additional 3D points into an existing model.",
+              capabilities=("triangulate",)),
+    Operation("refine", "Bundle adjustment",
+              ("sparse_model",), ("sparse_model",),
+              "Jointly refine camera poses, intrinsics, and 3D points.",
+              capabilities=("ba",)),
+    Operation("optimize_poses", "Pose-graph optimization",
+              ("sparse_model",), ("sparse_model",),
+              "Optimize the pose graph of a reconstruction.",
+              capabilities=("pgo",)),
+    Operation("relocalize", "Relocalization",
+              ("sparse_model",), ("sparse_model",),
+              "Register additional images into an existing reconstruction.",
+              capabilities=("relocalize",)),
+    Operation("merge", "Reconstruction merge",
+              ("sparse_model",), ("sparse_model",),
+              "Merge disconnected submodels into one reconstruction.",
+              capabilities=("recon.merge",)),
+    Operation("georegister", "Georegistration",
+              ("sparse_model",), ("sparse_model",),
+              "Align a reconstruction to a geographic / metric frame.",
+              capabilities=("georegister",)),
+    Operation("undistort", "Undistortion",
+              ("sparse_model",), ("sparse_model",),
+              "Undistort images and emit adjusted intrinsics.",
+              capabilities=("image.undistort",)),
+    # --- image reprojection ---
+    Operation("project", "Reprojection",
+              ("image_sequence",), ("projection",),
+              "Reproject images between equirectangular / cubemap / perspective.",
+              capabilities=("projection", "spherical")),
     # dense / splat operations are deferred with their output DataTypes
     # (dense_model / splat) until an engine produces them.
 )
@@ -87,6 +132,7 @@ def contract_dict() -> dict:
                 "title": op.title,
                 "consumes": list(op.consumes),
                 "produces": list(op.produces),
+                "capabilities": list(op.capabilities),
                 "description": op.description,
             }
             for op in CORE_OPERATIONS
