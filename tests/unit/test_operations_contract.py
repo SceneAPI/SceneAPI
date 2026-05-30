@@ -74,6 +74,22 @@ def test_projection_is_produced_by_an_operation() -> None:
     assert "projection" in produced  # no longer orphaned
 
 
+def test_every_artifact_datatype_is_produced_by_an_operation() -> None:
+    # The dual of the I/O gate: an artifact type must be producible by the
+    # pipeline (some operation produces it), else it could never appear in a
+    # run. Scene inputs (image_sequence, camera, camera_collection) are EXEMPT
+    # -- they are provided/optional calibration inputs, not pipeline outputs.
+    from app.core import datatypes as dt
+
+    produced = {t for op in ops.CORE_OPERATIONS for t in op.produces}
+    artifact_types = {t.type_id for t in dt.CORE_DATA_TYPES if t.kind == "artifact"}
+    missing = artifact_types - produced
+    assert not missing, (
+        f"artifact DataType(s) no operation produces: {sorted(missing)} -- "
+        f"add a producing operation or make it a scene_input"
+    )
+
+
 def test_operation_for_capability_inverse() -> None:
     assert ops.operation_for_capability("features.extract.sift") == "features"
     assert ops.operation_for_capability("map.incremental") == "map"
