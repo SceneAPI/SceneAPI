@@ -53,12 +53,8 @@ CORE_OPERATIONS: tuple[Operation, ...] = (
     Operation("map", "Mapping (SfM)",
               ("feature_set", "match_graph"), ("sparse_model",),
               "Reconstruct camera poses + sparse points (incremental, global, ...)."),
-    Operation("dense", "Dense reconstruction",
-              ("sparse_model",), ("dense_model",),
-              "Dense depth/normal estimation, fusion, and meshing."),
-    Operation("splat", "Gaussian splatting",
-              ("sparse_model",), ("splat",),
-              "Train a 3D Gaussian splatting model from the sparse SfM."),
+    # dense / splat operations are deferred with their output DataTypes
+    # (dense_model / splat) until an engine produces them.
 )
 
 OPERATIONS_BY_ID: dict[str, Operation] = {op.op_id: op for op in CORE_OPERATIONS}

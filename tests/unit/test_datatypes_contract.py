@@ -22,8 +22,7 @@ def test_pipeline_vocabulary_present() -> None:
         by_kind.setdefault(t.kind, set()).add(t.type_id)
     assert {"image_sequence", "camera", "camera_collection"} <= by_kind["scene_input"]
     assert {
-        "feature_set", "pair_set", "match_graph", "sparse_model",
-        "dense_model", "splat",
+        "feature_set", "pair_set", "match_graph", "sparse_model", "projection",
     } <= by_kind["artifact"]
 
 

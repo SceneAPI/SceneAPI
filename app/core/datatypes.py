@@ -49,10 +49,11 @@ CORE_DATA_TYPES: tuple[DataType, ...] = (
              "Feature correspondences across image pairs (optionally verified)."),
     DataType("sparse_model", "Sparse model", "artifact",
              "A sparse SfM model: camera poses, intrinsics, and a point cloud."),
-    DataType("dense_model", "Dense model", "artifact",
-             "A dense reconstruction: depth/normal maps, dense cloud, or mesh."),
-    DataType("splat", "Gaussian splat", "artifact",
-             "A 3D Gaussian splatting model."),
+    DataType("projection", "Projection", "artifact",
+             "Rendered or reprojected views derived from a reconstruction."),
+    # dense_model / splat are deferred until an engine produces them -- the
+    # I/O-completeness gate requires a format for every artifact DataType, so
+    # they are re-added together with their formats when a producer exists.
 )
 
 CORE_DATA_TYPES_BY_ID: dict[str, DataType] = {t.type_id: t for t in CORE_DATA_TYPES}

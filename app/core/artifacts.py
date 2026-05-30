@@ -9,7 +9,26 @@ from typing import Any
 # class); re-exported here so callers keep using artifacts.ARTIFACT_KEY_RE.
 from app.core.ids import ARTIFACT_KEY_RE
 
-CORE_ARTIFACT_TYPES = frozenset({"features", "pairs", "matches", "reconstruction", "projection"})
+CORE_ARTIFACT_TYPES = frozenset(
+    {"features", "pairs", "matches", "reconstruction", "projection"}
+)
+
+# The Format -> DataType link (app.core.datatypes is the logical-object axis).
+# A format realizes the DataType its artifact_type maps to. Every artifact
+# DataType must be realized by >=1 format (I/O); every format's artifact_type
+# must map to a known DataType. The datatype-io completeness test enforces both.
+ARTIFACT_TYPE_TO_DATATYPE: dict[str, str] = {
+    "features": "feature_set",
+    "pairs": "pair_set",
+    "matches": "match_graph",
+    "reconstruction": "sparse_model",
+    "projection": "projection",
+}
+
+
+def datatype_realized_by(artifact_type: str) -> str:
+    """The DataType id a format of ``artifact_type`` realizes."""
+    return ARTIFACT_TYPE_TO_DATATYPE[artifact_type]
 
 
 @dataclass(frozen=True)

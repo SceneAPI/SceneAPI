@@ -40,8 +40,7 @@ class ChainError:
 # pipeline -- so the structural pipeline is one, with optional dense/splat tails.
 CANONICAL_PIPELINES: dict[str, tuple[str, ...]] = {
     "sfm": ("features", "pairs", "matches", "verify", "map"),
-    "sfm_dense": ("features", "pairs", "matches", "verify", "map", "dense"),
-    "splat": ("features", "pairs", "matches", "verify", "map", "splat"),
+    # sfm_dense / splat pipelines return with the dense / splat operations.
 }
 
 
