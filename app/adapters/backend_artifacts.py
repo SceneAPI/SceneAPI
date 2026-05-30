@@ -315,10 +315,119 @@ def assert_backend_artifact_contract(backend: Any) -> None:
         )
 
 
+def _coerce_format_def(raw: Any) -> artifact_vocab.ArtifactFormatDefinition | None:
+    if isinstance(raw, artifact_vocab.ArtifactFormatDefinition):
+        return raw
+    if isinstance(raw, dict) and raw.get("format_id"):
+        return artifact_vocab.ArtifactFormatDefinition(
+            format_id=str(raw["format_id"]),
+            artifact_type=str(raw.get("artifact_type") or ""),
+            title=str(raw.get("title") or raw["format_id"]),
+            description=str(raw.get("description") or ""),
+            schema_version=int(raw.get("schema_version") or 1),
+            media_types=tuple(str(m) for m in (raw.get("media_types") or ())),
+            realizes=tuple(str(r) for r in (raw.get("realizes") or ())),
+        )
+    return None
+
+
+def backend_io_formats(
+    backend: Any | None = None,
+) -> tuple[artifact_vocab.ArtifactFormatDefinition, ...]:
+    """The plugin (backend-declared) artifact formats, for I/O resolution.
+
+    The Format axis is open: a backend may serialize a core DataType its own
+    way. An explicit ``artifact_formats()`` method wins; otherwise format
+    objects are derived from the backend's artifact contracts -- any emitted or
+    accepted format id that is NOT a core format is a backend-owned
+    serialization, realizing the DataType of the kinds it serves. These feed
+    :func:`app.core.artifacts.resolve_io_formats` as the plugin overrides
+    (plugin-first), so a backend can override the core I/O format, never remove
+    it. Defensive: no configured backend -> no plugin formats (core defaults).
+    """
+    if backend is None:
+        try:
+            backend = get_backend()
+        except Exception:
+            return ()
+
+    explicit = getattr(backend, "artifact_formats", None)
+    if callable(explicit):
+        try:
+            defs = [_coerce_format_def(item) for item in explicit()]
+        except Exception:
+            defs = []
+        chosen = tuple(d for d in defs if d is not None)
+        if chosen:
+            return chosen
+
+    derived: dict[str, artifact_vocab.ArtifactFormatDefinition] = {}
+    try:
+        rows = list_backend_artifact_contracts(backend)
+    except Exception:
+        rows = []
+    for row in rows:
+        artifact_type: str | None = None
+        for kind in (str(row.get("preferred") or ""), *row.get("emits", []),
+                     *row.get("accepts", [])):
+            if kind:
+                artifact_type = artifact_vocab.artifact_type_for_kind(str(kind))
+            if artifact_type:
+                break
+        if artifact_type not in artifact_vocab.ARTIFACT_TYPE_TO_DATATYPE:
+            continue
+        for field in ("emits_formats", "accepts_formats"):
+            for raw_format in row.get(field) or []:
+                format_id = str(raw_format)
+                if (
+                    format_id in artifact_vocab.CORE_ARTIFACT_FORMATS
+                    or format_id in derived
+                ):
+                    continue
+                derived[format_id] = artifact_vocab.ArtifactFormatDefinition(
+                    format_id=format_id,
+                    artifact_type=artifact_type,
+                    title=format_id,
+                    description=f"Backend-declared {artifact_type} format.",
+                    schema_version=1,
+                    media_types=(),
+                )
+    return tuple(derived.values())
+
+
+def backend_default_format_for_kind(
+    kind: str, backend: Any | None = None
+) -> str | None:
+    """A backend-declared format overriding the core default for ``kind``, else
+    None (keep the core default).
+
+    The override is per-DataType (the Format axis realizes a DataType, not a
+    kind): if the backend supplies its own serialization for the kind's
+    DataType, materialization prefers it. Plugin override, never removal --
+    returns None unless the backend genuinely owns a format for the DataType,
+    so the core fallback (guaranteed by the I/O completeness gate) always holds.
+    """
+    core_kind = artifact_vocab.CORE_ARTIFACT_KINDS.get(kind)
+    if core_kind is None:
+        return None
+    type_id = artifact_vocab.ARTIFACT_TYPE_TO_DATATYPE.get(core_kind.artifact_type)
+    if type_id is None:
+        return None
+    resolved = artifact_vocab.resolve_io_formats(
+        type_id, plugin_formats=backend_io_formats(backend)
+    )
+    for fmt in resolved:  # plugin overrides come first
+        if fmt.format_id not in artifact_vocab.CORE_ARTIFACT_FORMATS:
+            return fmt.format_id
+    return None
+
+
 __all__ = [
     "BackendArtifactContractProvider",
     "assert_backend_artifact_contract",
     "backend_artifact_contract_violations",
+    "backend_default_format_for_kind",
+    "backend_io_formats",
     "get_backend_artifact_contract",
     "has_backend_artifact_contracts",
     "list_backend_artifact_contracts",

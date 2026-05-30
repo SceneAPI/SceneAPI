@@ -57,7 +57,15 @@ def _validate_artifact_descriptor(descriptor: Any, *, index: int) -> dict[str, A
         )
     artifact_format = descriptor.get("artifact_format")
     if artifact_format is None and core_kind is not None:
-        artifact_format = core_kind.artifact_format
+        # The Format axis is open: a plugin backend may override the I/O format
+        # for this kind's DataType. Prefer the backend-declared format, else the
+        # core default (always present -- the override never removes I/O).
+        from app.adapters import backend_artifacts
+
+        artifact_format = (
+            backend_artifacts.backend_default_format_for_kind(kind)
+            or core_kind.artifact_format
+        )
         descriptor["artifact_format"] = artifact_format
     if artifact_format is not None and (
         not isinstance(artifact_format, str)
