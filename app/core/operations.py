@@ -37,6 +37,13 @@ class Operation:
     # incremental vs global) is a parameter, not a separate operation. The
     # operation<->capability consistency gate keeps the two in lockstep.
     capabilities: tuple[str, ...] = ()
+    # The backend config-schema stage that carries this operation's PARAMETERS
+    # (the algorithm knobs). The algorithm itself is selected by the capability
+    # (features.extract.sift); the concrete per-provider params live in the
+    # config schema for this stage. None = no portable config stage yet (raw
+    # backend actions / post-processing). The operation is the abstract verb;
+    # it deliberately does not own a concrete (provider-specific) param schema.
+    config_stage: str | None = None
 
 
 # The core SfM / 3DGS pipeline operations. Declaration order = serialization
@@ -47,23 +54,24 @@ CORE_OPERATIONS: tuple[Operation, ...] = (
     Operation("features", "Feature extraction",
               ("image_sequence",), ("feature_set",),
               "Detect keypoints + compute descriptors per image.",
-              capabilities=("features.extract",)),
+              capabilities=("features.extract",), config_stage="features"),
     Operation("pairs", "Pair selection",
               ("feature_set",), ("pair_set",),
               "Choose which image pairs to match (exhaustive, retrieval, ...).",
-              capabilities=("pairs",)),
+              capabilities=("pairs",), config_stage="pairs"),
     Operation("matches", "Feature matching",
               ("feature_set", "pair_set"), ("match_graph",),
               "Match features across the selected pairs.",
-              capabilities=("matchers",)),
+              capabilities=("matchers",), config_stage="matcher"),
     Operation("verify", "Geometric verification",
               ("match_graph",), ("match_graph",),
               "Filter matches by two-view geometry.",
-              capabilities=("matches.verify", "geometry.two_view")),
+              capabilities=("matches.verify", "geometry.two_view"),
+              config_stage="verify"),
     Operation("map", "Mapping (SfM)",
               ("feature_set", "match_graph"), ("sparse_model",),
               "Reconstruct camera poses + sparse points (incremental, global, ...).",
-              capabilities=("map",)),
+              capabilities=("map",), config_stage="mapping"),
     # --- sparse-model post-processing (sparse_model -> sparse_model) ---
     Operation("triangulate", "Triangulation",
               ("sparse_model", "match_graph"), ("sparse_model",),
@@ -72,7 +80,7 @@ CORE_OPERATIONS: tuple[Operation, ...] = (
     Operation("refine", "Bundle adjustment",
               ("sparse_model",), ("sparse_model",),
               "Jointly refine camera poses, intrinsics, and 3D points.",
-              capabilities=("ba",)),
+              capabilities=("ba",), config_stage="bundle_adjustment"),
     Operation("optimize_poses", "Pose-graph optimization",
               ("sparse_model",), ("sparse_model",),
               "Optimize the pose graph of a reconstruction.",
@@ -160,6 +168,7 @@ def contract_dict() -> dict:
                 "consumes": list(op.consumes),
                 "produces": list(op.produces),
                 "capabilities": list(op.capabilities),
+                "config_stage": op.config_stage,
                 "description": op.description,
             }
             for op in CORE_OPERATIONS
