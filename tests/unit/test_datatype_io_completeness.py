@@ -19,19 +19,18 @@ def _artifact_datatype_ids() -> set[str]:
 
 
 def _realized_datatype_ids() -> set[str]:
-    return {
-        artifacts.datatype_realized_by(f.artifact_type)
-        for f in artifacts.CORE_ARTIFACT_FORMATS.values()
-    }
+    # A format serializes exactly its artifact_type, which IS a DataType id.
+    return {f.artifact_type for f in artifacts.CORE_ARTIFACT_FORMATS.values()}
 
 
-def test_artifact_type_to_datatype_map_is_total_and_valid() -> None:
-    # Every artifact_type maps to a known DataType (the Format->DataType link).
+def test_artifact_type_is_the_datatype_id() -> None:
+    # The unification gate: there is ONE type axis. CORE_ARTIFACT_TYPES is
+    # exactly the artifact DataTypes, and every artifact_type is a real DataType
+    # of kind "artifact" -- no separate artifact-type vocabulary, no bridge.
+    assert artifacts.CORE_ARTIFACT_TYPES == _artifact_datatype_ids()
     for artifact_type in artifacts.CORE_ARTIFACT_TYPES:
-        assert artifact_type in artifacts.ARTIFACT_TYPE_TO_DATATYPE, artifact_type
-        assert dt.is_data_type(
-            artifacts.ARTIFACT_TYPE_TO_DATATYPE[artifact_type]
-        ), artifact_type
+        assert dt.is_data_type(artifact_type), artifact_type
+        assert dt.CORE_DATA_TYPES_BY_ID[artifact_type].kind == "artifact"
 
 
 def test_every_artifact_datatype_has_io() -> None:
@@ -50,30 +49,30 @@ def test_no_orphan_formats() -> None:
     )
 
 
-def test_core_format_realizes_its_datatype() -> None:
-    # Every core format declares (defaults) which DataType it realizes.
+def test_core_format_names_a_real_datatype() -> None:
+    # Every core format's artifact_type is a real artifact DataType (the only
+    # type axis); a format serializes exactly that DataType.
     for f in artifacts.CORE_ARTIFACT_FORMATS.values():
-        assert f.realizes == (artifacts.datatype_realized_by(f.artifact_type),), f.format_id
+        assert f.artifact_type in _artifact_datatype_ids(), f.format_id
 
 
 def test_resolve_io_returns_the_core_floor() -> None:
     # With no plugin, resolution is the core portable formats for the type.
     formats = artifacts.resolve_io_formats("feature_set")
     assert formats
-    assert all("feature_set" in f.realizes for f in formats)
+    assert all(f.artifact_type == "feature_set" for f in formats)
 
 
 def test_plugin_format_overrides_core_io() -> None:
-    # The Format axis is open: a plugin format realizing a core DataType takes
+    # The Format axis is open: a plugin format of a core DataType takes
     # precedence, while the core portable format remains as the fallback.
     plugin_fmt = artifacts.ArtifactFormatDefinition(
         format_id="acme.features.native.v1",
-        artifact_type="features",
+        artifact_type="feature_set",
         title="ACME native features",
         description="ACME engine's native on-disk feature format.",
         schema_version=1,
         media_types=("application/octet-stream",),
-        realizes=("feature_set",),
         portable=False,
     )
     resolved = artifacts.resolve_io_formats("feature_set", plugin_formats=(plugin_fmt,))

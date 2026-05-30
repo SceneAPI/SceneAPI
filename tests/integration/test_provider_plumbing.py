@@ -170,7 +170,7 @@ async def test_artifact_convert_persists_provider_into_task_spec(
             uri="memory://matches.h5",
             metadata_json={
                 "artifact_format": "hloc.matches.h5.v1",
-                "artifact_type": "matches",
+                "artifact_type": "match_graph",
                 "schema_version": 1,
             },
         )

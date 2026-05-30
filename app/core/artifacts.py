@@ -7,34 +7,24 @@ from typing import Any
 
 # The artifact-key pattern is owned by app.core.ids (one home per id
 # class); re-exported here so callers keep using artifacts.ARTIFACT_KEY_RE.
+from app.core.datatypes import CORE_DATA_TYPES
 from app.core.ids import ARTIFACT_KEY_RE
 
-CORE_ARTIFACT_TYPES = frozenset(
-    {"features", "pairs", "matches", "reconstruction", "projection"}
+# The logical-type axis is owned by app.core.datatypes. An artifact's
+# ``artifact_type`` IS its DataType id -- there is no separate artifact-type
+# vocabulary and no bridge between the two. CORE_ARTIFACT_TYPES is exactly the
+# artifact-kind DataTypes (scene inputs are not artifacts), derived from the
+# DataType registry so the two cannot drift; the datatype-io completeness gate
+# asserts every one is realized by a format and every format names a real type.
+CORE_ARTIFACT_TYPES: frozenset[str] = frozenset(
+    t.type_id for t in CORE_DATA_TYPES if t.kind == "artifact"
 )
-
-# The Format -> DataType link (app.core.datatypes is the logical-object axis).
-# A format realizes the DataType its artifact_type maps to. Every artifact
-# DataType must be realized by >=1 format (I/O); every format's artifact_type
-# must map to a known DataType. The datatype-io completeness test enforces both.
-ARTIFACT_TYPE_TO_DATATYPE: dict[str, str] = {
-    "features": "feature_set",
-    "pairs": "pair_set",
-    "matches": "match_graph",
-    "reconstruction": "sparse_model",
-    "projection": "projection",
-}
-
-
-def datatype_realized_by(artifact_type: str) -> str:
-    """The DataType id a format of ``artifact_type`` realizes."""
-    return ARTIFACT_TYPE_TO_DATATYPE[artifact_type]
 
 
 @dataclass(frozen=True)
 class ArtifactKindDefinition:
     kind: str
-    artifact_type: str
+    artifact_type: str  # the DataType id this kind is an instance of
     title: str
     description: str
     durable: bool
@@ -45,7 +35,7 @@ class ArtifactKindDefinition:
 @dataclass(frozen=True)
 class ArtifactFormatDefinition:
     format_id: str
-    artifact_type: str
+    artifact_type: str  # the DataType id this format serializes
     title: str
     description: str
     schema_version: int
@@ -53,16 +43,6 @@ class ArtifactFormatDefinition:
     json_schema: dict[str, Any] | None = None
     examples: tuple[dict[str, Any], ...] = ()
     portable: bool = True
-    # The DataType(s) this format serializes -- the Format->DataType link.
-    # Core formats default it from artifact_type; plugin-provided formats set
-    # it explicitly. Internal (not served): it drives I/O resolution.
-    realizes: tuple[str, ...] = ()
-
-    def __post_init__(self) -> None:
-        if not self.realizes and self.artifact_type in ARTIFACT_TYPE_TO_DATATYPE:
-            object.__setattr__(
-                self, "realizes", (ARTIFACT_TYPE_TO_DATATYPE[self.artifact_type],)
-            )
 
 
 def _manifest_schema(
@@ -103,7 +83,7 @@ def _manifest_schema(
 CORE_ARTIFACT_FORMATS: dict[str, ArtifactFormatDefinition] = {
     "sfmapi.features.local.v1": ArtifactFormatDefinition(
         format_id="sfmapi.features.local.v1",
-        artifact_type="features",
+        artifact_type="feature_set",
         title="sfmapi local features",
         description=(
             "Versioned interchange manifest for per-image keypoints, descriptors, "
@@ -111,12 +91,12 @@ CORE_ARTIFACT_FORMATS: dict[str, ArtifactFormatDefinition] = {
         ),
         schema_version=1,
         media_types=("application/json", "application/x-ndjson", "application/octet-stream"),
-        json_schema=_manifest_schema("sfmapi.features.local.v1", "features", required=("images",)),
+        json_schema=_manifest_schema("sfmapi.features.local.v1", "feature_set", required=("images",)),
         examples=(
             {
                 "format_id": "sfmapi.features.local.v1",
                 "schema_version": 1,
-                "artifact_type": "features",
+                "artifact_type": "feature_set",
                 "descriptor": {"type": "sift", "dtype": "float32", "dimension": 128},
                 "images": [{"name": "image0001.jpg", "keypoints": "features/image0001.kpt.npy"}],
             },
@@ -124,21 +104,21 @@ CORE_ARTIFACT_FORMATS: dict[str, ArtifactFormatDefinition] = {
     ),
     "sfmapi.features.global.v1": ArtifactFormatDefinition(
         format_id="sfmapi.features.global.v1",
-        artifact_type="features",
+        artifact_type="feature_set",
         title="sfmapi global descriptors",
         description="Versioned interchange manifest for per-image retrieval descriptors.",
         schema_version=1,
         media_types=("application/json", "application/octet-stream"),
         json_schema=_manifest_schema(
             "sfmapi.features.global.v1",
-            "features",
+            "feature_set",
             required=("images",),
         ),
         examples=(
             {
                 "format_id": "sfmapi.features.global.v1",
                 "schema_version": 1,
-                "artifact_type": "features",
+                "artifact_type": "feature_set",
                 "descriptor": {"type": "vlad", "dtype": "float32", "dimension": 4096},
                 "images": [{"name": "image0001.jpg", "descriptor": "global/image0001.npy"}],
             },
@@ -146,89 +126,89 @@ CORE_ARTIFACT_FORMATS: dict[str, ArtifactFormatDefinition] = {
     ),
     "sfmapi.pairs.image_names.v1": ArtifactFormatDefinition(
         format_id="sfmapi.pairs.image_names.v1",
-        artifact_type="pairs",
+        artifact_type="pair_set",
         title="sfmapi image-name pairs",
         description="Portable image-pair list keyed by dataset image names.",
         schema_version=1,
         media_types=("text/plain", "application/json"),
         json_schema=_manifest_schema(
             "sfmapi.pairs.image_names.v1",
-            "pairs",
+            "pair_set",
             required=("pairs",),
         ),
         examples=(
             {
                 "format_id": "sfmapi.pairs.image_names.v1",
                 "schema_version": 1,
-                "artifact_type": "pairs",
+                "artifact_type": "pair_set",
                 "pairs": [["image0001.jpg", "image0002.jpg"]],
             },
         ),
     ),
     "sfmapi.matches.indexed.v1": ArtifactFormatDefinition(
         format_id="sfmapi.matches.indexed.v1",
-        artifact_type="matches",
+        artifact_type="match_graph",
         title="sfmapi indexed matches",
         description="Portable match graph expressed as feature-index pairs.",
         schema_version=1,
         media_types=("application/json", "application/octet-stream"),
         json_schema=_manifest_schema(
             "sfmapi.matches.indexed.v1",
-            "matches",
+            "match_graph",
             required=("pairs",),
         ),
         examples=(
             {
                 "format_id": "sfmapi.matches.indexed.v1",
                 "schema_version": 1,
-                "artifact_type": "matches",
+                "artifact_type": "match_graph",
                 "pairs": [{"image1": "a.jpg", "image2": "b.jpg", "matches": [[0, 4], [8, 9]]}],
             },
         ),
     ),
     "sfmapi.matches.coordinates.v1": ArtifactFormatDefinition(
         format_id="sfmapi.matches.coordinates.v1",
-        artifact_type="matches",
+        artifact_type="match_graph",
         title="sfmapi coordinate matches",
         description="Portable detector-free match graph expressed as image coordinates.",
         schema_version=1,
         media_types=("application/json", "application/octet-stream"),
         json_schema=_manifest_schema(
             "sfmapi.matches.coordinates.v1",
-            "matches",
+            "match_graph",
             required=("pairs",),
         ),
     ),
     "sfmapi.matches.dense.v1": ArtifactFormatDefinition(
         format_id="sfmapi.matches.dense.v1",
-        artifact_type="matches",
+        artifact_type="match_graph",
         title="sfmapi dense matches",
         description="Portable tiled dense or semi-dense correspondence field.",
         schema_version=1,
         media_types=("application/json", "application/octet-stream"),
         json_schema=_manifest_schema(
             "sfmapi.matches.dense.v1",
-            "matches",
+            "match_graph",
             required=("tiles",),
         ),
     ),
     "sfmapi.matches.verified.v1": ArtifactFormatDefinition(
         format_id="sfmapi.matches.verified.v1",
-        artifact_type="matches",
+        artifact_type="match_graph",
         title="sfmapi verified two-view geometry",
         description="Portable verified correspondences with F/E/H matrices and inliers.",
         schema_version=1,
         media_types=("application/json", "application/octet-stream"),
         json_schema=_manifest_schema(
             "sfmapi.matches.verified.v1",
-            "matches",
+            "match_graph",
             required=("pairs",),
         ),
         examples=(
             {
                 "format_id": "sfmapi.matches.verified.v1",
                 "schema_version": 1,
-                "artifact_type": "matches",
+                "artifact_type": "match_graph",
                 "pairs": [
                     {
                         "image1": "a.jpg",
@@ -242,40 +222,40 @@ CORE_ARTIFACT_FORMATS: dict[str, ArtifactFormatDefinition] = {
     ),
     "sfmapi.reconstruction.sparse.v1": ArtifactFormatDefinition(
         format_id="sfmapi.reconstruction.sparse.v1",
-        artifact_type="reconstruction",
+        artifact_type="sparse_model",
         title="sfmapi sparse reconstruction",
         description="Portable cameras, image poses, rigs, tracks, and sparse points manifest.",
         schema_version=1,
         media_types=("application/json", "application/octet-stream"),
         json_schema=_manifest_schema(
             "sfmapi.reconstruction.sparse.v1",
-            "reconstruction",
+            "sparse_model",
             required=("files",),
         ),
     ),
     "sfmapi.reconstruction.snapshot.v1": ArtifactFormatDefinition(
         format_id="sfmapi.reconstruction.snapshot.v1",
-        artifact_type="reconstruction",
+        artifact_type="sparse_model",
         title="sfmapi sealed snapshot",
         description="Immutable snapshot directory containing portable sparse reconstruction files.",
         schema_version=1,
         media_types=("application/json", "application/octet-stream"),
         json_schema=_manifest_schema(
             "sfmapi.reconstruction.snapshot.v1",
-            "reconstruction",
+            "sparse_model",
             required=("files",),
         ),
     ),
     "sfmapi.reconstruction.submodel.v1": ArtifactFormatDefinition(
         format_id="sfmapi.reconstruction.submodel.v1",
-        artifact_type="reconstruction",
+        artifact_type="sparse_model",
         title="sfmapi reconstruction submodel",
         description="One disconnected component inside a sparse reconstruction snapshot.",
         schema_version=1,
         media_types=("application/json", "application/octet-stream"),
         json_schema=_manifest_schema(
             "sfmapi.reconstruction.submodel.v1",
-            "reconstruction",
+            "sparse_model",
             required=("files",),
         ),
     ),
@@ -303,21 +283,21 @@ def resolve_io_formats(
     """Resolve the formats that read/write a DataType, plugin overrides first.
 
     The Format axis is OPEN: a plugin may provide its own serialization for a
-    core DataType. Plugin-provided formats realizing ``type_id`` take
-    precedence; the core portable formats follow as the interchange fallback.
-    The completeness gate guarantees a core format always exists, so this
-    never returns empty for a known artifact DataType -- a plugin can override
-    the I/O, never remove it.
+    core DataType. A format serializes exactly its ``artifact_type`` (== a
+    DataType id); plugin-provided formats of ``type_id`` take precedence, the
+    core portable formats follow as the interchange fallback. The completeness
+    gate guarantees a core format always exists, so this never returns empty for
+    a known artifact DataType -- a plugin can override the I/O, never remove it.
     """
-    plugin = [f for f in plugin_formats if type_id in f.realizes]
-    core = [f for f in CORE_ARTIFACT_FORMATS.values() if type_id in f.realizes]
+    plugin = [f for f in plugin_formats if f.artifact_type == type_id]
+    core = [f for f in CORE_ARTIFACT_FORMATS.values() if f.artifact_type == type_id]
     return [*plugin, *core]
 
 
 CORE_ARTIFACT_KINDS: dict[str, ArtifactKindDefinition] = {
     "features.local.v1": ArtifactKindDefinition(
         kind="features.local.v1",
-        artifact_type="features",
+        artifact_type="feature_set",
         title="Local feature set",
         description=(
             "Portable per-image local keypoints and descriptors. Supports SIFT-like "
@@ -329,7 +309,7 @@ CORE_ARTIFACT_KINDS: dict[str, ArtifactKindDefinition] = {
     ),
     "features.global.v1": ArtifactKindDefinition(
         kind="features.global.v1",
-        artifact_type="features",
+        artifact_type="feature_set",
         title="Global image descriptors",
         description="Portable per-image retrieval descriptors such as VLAD or NetVLAD.",
         durable=False,
@@ -338,7 +318,7 @@ CORE_ARTIFACT_KINDS: dict[str, ArtifactKindDefinition] = {
     ),
     "pairs.image_names.v1": ArtifactKindDefinition(
         kind="pairs.image_names.v1",
-        artifact_type="pairs",
+        artifact_type="pair_set",
         title="Image-name pairs",
         description="Portable newline-delimited or manifest-addressed image pair list.",
         durable=False,
@@ -347,7 +327,7 @@ CORE_ARTIFACT_KINDS: dict[str, ArtifactKindDefinition] = {
     ),
     "matches.indexed.v1": ArtifactKindDefinition(
         kind="matches.indexed.v1",
-        artifact_type="matches",
+        artifact_type="match_graph",
         title="Indexed feature matches",
         description="Portable raw matches expressed as keypoint-index pairs.",
         durable=False,
@@ -356,7 +336,7 @@ CORE_ARTIFACT_KINDS: dict[str, ArtifactKindDefinition] = {
     ),
     "matches.coordinates.v1": ArtifactKindDefinition(
         kind="matches.coordinates.v1",
-        artifact_type="matches",
+        artifact_type="match_graph",
         title="Coordinate matches",
         description="Portable detector-free matches expressed as image coordinate pairs.",
         durable=False,
@@ -365,7 +345,7 @@ CORE_ARTIFACT_KINDS: dict[str, ArtifactKindDefinition] = {
     ),
     "matches.dense.v1": ArtifactKindDefinition(
         kind="matches.dense.v1",
-        artifact_type="matches",
+        artifact_type="match_graph",
         title="Dense or semi-dense matches",
         description="Portable tiled/chunked dense match field.",
         durable=False,
@@ -374,7 +354,7 @@ CORE_ARTIFACT_KINDS: dict[str, ArtifactKindDefinition] = {
     ),
     "matches.verified.v1": ArtifactKindDefinition(
         kind="matches.verified.v1",
-        artifact_type="matches",
+        artifact_type="match_graph",
         title="Verified two-view geometry",
         description="Portable verified matches with F/E/H matrices and inlier pairs.",
         durable=False,
@@ -383,7 +363,7 @@ CORE_ARTIFACT_KINDS: dict[str, ArtifactKindDefinition] = {
     ),
     "reconstruction.sparse.v1": ArtifactKindDefinition(
         kind="reconstruction.sparse.v1",
-        artifact_type="reconstruction",
+        artifact_type="sparse_model",
         title="Sparse reconstruction",
         description="Portable cameras, image poses, tracks, and sparse points manifest.",
         durable=True,
@@ -392,7 +372,7 @@ CORE_ARTIFACT_KINDS: dict[str, ArtifactKindDefinition] = {
     ),
     "reconstruction.snapshot": ArtifactKindDefinition(
         kind="reconstruction.snapshot",
-        artifact_type="reconstruction",
+        artifact_type="sparse_model",
         title="Sealed reconstruction snapshot",
         description="Immutable sealed snapshot directory for a reconstruction.",
         durable=True,
@@ -401,7 +381,7 @@ CORE_ARTIFACT_KINDS: dict[str, ArtifactKindDefinition] = {
     ),
     "reconstruction.submodel": ArtifactKindDefinition(
         kind="reconstruction.submodel",
-        artifact_type="reconstruction",
+        artifact_type="sparse_model",
         title="Reconstruction submodel",
         description="One disconnected mapping component inside a reconstruction snapshot.",
         durable=True,
@@ -417,6 +397,16 @@ CORE_ARTIFACT_KINDS: dict[str, ArtifactKindDefinition] = {
         artifact_format="sfmapi.projection.images.v1",
         schema_version=1,
     ),
+}
+
+# A kind id's namespace (its first segment, e.g. ``features`` in
+# ``features.local.v1``) is a naming convention, distinct from the type axis.
+# This maps that namespace to its DataType, LEARNED from the core kinds -- so a
+# backend extension kind (``features.hloc_h5``) inherits the DataType of its
+# namespace without a separately-maintained bridge table.
+_KIND_NAMESPACE_TO_DATATYPE: dict[str, str] = {
+    kind.split(".", 1)[0]: kind_def.artifact_type
+    for kind, kind_def in CORE_ARTIFACT_KINDS.items()
 }
 
 ARTIFACT_INPUT_ROLE_KINDS: dict[str, frozenset[str]] = {
@@ -485,10 +475,8 @@ def artifact_type_for_kind(kind: str) -> str | None:
     kind_def = CORE_ARTIFACT_KINDS.get(kind)
     if kind_def is not None:
         return kind_def.artifact_type
-    prefix = kind.split(".", 1)[0]
-    if prefix in CORE_ARTIFACT_TYPES:
-        return prefix
-    return None
+    namespace = kind.split(".", 1)[0]
+    return _KIND_NAMESPACE_TO_DATATYPE.get(namespace)
 
 
 def is_format_compatible_with_kind(kind: str, format_id: str) -> bool:

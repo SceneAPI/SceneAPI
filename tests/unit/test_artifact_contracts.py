@@ -87,7 +87,7 @@ class ArtifactConversionBackend(ArtifactContractBackend):
         target.write_text(
             (
                 '{"format_id":"sfmapi.matches.indexed.v1",'
-                '"schema_version":1,"artifact_type":"matches","pairs":[]}'
+                '"schema_version":1,"artifact_type":"match_graph","pairs":[]}'
             ),
             encoding="utf-8",
         )
@@ -161,7 +161,7 @@ class MultiHopArtifactConversionBackend(ArtifactContractBackend):
             target.write_text(
                 (
                     '{"format_id":"sfmapi.matches.indexed.v1",'
-                    '"schema_version":1,"artifact_type":"matches","pairs":[]}'
+                    '"schema_version":1,"artifact_type":"match_graph","pairs":[]}'
                 ),
                 encoding="utf-8",
             )
@@ -197,7 +197,7 @@ def test_core_artifact_kinds_are_portable() -> None:
     verified_format = artifact_vocab.default_format_for_kind("matches.verified.v1")
     assert verified_format is not None
     assert verified_format.format_id == "sfmapi.matches.verified.v1"
-    assert artifact_vocab.artifact_type_for_format("sfmapi.matches.verified.v1") == "matches"
+    assert artifact_vocab.artifact_type_for_format("sfmapi.matches.verified.v1") == "match_graph"
     assert artifact_vocab.is_artifact_allowed_for_role("features", "features.hloc_h5")
     assert artifact_vocab.is_artifact_allowed_for_role(
         "verified_matches",
@@ -344,7 +344,7 @@ async def test_artifact_conversion_plan_convert_and_validate_api(db_setup, monke
             uri="memory://matches.h5",
             metadata_json={
                 "artifact_format": "hloc.matches.h5.v1",
-                "artifact_type": "matches",
+                "artifact_type": "match_graph",
                 "schema_version": 1,
             },
         )
@@ -441,7 +441,7 @@ async def test_artifact_conversion_supports_multihop_paths(db_setup, monkeypatch
             uri="memory://matches.h5",
             metadata_json={
                 "artifact_format": "legacy.matches.h5.v1",
-                "artifact_type": "matches",
+                "artifact_type": "match_graph",
                 "schema_version": 1,
             },
         )
@@ -491,7 +491,7 @@ async def test_artifact_import_and_integrity_validation_api(
     artifact_path = workspace / "pairs.json"
     content = (
         '{"format_id":"sfmapi.pairs.image_names.v1",'
-        '"schema_version":1,"artifact_type":"pairs","pairs":[["a.jpg","b.jpg"]]}'
+        '"schema_version":1,"artifact_type":"pair_set","pairs":[["a.jpg","b.jpg"]]}'
     )
     artifact_path.write_text(content, encoding="utf-8")
 

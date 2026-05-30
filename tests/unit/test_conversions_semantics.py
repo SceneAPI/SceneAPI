@@ -23,8 +23,8 @@ def test_cross_format_coercion_is_type_preserving() -> None:
     # preserves the type, so it is invisible to the chain type-check.
     formats = artifacts.resolve_io_formats("feature_set")
     assert len(formats) >= 1
-    assert all("feature_set" in f.realizes for f in formats)
-    # All realize the SAME type id -> A->B between them never changes the type.
+    assert all(f.artifact_type == "feature_set" for f in formats)
+    # All serialize the SAME DataType -> A->B between them never changes the type.
 
 
 def test_cross_type_bridge_must_be_explicit() -> None:

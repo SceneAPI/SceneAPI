@@ -321,7 +321,6 @@ def _coerce_format_def(raw: Any) -> artifact_vocab.ArtifactFormatDefinition | No
             description=str(raw.get("description") or ""),
             schema_version=int(raw.get("schema_version") or 1),
             media_types=tuple(str(m) for m in (raw.get("media_types") or ())),
-            realizes=tuple(str(r) for r in (raw.get("realizes") or ())),
         )
     return None
 
@@ -369,7 +368,7 @@ def backend_io_formats(
                 artifact_type = artifact_vocab.artifact_type_for_kind(str(kind))
             if artifact_type:
                 break
-        if artifact_type not in artifact_vocab.ARTIFACT_TYPE_TO_DATATYPE:
+        if artifact_type not in artifact_vocab.CORE_ARTIFACT_TYPES:
             continue
         for field in ("emits_formats", "accepts_formats"):
             for raw_format in row.get(field) or []:
@@ -396,17 +395,18 @@ def backend_default_format_for_kind(
     """A backend-declared format overriding the core default for ``kind``, else
     None (keep the core default).
 
-    The override is per-DataType (the Format axis realizes a DataType, not a
-    kind): if the backend supplies its own serialization for the kind's
-    DataType, materialization prefers it. Plugin override, never removal --
-    returns None unless the backend genuinely owns a format for the DataType,
-    so the core fallback (guaranteed by the I/O completeness gate) always holds.
+    The override is per-DataType (a Format serializes a DataType, not a kind):
+    if the backend supplies its own serialization for the kind's DataType,
+    materialization prefers it. Plugin override, never removal -- returns None
+    unless the backend genuinely owns a format for the DataType, so the core
+    fallback (guaranteed by the I/O completeness gate) always holds.
     """
     core_kind = artifact_vocab.CORE_ARTIFACT_KINDS.get(kind)
     if core_kind is None:
         return None
-    type_id = artifact_vocab.ARTIFACT_TYPE_TO_DATATYPE.get(core_kind.artifact_type)
-    if type_id is None:
+    # core_kind.artifact_type IS the DataType id (no bridge anymore).
+    type_id = core_kind.artifact_type
+    if type_id not in artifact_vocab.CORE_ARTIFACT_TYPES:
         return None
     resolved = artifact_vocab.resolve_io_formats(
         type_id, plugin_formats=backend_io_formats(backend)
