@@ -43,22 +43,28 @@ def test_operation_capability_families_are_valid_and_disjoint() -> None:
 
 def test_every_capability_is_an_operation_or_explicit_infrastructure() -> None:
     # The bidirectional gate: every capability in the live vocabulary is
-    # partitioned into EXACTLY ONE of -- covered by a typed operation family,
-    # or matching a declared non-pipeline (infrastructure) prefix. So a
-    # capability can never be added without classifying it, and the typed
-    # operation layer stays the authority for what a pipeline-data stage is.
-    from app.core.capabilities import ALL_KNOWN, NON_PIPELINE_CAPABILITY_PREFIXES
-
-    op_families = {f for op in ops.CORE_OPERATIONS for f in op.capabilities}
-
-    def matches(cap: str, prefix: str) -> bool:
-        return cap == prefix or cap.startswith(prefix + ".")
+    # partitioned into EXACTLY ONE of -- covered by a typed operation family
+    # (positive: operation_for_capability resolves it), or a positively-declared
+    # infrastructure family. Both sides are positive APIs; neither module
+    # reimplements prefix logic. A new capability that links to no operation and
+    # whose family is undeclared fails here with an actionable message.
+    from app.core.capabilities import (
+        ALL_KNOWN,
+        capability_family,
+        is_infrastructure_capability,
+    )
 
     for cap in sorted(ALL_KNOWN):
-        is_op = any(matches(cap, f) for f in op_families)
-        is_infra = any(matches(cap, p) for p in NON_PIPELINE_CAPABILITY_PREFIXES)
-        assert is_op or is_infra, f"unclassified capability: {cap!r}"
-        assert not (is_op and is_infra), f"capability {cap!r} is both op and infra"
+        is_op = ops.operation_for_capability(cap) is not None
+        is_infra = is_infrastructure_capability(cap)
+        assert is_op or is_infra, (
+            f"unclassified capability {cap!r} (family {capability_family(cap)!r}): "
+            f"link it to an operation in app.core.operations, or declare its "
+            f"family in INFRASTRUCTURE_CAPABILITY_FAMILIES"
+        )
+        assert not (is_op and is_infra), (
+            f"capability {cap!r} is both an operation and infrastructure"
+        )
 
 
 def test_pipeline_data_operations_cover_the_sfm_families() -> None:

@@ -184,24 +184,54 @@ OPTIONAL_CAPABILITIES: tuple[str, ...] = (
 
 ALL_KNOWN: frozenset[str] = frozenset(CORE_CAPABILITIES + OPTIONAL_CAPABILITIES)
 
-# Capability families that are NOT typed pipeline-data operations:
-# infrastructure (CRUD/jobs/events/spec), ingestion (video/import), inputs
-# (pose_priors/inputs), inspection (observations), retrieval (similarity/index),
-# query (localize), output (export), radiance-field resources, backend meta,
-# and assorted tooling (rigs/segment/compute). Every capability is partitioned
-# into exactly one of: covered by an operation family (app.core.operations) or
-# matching one of these prefixes -- enforced by the operation<->capability gate,
-# so a capability can never be added without being classified.
-NON_PIPELINE_CAPABILITY_PREFIXES: frozenset[str] = frozenset({
-    # core infrastructure
-    "projects", "datasets", "images", "uploads", "jobs", "events", "spec",
+# The infrastructure half of the capability partition, declared POSITIVELY:
+# a capability *family root* (its first dotted segment) -> what that family
+# covers. Everything here is explicitly NOT a typed pipeline-data operation.
+# Together with the operation registry (app.core.operations, which owns the
+# pipeline half) this must cover every capability, disjointly -- the partition
+# gate (test_every_capability_is_an_operation_or_explicit_infrastructure) checks
+# both directions and fails with an actionable message naming any unclassified
+# family. Classifying by family means a whole family is placed once, not each
+# capability re-listed; a brand-new family that links to no operation and is
+# absent here is what the gate rejects.
+INFRASTRUCTURE_CAPABILITY_FAMILIES: dict[str, str] = {
+    # core infrastructure (resource CRUD / jobs / events / spec)
+    "projects": "project resource CRUD",
+    "datasets": "dataset resource CRUD",
+    "images": "image resource CRUD + helpers",
+    "uploads": "chunked upload sessions",
+    "jobs": "job lifecycle reads",
+    "events": "SSE event stream",
+    "spec": "served OpenAPI spec",
     # ingestion / inputs / inspection
-    "video", "import", "pose_priors", "inputs", "observations",
+    "video": "frame extraction ingest",
+    "import": "archive / kapture ingest",
+    "pose_priors": "pose-prior accept/store/forward",
+    "inputs": "IMU / timestamp side inputs",
+    "observations": "snapshot visibility sidecars",
     # retrieval / query / output
-    "similarity", "index", "localize", "export",
-    # radiance-field (3DGS resources) / backend meta / tooling
-    "radiance", "backend", "compute", "segment", "rigs",
-})
+    "similarity": "image similarity hashing",
+    "index": "reusable retrieval indexes",
+    "localize": "query-image localization",
+    "export": "reconstruction export formats",
+    # radiance-field resources / backend meta / tooling
+    "radiance": "radiance-field (3DGS) resources",
+    "backend": "backend extension meta surfaces",
+    "compute": "execution-mode advisories",
+    "segment": "image segmentation",
+    "rigs": "multi-camera rig configuration",
+}
+
+
+def capability_family(capability: str) -> str:
+    """The family root of a capability id -- its first dotted segment."""
+    return capability.split(".", 1)[0]
+
+
+def is_infrastructure_capability(capability: str) -> bool:
+    """Whether a capability is infrastructure (not a typed pipeline-data
+    operation), by its positively-declared family root."""
+    return capability_family(capability) in INFRASTRUCTURE_CAPABILITY_FAMILIES
 
 
 @dataclass(frozen=True)
@@ -418,6 +448,9 @@ __all__ = [
     "ALL_KNOWN",
     "CORE_CAPABILITIES",
     "OPTIONAL_CAPABILITIES",
+    "INFRASTRUCTURE_CAPABILITY_FAMILIES",
+    "capability_family",
+    "is_infrastructure_capability",
     "BackendInfo",
     "Capabilities",
     "detect_capabilities",
