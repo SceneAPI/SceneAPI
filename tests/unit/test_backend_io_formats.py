@@ -49,6 +49,25 @@ class _ContractFormatBackend:
         ]
 
 
+class _KindSpecificBackend:
+    """Plugin format that serializes ONLY one kind of its DataType."""
+
+    name = "kindspecific"
+
+    def artifact_formats(self) -> list[artifacts.ArtifactFormatDefinition]:
+        return [
+            artifacts.ArtifactFormatDefinition(
+                format_id="ks.features.global.v1",
+                artifact_type="feature_set",
+                title="ks global features",
+                description="",
+                schema_version=1,
+                media_types=(),
+                serves_kinds=("features.global.v1",),
+            )
+        ]
+
+
 class _CoreOnlyBackend:
     """Mirrors the stub/baseline: contracts emit only CORE formats."""
 
@@ -98,6 +117,27 @@ def test_plugin_overrides_core_default_for_its_datatype() -> None:
         )
         is None
     )
+
+
+def test_kind_specific_override_leaves_siblings_on_core_default() -> None:
+    # A plugin format that serves only features.global.v1 overrides THAT kind...
+    backend = _KindSpecificBackend()
+    assert (
+        ba.backend_default_format_for_kind("features.global.v1", backend)
+        == "ks.features.global.v1"
+    )
+    # ...but the sibling kind of the SAME DataType keeps the core default.
+    assert ba.backend_default_format_for_kind("features.local.v1", backend) is None
+
+
+def test_type_level_override_still_covers_all_kinds() -> None:
+    # serves_kinds empty = the whole DataType: both kinds get the override.
+    backend = _ExplicitFormatBackend()
+    for kind in ("features.local.v1", "features.global.v1"):
+        assert (
+            ba.backend_default_format_for_kind(kind, backend)
+            == "explicit.features.custom.v1"
+        )
 
 
 def test_no_override_keeps_core_default() -> None:

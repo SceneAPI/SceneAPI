@@ -43,6 +43,11 @@ class ArtifactFormatDefinition:
     json_schema: dict[str, Any] | None = None
     examples: tuple[dict[str, Any], ...] = ()
     portable: bool = True
+    # Optional: the specific kinds this format serializes. Empty = the whole
+    # DataType (every kind of ``artifact_type``). A plugin uses this to override
+    # the I/O of ONE kind (e.g. only ``features.global.v1``) without disturbing
+    # the sibling kinds of the same DataType -- kind-addressable I/O.
+    serves_kinds: tuple[str, ...] = ()
 
 
 def _manifest_schema(

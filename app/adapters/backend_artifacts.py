@@ -321,6 +321,7 @@ def _coerce_format_def(raw: Any) -> artifact_vocab.ArtifactFormatDefinition | No
             description=str(raw.get("description") or ""),
             schema_version=int(raw.get("schema_version") or 1),
             media_types=tuple(str(m) for m in (raw.get("media_types") or ())),
+            serves_kinds=tuple(str(k) for k in (raw.get("serves_kinds") or ())),
         )
     return None
 
@@ -370,6 +371,13 @@ def backend_io_formats(
                 break
         if artifact_type not in artifact_vocab.CORE_ARTIFACT_TYPES:
             continue
+        # The kinds this row serves, of this DataType -- so the derived format
+        # overrides only those kinds, not every kind of the type.
+        serves_kinds = tuple(
+            str(k)
+            for k in (*row.get("emits", []), *row.get("accepts", []))
+            if artifact_vocab.artifact_type_for_kind(str(k)) == artifact_type
+        )
         for field in ("emits_formats", "accepts_formats"):
             for raw_format in row.get(field) or []:
                 format_id = str(raw_format)
@@ -385,6 +393,7 @@ def backend_io_formats(
                     description=f"Backend-declared {artifact_type} format.",
                     schema_version=1,
                     media_types=(),
+                    serves_kinds=serves_kinds,
                 )
     return tuple(derived.values())
 
@@ -395,10 +404,12 @@ def backend_default_format_for_kind(
     """A backend-declared format overriding the core default for ``kind``, else
     None (keep the core default).
 
-    The override is per-DataType (a Format serializes a DataType, not a kind):
-    if the backend supplies its own serialization for the kind's DataType,
-    materialization prefers it. Plugin override, never removal -- returns None
-    unless the backend genuinely owns a format for the DataType, so the core
+    Kind-addressable: a plugin format that explicitly ``serves_kinds`` this kind
+    wins; otherwise a type-level plugin format (``serves_kinds`` empty = the
+    whole DataType) is used; otherwise the core default holds. So a plugin can
+    override one kind (e.g. ``features.global.v1``) without disturbing the
+    sibling kinds of the same DataType. Plugin override, never removal -- returns
+    None unless the backend genuinely owns a format for THIS kind, so the core
     fallback (guaranteed by the I/O completeness gate) always holds.
     """
     core_kind = artifact_vocab.CORE_ARTIFACT_KINDS.get(kind)
@@ -411,9 +422,17 @@ def backend_default_format_for_kind(
     resolved = artifact_vocab.resolve_io_formats(
         type_id, plugin_formats=backend_io_formats(backend)
     )
-    for fmt in resolved:  # plugin overrides come first
-        if fmt.format_id not in artifact_vocab.CORE_ARTIFACT_FORMATS:
-            return fmt.format_id
+    overrides = [
+        fmt for fmt in resolved  # plugin overrides come first
+        if fmt.format_id not in artifact_vocab.CORE_ARTIFACT_FORMATS
+    ]
+    kind_specific = next((f for f in overrides if kind in f.serves_kinds), None)
+    if kind_specific is not None:
+        return kind_specific.format_id
+    type_level = next((f for f in overrides if not f.serves_kinds), None)
+    if type_level is not None:
+        return type_level.format_id
+    # Every plugin format targets OTHER kinds of this DataType -> core default.
     return None
 
 
