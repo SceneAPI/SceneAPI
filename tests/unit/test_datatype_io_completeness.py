@@ -50,6 +50,39 @@ def test_no_orphan_formats() -> None:
     )
 
 
+def test_core_format_realizes_its_datatype() -> None:
+    # Every core format declares (defaults) which DataType it realizes.
+    for f in artifacts.CORE_ARTIFACT_FORMATS.values():
+        assert f.realizes == (artifacts.datatype_realized_by(f.artifact_type),), f.format_id
+
+
+def test_resolve_io_returns_the_core_floor() -> None:
+    # With no plugin, resolution is the core portable formats for the type.
+    formats = artifacts.resolve_io_formats("feature_set")
+    assert formats
+    assert all("feature_set" in f.realizes for f in formats)
+
+
+def test_plugin_format_overrides_core_io() -> None:
+    # The Format axis is open: a plugin format realizing a core DataType takes
+    # precedence, while the core portable format remains as the fallback.
+    plugin_fmt = artifacts.ArtifactFormatDefinition(
+        format_id="acme.features.native.v1",
+        artifact_type="features",
+        title="ACME native features",
+        description="ACME engine's native on-disk feature format.",
+        schema_version=1,
+        media_types=("application/octet-stream",),
+        realizes=("feature_set",),
+        portable=False,
+    )
+    resolved = artifacts.resolve_io_formats("feature_set", plugin_formats=(plugin_fmt,))
+    assert resolved[0] is plugin_fmt                      # plugin overrides (first)
+    assert any(f.portable for f in resolved[1:])          # core interchange kept
+    # A plugin can override but never remove I/O: the core floor is still there.
+    assert artifacts.resolve_io_formats("feature_set")    # non-empty without plugin
+
+
 def test_scene_inputs_are_ingested_not_formatted() -> None:
     # Scene inputs are provided via the API; they intentionally have no
     # artifact format. This documents the exemption and guards against a

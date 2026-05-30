@@ -53,6 +53,16 @@ class ArtifactFormatDefinition:
     json_schema: dict[str, Any] | None = None
     examples: tuple[dict[str, Any], ...] = ()
     portable: bool = True
+    # The DataType(s) this format serializes -- the Format->DataType link.
+    # Core formats default it from artifact_type; plugin-provided formats set
+    # it explicitly. Internal (not served): it drives I/O resolution.
+    realizes: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.realizes and self.artifact_type in ARTIFACT_TYPE_TO_DATATYPE:
+            object.__setattr__(
+                self, "realizes", (ARTIFACT_TYPE_TO_DATATYPE[self.artifact_type],)
+            )
 
 
 def _manifest_schema(
@@ -283,6 +293,25 @@ CORE_ARTIFACT_FORMATS: dict[str, ArtifactFormatDefinition] = {
         ),
     ),
 }
+
+
+def resolve_io_formats(
+    type_id: str,
+    *,
+    plugin_formats: tuple[ArtifactFormatDefinition, ...] = (),
+) -> list[ArtifactFormatDefinition]:
+    """Resolve the formats that read/write a DataType, plugin overrides first.
+
+    The Format axis is OPEN: a plugin may provide its own serialization for a
+    core DataType. Plugin-provided formats realizing ``type_id`` take
+    precedence; the core portable formats follow as the interchange fallback.
+    The completeness gate guarantees a core format always exists, so this
+    never returns empty for a known artifact DataType -- a plugin can override
+    the I/O, never remove it.
+    """
+    plugin = [f for f in plugin_formats if type_id in f.realizes]
+    core = [f for f in CORE_ARTIFACT_FORMATS.values() if type_id in f.realizes]
+    return [*plugin, *core]
 
 
 CORE_ARTIFACT_KINDS: dict[str, ArtifactKindDefinition] = {
