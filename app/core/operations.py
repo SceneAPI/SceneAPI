@@ -117,6 +117,33 @@ def operation_for(op_id: str) -> Operation | None:
     return OPERATIONS_BY_ID.get(op_id)
 
 
+# Inverse of Operation.capabilities: which operation a capability implements.
+# The partition gate guarantees a capability maps to at most one operation.
+_OPERATION_BY_CAPABILITY_FAMILY: dict[str, str] = {
+    family: op.op_id for op in CORE_OPERATIONS for family in op.capabilities
+}
+
+
+def operation_for_capability(capability: str) -> str | None:
+    """The operation a capability implements (``features.extract.sift`` ->
+    ``features``), or None for an infrastructure capability."""
+    for family in sorted(_OPERATION_BY_CAPABILITY_FAMILY, key=len, reverse=True):
+        if capability == family or capability.startswith(family + "."):
+            return _OPERATION_BY_CAPABILITY_FAMILY[family]
+    return None
+
+
+def operations_for_capabilities(capabilities: object) -> set[str]:
+    """The operations a provider advertising ``capabilities`` implements --
+    the typed view of a provider, derived from its capability set."""
+    out: set[str] = set()
+    for cap in capabilities:  # type: ignore[attr-defined]
+        op = operation_for_capability(str(cap))
+        if op is not None:
+            out.add(op)
+    return out
+
+
 CONTRACT_NAME = "operations"
 CONTRACT_SCHEMA_VERSION = 1
 

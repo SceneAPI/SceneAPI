@@ -74,6 +74,25 @@ def test_projection_is_produced_by_an_operation() -> None:
     assert "projection" in produced  # no longer orphaned
 
 
+def test_operation_for_capability_inverse() -> None:
+    assert ops.operation_for_capability("features.extract.sift") == "features"
+    assert ops.operation_for_capability("map.incremental") == "map"
+    assert ops.operation_for_capability("ba.standard") == "refine"
+    assert ops.operation_for_capability("matches.verify") == "verify"
+    # infrastructure capabilities map to no operation
+    assert ops.operation_for_capability("projects.crud") is None
+    assert ops.operation_for_capability("backend.actions") is None
+
+
+def test_operations_for_provider_capability_set() -> None:
+    # the typed view of a provider, derived from its capability set
+    caps = {
+        "features.extract.sift", "matchers.superglue", "map.incremental",
+        "projects.crud",  # infra -- ignored
+    }
+    assert ops.operations_for_capabilities(caps) == {"features", "matches", "map"}
+
+
 def test_contract_dict_is_json_serializable_and_self_describing() -> None:
     payload = ops.contract_dict()
     assert json.loads(json.dumps(payload)) == payload
