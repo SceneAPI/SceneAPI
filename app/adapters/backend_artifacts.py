@@ -371,14 +371,17 @@ def backend_io_formats(
                 break
         if artifact_type not in artifact_vocab.CORE_ARTIFACT_TYPES:
             continue
-        # The kinds this row serves, of this DataType -- so the derived format
-        # overrides only those kinds, not every kind of the type.
-        serves_kinds = tuple(
-            str(k)
-            for k in (*row.get("emits", []), *row.get("accepts", []))
-            if artifact_vocab.artifact_type_for_kind(str(k)) == artifact_type
-        )
-        for field in ("emits_formats", "accepts_formats"):
+        # Each format serves only the kinds of THIS DataType on its OWN side of
+        # the contract (emits_formats <- emits kinds, accepts_formats <- accepts
+        # kinds) -- so a row that both emits and accepts sibling kinds of one
+        # type doesn't tag an emit-only format as serving the accept-side kind.
+        for field, kind_field in (("emits_formats", "emits"),
+                                  ("accepts_formats", "accepts")):
+            serves_kinds = tuple(
+                str(k)
+                for k in row.get(kind_field, [])
+                if artifact_vocab.artifact_type_for_kind(str(k)) == artifact_type
+            )
             for raw_format in row.get(field) or []:
                 format_id = str(raw_format)
                 if (

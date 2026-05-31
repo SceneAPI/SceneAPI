@@ -409,10 +409,24 @@ CORE_ARTIFACT_KINDS: dict[str, ArtifactKindDefinition] = {
 # This maps that namespace to its DataType, LEARNED from the core kinds -- so a
 # backend extension kind (``features.hloc_h5``) inherits the DataType of its
 # namespace without a separately-maintained bridge table.
-_KIND_NAMESPACE_TO_DATATYPE: dict[str, str] = {
-    kind.split(".", 1)[0]: kind_def.artifact_type
-    for kind, kind_def in CORE_ARTIFACT_KINDS.items()
-}
+#
+# Guarded against silent ambiguity: a namespace must map to exactly ONE
+# DataType. When dense_model/splat land (deferred), a ``reconstruction.dense.*``
+# kind of a DIFFERENT DataType than ``reconstruction.sparse.*`` would make
+# namespace inference ambiguous -- this fails loudly at import so the decision
+# (split the namespace, or make extension inference explicit) is deliberate,
+# not a last-wins surprise.
+_KIND_NAMESPACE_TO_DATATYPE: dict[str, str] = {}
+for _kind, _kind_def in CORE_ARTIFACT_KINDS.items():
+    _ns = _kind.split(".", 1)[0]
+    if _KIND_NAMESPACE_TO_DATATYPE.get(_ns, _kind_def.artifact_type) != _kind_def.artifact_type:
+        raise ValueError(
+            f"kind namespace {_ns!r} maps to two DataTypes "
+            f"({_KIND_NAMESPACE_TO_DATATYPE[_ns]!r}, {_kind_def.artifact_type!r}); "
+            f"extension-kind inference can no longer use the namespace -- split "
+            f"the namespace or make the type explicit"
+        )
+    _KIND_NAMESPACE_TO_DATATYPE[_ns] = _kind_def.artifact_type
 
 ARTIFACT_INPUT_ROLE_KINDS: dict[str, frozenset[str]] = {
     "features": frozenset({"features.local.v1", "features.global.v1"}),

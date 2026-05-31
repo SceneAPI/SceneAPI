@@ -74,9 +74,10 @@ CORE_OPERATIONS: tuple[Operation, ...] = (
               "Reconstruct camera poses + sparse points (incremental, global, ...).",
               capabilities=("map",), config_stage="mapping"),
     # --- sparse-model post-processing (sparse_model -> sparse_model) ---
-    # These all consume and produce `sparse_model` by design: a reconstruction's
-    # identity is its DataType, and "refined" / "merged" / "georegistered" are
-    # provenance + state, not distinct types. The type system intentionally does
+    # These all produce `sparse_model` and take a `sparse_model` input (a couple
+    # also take a second input, e.g. triangulate needs a `match_graph`) by
+    # design: a reconstruction's identity is its DataType, and "refined" /
+    # "merged" / "georegistered" are provenance + state, not distinct types. The type system intentionally does
     # not distinguish them -- ordering constraints (you cannot georegister
     # before mapping) are a runtime/scheduling concern, not a nominal-type one.
     # Over-typing here (a `model_state` facet per op) would add ceremony without
