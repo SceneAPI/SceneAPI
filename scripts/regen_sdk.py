@@ -116,6 +116,17 @@ def main() -> int:
     # client/errors/types.py trio.
     _restore_python_metadata()
 
+    # 3b. Codegen provenance: bind the generated client to the EXACT spec it was
+    # generated from. check_sdk.py verifies this -- so a later spec change
+    # without a regen (e.g. `check_sync --update`) is detectable, the SDK analog
+    # of the C++ gen-staleness gate. Semantic (sort_keys) hash => format-stable.
+    import hashlib
+
+    spec_obj = json.loads(SDK_SPEC_PATH.read_text(encoding="utf-8"))
+    sha = hashlib.sha256(json.dumps(spec_obj, sort_keys=True).encode()).hexdigest()
+    (SDK_REPO / ".sdk_codegen.sha256").write_text(sha + "\n", encoding="utf-8")
+    print(f"-> codegen provenance .sdk_codegen.sha256 = {sha[:12]}")
+
     # 4. Summary (Python).
     n_models = len(list((OUT_DIR / "models").glob("*.py"))) - 1  # exclude __init__
     n_apis = sum(
