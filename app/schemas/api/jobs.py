@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.core.public_outputs import sanitize_public_outputs
 from app.schemas.api.common import Link
 from app.schemas.api.scene import Sim3
 
@@ -112,6 +113,11 @@ class TaskOut(BaseModel):
                 provider = spec.get("provider")
                 if isinstance(provider, str):
                     self.provider = provider
+        # Strip host filesystem paths from the worker result before it reaches a
+        # client (a sealed snapshot dir, artifact uris, mounts). Mirrors the C++
+        # port's sanitize_public_json so the served job shape is identical.
+        if isinstance(self.outputs_ref, dict):
+            self.outputs_ref = sanitize_public_outputs(self.outputs_ref)
         return self
 
 
