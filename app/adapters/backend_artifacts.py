@@ -316,7 +316,7 @@ def _coerce_format_def(raw: Any) -> artifact_vocab.ArtifactFormatDefinition | No
     if isinstance(raw, dict) and raw.get("format_id"):
         return artifact_vocab.ArtifactFormatDefinition(
             format_id=str(raw["format_id"]),
-            artifact_type=str(raw.get("artifact_type") or ""),
+            datatype=str(raw.get("datatype") or ""),
             title=str(raw.get("title") or raw["format_id"]),
             description=str(raw.get("description") or ""),
             schema_version=int(raw.get("schema_version") or 1),
@@ -362,14 +362,14 @@ def backend_io_formats(
     except Exception:
         rows = []
     for row in rows:
-        artifact_type: str | None = None
+        datatype: str | None = None
         for kind in (str(row.get("preferred") or ""), *row.get("emits", []),
                      *row.get("accepts", [])):
             if kind:
-                artifact_type = artifact_vocab.artifact_type_for_kind(str(kind))
-            if artifact_type:
+                datatype = artifact_vocab.datatype_for_kind(str(kind))
+            if datatype:
                 break
-        if artifact_type not in artifact_vocab.CORE_ARTIFACT_TYPES:
+        if datatype not in artifact_vocab.CORE_ARTIFACT_TYPES:
             continue
         # Each format serves only the kinds of THIS DataType on its OWN side of
         # the contract (emits_formats <- emits kinds, accepts_formats <- accepts
@@ -380,7 +380,7 @@ def backend_io_formats(
             serves_kinds = tuple(
                 str(k)
                 for k in row.get(kind_field, [])
-                if artifact_vocab.artifact_type_for_kind(str(k)) == artifact_type
+                if artifact_vocab.datatype_for_kind(str(k)) == datatype
             )
             for raw_format in row.get(field) or []:
                 format_id = str(raw_format)
@@ -391,9 +391,9 @@ def backend_io_formats(
                     continue
                 derived[format_id] = artifact_vocab.ArtifactFormatDefinition(
                     format_id=format_id,
-                    artifact_type=artifact_type,
+                    datatype=datatype,
                     title=format_id,
-                    description=f"Backend-declared {artifact_type} format.",
+                    description=f"Backend-declared {datatype} format.",
                     schema_version=1,
                     media_types=(),
                     serves_kinds=serves_kinds,
@@ -418,8 +418,8 @@ def backend_default_format_for_kind(
     core_kind = artifact_vocab.CORE_ARTIFACT_KINDS.get(kind)
     if core_kind is None:
         return None
-    # core_kind.artifact_type IS the DataType id (no bridge anymore).
-    type_id = core_kind.artifact_type
+    # core_kind.datatype IS the DataType id (no bridge anymore).
+    type_id = core_kind.datatype
     if type_id not in artifact_vocab.CORE_ARTIFACT_TYPES:
         return None
     resolved = artifact_vocab.resolve_io_formats(

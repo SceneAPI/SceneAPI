@@ -34,7 +34,7 @@ class ArtifactKindOut(BaseModel):
     model_config = ConfigDict(extra="forbid", from_attributes=True)
 
     kind: str
-    artifact_type: str
+    datatype: str
     title: str
     description: str
     durable: bool
@@ -48,7 +48,7 @@ class ArtifactFormatOut(BaseModel):
     model_config = ConfigDict(extra="forbid", from_attributes=True)
 
     format_id: str
-    artifact_type: str
+    datatype: str
     title: str
     description: str
     schema_version: int
@@ -176,7 +176,7 @@ class ArtifactImportRequest(BaseModel):
         max_length=96,
         pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$",
     )
-    artifact_type: str | None = Field(
+    datatype: str | None = Field(
         default=None,
         min_length=1,
         max_length=96,
@@ -210,7 +210,7 @@ class ArtifactValidationOut(BaseModel):
     artifact_id: str
     valid: bool
     artifact_format: str | None = None
-    artifact_type: str | None = None
+    datatype: str | None = None
     checked_content: bool = False
     issues: list[ArtifactValidationIssueOut] = Field(default_factory=list)
 
@@ -235,7 +235,7 @@ class StageArtifactOut(LinkedModel):
     uri: str | None = None
     media_type: str | None = None
     artifact_format: str | None = None
-    artifact_type: str | None = None
+    datatype: str | None = None
     schema_version: int | None = None
     files: list[ArtifactFileRef] = Field(default_factory=list)
     sha256: str | None = Field(default=None, min_length=64, max_length=64)
@@ -252,7 +252,7 @@ class StageArtifactOut(LinkedModel):
         metadata = self.metadata or {}
         for field_name in (
             "artifact_format",
-            "artifact_type",
+            "datatype",
             "schema_version",
             "sha256",
             "byte_size",

@@ -124,7 +124,7 @@ def test_worker_output_contract_requires_explicit_artifacts() -> None:
 
     assert [artifact["kind"] for artifact in out["artifacts"]] == ["matches.verified.v1"]
     assert out["artifacts"][0]["metadata"]["artifact_format"] == "sfmapi.matches.verified.v1"
-    assert out["artifacts"][0]["metadata"]["artifact_type"] == "match_graph"
+    assert out["artifacts"][0]["metadata"]["datatype"] == "match_graph"
 
 
 def test_worker_output_contract_rejects_incompatible_core_format() -> None:

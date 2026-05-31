@@ -44,16 +44,16 @@ def _artifact_format(artifact: StageArtifact) -> str | None:
     return str(value) if isinstance(value, str) and value else None
 
 
-def _artifact_type(artifact: StageArtifact) -> str | None:
-    value = _metadata(artifact).get("artifact_type")
+def _datatype(artifact: StageArtifact) -> str | None:
+    value = _metadata(artifact).get("datatype")
     if isinstance(value, str) and value:
         return value
     fmt = _artifact_format(artifact)
     if fmt is not None:
-        inferred = artifact_vocab.artifact_type_for_format(fmt)
+        inferred = artifact_vocab.datatype_for_format(fmt)
         if inferred is not None:
             return inferred
-    return artifact_vocab.artifact_type_for_kind(artifact.kind)
+    return artifact_vocab.datatype_for_kind(artifact.kind)
 
 
 def _artifact_ref(artifact: StageArtifact) -> dict[str, Any]:
@@ -65,7 +65,7 @@ def _artifact_ref(artifact: StageArtifact) -> dict[str, Any]:
         "uri": artifact.uri,
         "media_type": artifact.media_type,
         "artifact_format": _artifact_format(artifact),
-        "artifact_type": _artifact_type(artifact),
+        "datatype": _datatype(artifact),
         "schema_version": metadata.get("schema_version"),
         "files": metadata.get("files") if isinstance(metadata.get("files"), list) else [],
         "summary": artifact.summary_json if isinstance(artifact.summary_json, dict) else {},
@@ -419,7 +419,7 @@ async def import_artifact(
     metadata = dict(request.metadata or {})
     for key in (
         "artifact_format",
-        "artifact_type",
+        "datatype",
         "schema_version",
         "files",
         "sha256",
@@ -684,7 +684,7 @@ async def validate_artifact(
         artifact_id=artifact_id,
     )
     artifact_format = _artifact_format(artifact)
-    artifact_type = _artifact_type(artifact)
+    datatype = _datatype(artifact)
     issues: list[ArtifactValidationIssueOut] = []
     if not artifact_vocab.is_valid_artifact_key(artifact.kind):
         issues.append(_issue("error", "artifact kind is malformed", "kind"))
@@ -787,7 +787,7 @@ async def validate_artifact(
         artifact_id=artifact.artifact_id,
         valid=not any(issue.level == "error" for issue in issues),
         artifact_format=artifact_format,
-        artifact_type=artifact_type,
+        datatype=datatype,
         checked_content=checked_content,
         issues=issues,
     )

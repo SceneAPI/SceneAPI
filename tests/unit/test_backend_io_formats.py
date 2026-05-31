@@ -22,7 +22,7 @@ class _ExplicitFormatBackend:
         return [
             artifacts.ArtifactFormatDefinition(
                 format_id="explicit.features.custom.v1",
-                artifact_type="feature_set",
+                datatype="feature_set",
                 title="custom features",
                 description="",
                 schema_version=1,
@@ -58,7 +58,7 @@ class _KindSpecificBackend:
         return [
             artifacts.ArtifactFormatDefinition(
                 format_id="ks.features.global.v1",
-                artifact_type="feature_set",
+                datatype="feature_set",
                 title="ks global features",
                 description="",
                 schema_version=1,
@@ -88,14 +88,14 @@ class _CoreOnlyBackend:
 def test_explicit_artifact_formats_become_plugin_formats() -> None:
     formats = ba.backend_io_formats(_ExplicitFormatBackend())
     assert [f.format_id for f in formats] == ["explicit.features.custom.v1"]
-    # artifact_type IS the DataType id the format serializes
-    assert formats[0].artifact_type == "feature_set"
+    # datatype IS the DataType id the format serializes
+    assert formats[0].datatype == "feature_set"
 
 
 def test_derived_plugin_format_from_contracts() -> None:
     formats = ba.backend_io_formats(_ContractFormatBackend())
     assert [f.format_id for f in formats] == ["contractor.features.blob.v1"]
-    assert formats[0].artifact_type == "feature_set"
+    assert formats[0].datatype == "feature_set"
 
 
 def test_core_only_backend_yields_no_plugin_formats() -> None:

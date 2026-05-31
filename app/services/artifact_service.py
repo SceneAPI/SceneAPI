@@ -93,24 +93,24 @@ def _validate_artifact_descriptor(descriptor: Any, *, index: int) -> dict[str, A
         or schema_version < 1
     ):
         raise ValidationError(f"outputs.artifacts[{index}].schema_version must be a positive int")
-    artifact_type = descriptor.get("artifact_type")
-    if artifact_type is None and artifact_format is not None:
-        artifact_type = artifact_vocab.artifact_type_for_format(str(artifact_format))
-        if artifact_type is not None:
-            descriptor["artifact_type"] = artifact_type
-    if artifact_type is None:
-        artifact_type = artifact_vocab.artifact_type_for_kind(kind)
-        if artifact_type is not None:
-            descriptor["artifact_type"] = artifact_type
-    if artifact_type is None and core_kind is not None:
-        artifact_type = core_kind.artifact_type
-        descriptor["artifact_type"] = artifact_type
-    if artifact_type is not None and (
-        not isinstance(artifact_type, str)
-        or not artifact_vocab.is_valid_artifact_key(artifact_type)
+    datatype = descriptor.get("datatype")
+    if datatype is None and artifact_format is not None:
+        datatype = artifact_vocab.datatype_for_format(str(artifact_format))
+        if datatype is not None:
+            descriptor["datatype"] = datatype
+    if datatype is None:
+        datatype = artifact_vocab.datatype_for_kind(kind)
+        if datatype is not None:
+            descriptor["datatype"] = datatype
+    if datatype is None and core_kind is not None:
+        datatype = core_kind.datatype
+        descriptor["datatype"] = datatype
+    if datatype is not None and (
+        not isinstance(datatype, str)
+        or not artifact_vocab.is_valid_artifact_key(datatype)
     ):
         raise ValidationError(
-            f"outputs.artifacts[{index}].artifact_type must match "
+            f"outputs.artifacts[{index}].datatype must match "
             f"{artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
         )
     files = descriptor.get("files")
@@ -139,7 +139,7 @@ def _validate_artifact_descriptor(descriptor: Any, *, index: int) -> dict[str, A
     metadata = dict(raw_metadata or {})
     for key in (
         "artifact_format",
-        "artifact_type",
+        "datatype",
         "schema_version",
         "files",
         "sha256",
@@ -382,8 +382,8 @@ async def resolve_input_artifacts(
             "uri": artifact.uri,
             "media_type": artifact.media_type,
             "artifact_format": _metadata_value(artifact, "artifact_format"),
-            "artifact_type": _metadata_value(artifact, "artifact_type")
-            or artifact_vocab.artifact_type_for_kind(artifact.kind),
+            "datatype": _metadata_value(artifact, "datatype")
+            or artifact_vocab.datatype_for_kind(artifact.kind),
             "schema_version": _metadata_value(artifact, "schema_version"),
             "summary": artifact.summary_json,
             "metadata": artifact.metadata_json,
