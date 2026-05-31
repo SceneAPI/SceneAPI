@@ -461,24 +461,104 @@ control-plane layer.
 | GET | `/v1/admin/plugins/detect-tools` | — | local external-tool detection |
 | GET | `/v1/admin/plugins/entry-points` | `?load=false` | installed Python entry points |
 | GET | `/v1/admin/plugins/{plugin_id}` | — | plugin manifest + local state |
-| POST | `/v1/admin/plugins/{plugin_id}:install` | `{method, github_url?, ref?, package_name?, dry_run?, allow_unsafe_execution?}` | install plan or result |
+| POST | `/v1/admin/plugins/{plugin_id}:install` | `{method, github_url?, ref?, package_name?, dry_run?, allow_unsafe_execution?, request_id?, provision_runtime?, force?}` | install plan or result |
 | POST | `/v1/admin/plugins/{plugin_id}:enable` | — | plugin state |
 | POST | `/v1/admin/plugins/{plugin_id}:disable` | — | plugin state |
 | POST | `/v1/admin/plugins/{plugin_id}:doctor` | — | diagnostics |
 | POST | `/v1/admin/routing/profiles` | `{name, routes}` | routing state |
 | POST | `/v1/admin/routing/default` | `{profile}` | routing state |
+| POST | `/v1/admin/routing/provider-priority` | `{providers: [...]}` | routing state |
 | POST | `/v1/admin/routing/projects/{project_id}` | `{profile}` | routing state |
 | POST | `/v1/admin/routing/workspaces` | `{profile}` | routing state |
 
 Plugin installation is an operator action. `method="uv"` creates a
 direct-reference command such as
 `uv pip install "sfmapi-colmap-cli @ git+https://github.com/SFMAPI/sfmapi_colmap_cli.git@main"`;
-mutable refs produce warnings. `docker` and `external_tool` modes are
-planned or recorded as runtime choices and are never invoked by normal
-job submission. Backend packages can expose
+mutable refs produce warnings. `docker` and `external_tool` modes are planned
+or recorded as runtime choices. `container_service` records an already-running
+plugin service endpoint; when the provider has a configured service URL, the
+C++ bridge can replay backend-action jobs through the service execution
+endpoint.
+When `method="uv"` and `provision_runtime=true`, sfmapi also plans or runs
+the installed package's optional `package.provisioning.provision()` hook for
+plugin-owned engine downloads, release-asset setup, or native builds. Non-dry
+run installs may include `request_id` as a UUID-style idempotency key. The
+provisioning result exposes `env_keys`, `redacted_env`, and `outputs`; raw
+environment values are not returned.
+Backend packages can expose
 `[project.entry-points."sfmapi.backends"]`; `sfmapi plugins
 entry-points --load` and `sfmapi check-backend --load-entry-points`
 validate those contracts.
+
+Dry-run repo-address install example:
+
+```json
+{
+  "method": "uv",
+  "github_url": "https://github.com/SFMAPI/sfmapi_custom.git",
+  "ref": "v0.1.0",
+  "package_name": "sfmapi-custom",
+  "dry_run": true,
+  "provision_runtime": true
+}
+```
+
+Successful install responses include request/provisioning metadata without
+secret values:
+
+```json
+{
+  "plugin_id": "local_test",
+  "method": "uv",
+  "dry_run": true,
+  "installed": false,
+  "provisioning_status": "planned",
+  "provisioning_error": null,
+  "provisioning": {
+    "provisioned": false,
+    "env_keys": ["SFMAPI_CUSTOM_HOME"],
+    "redacted_env": {"SFMAPI_CUSTOM_TOKEN": "***"},
+    "outputs": {},
+    "metadata": {}
+  }
+}
+```
+
+Container-service install example:
+
+```json
+{
+  "method": "container_service",
+  "dry_run": false,
+  "allow_unsafe_execution": true,
+  "request_id": "550e8400-e29b-41d4-a716-446655440010"
+}
+```
+
+Container services expose `GET /healthz`, `GET /version`, and the configured
+execution path, currently `/execute` by default. Execution requests include a
+stable `request_id`, `plugin_id`, `provider`, `action_id`, redacted env/secret
+key names, and mounted IO roles (`input`, `output`, `work`, `logs`) with both
+host paths and manifest container paths. Successful responses may return
+`outputs`, `logs`, and `artifacts`; `/v1/jobs/{job_id}/artifacts` surfaces
+those artifacts with stable ids and paths after bridge replay.
+
+Routing selection order is request `provider`, project profile, workspace
+profile, default profile, then provider priority. Use provider priority as a
+last-resort fallback when several installed providers can satisfy the same
+portable stage:
+
+```json
+{
+  "providers": ["colmap_pycolmap", "colmap_cli"]
+}
+```
+
+Older SDKs that do not yet expose `provider_priority`, `provisioning_status`,
+or `provisioning` should treat those response fields as additive metadata.
+They can still call these operator routes through raw HTTP; regenerate the SDK
+from the pinned OpenAPI spec before relying on typed accessors for the new
+fields.
 
 ## ProgressEvent
 

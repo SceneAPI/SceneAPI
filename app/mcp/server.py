@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import functools
+import inspect
 import ipaddress
-from collections.abc import Sequence
+import os
+import sys
+from collections.abc import Iterator, Sequence
 from typing import Any
 
 from starlette.responses import HTMLResponse, JSONResponse
@@ -29,6 +34,11 @@ TOOL_TITLES: dict[str, str] = {
     "sfmapi_capabilities": "Read sfmapi capabilities",
     "list_backend_actions": "List backend actions",
     "get_backend_action": "Read backend action",
+    "list_plugins": "List backend plugins",
+    "get_plugin": "Read backend plugin",
+    "doctor_plugin": "Diagnose backend plugin",
+    "list_backend_providers": "List backend providers",
+    "plan_plugin_install": "Plan plugin install",
     "list_projects": "List sfmapi projects",
     "list_jobs": "List sfmapi jobs",
     "get_job": "Read an sfmapi job",
@@ -46,14 +56,14 @@ TOOL_TITLES: dict[str, str] = {
 MCP_INSTRUCTIONS = """Read-only local adapter for sfmapi.
 
 Use these tools to inspect sfmapi server state, capabilities, backend
-action schemas, jobs, progress, artifact formats, conversion plans,
-reconstructions, submodels, and sealed snapshot metadata. It also lists
+plugins, providers, action schemas, jobs, progress, artifact formats,
+conversion plans, reconstructions, submodels, and sealed snapshot metadata. It also lists
 typed stage artifacts so agents can
 inspect selected feature, match, verification, and snapshot outputs
 without scraping task payloads. The adapter does not create projects, upload images,
-submit pipelines, run backend actions, cancel work, resume work, or
-serve binary snapshot contents. Use the REST API or SDKs for mutations
-and bulk data transfer.
+submit pipelines, install plugins, run backend actions, cancel work, resume work, or
+serve binary snapshot contents. Plugin install planning is dry-run only.
+Use the REST API or SDKs for mutations and bulk data transfer.
 """
 
 
@@ -66,6 +76,9 @@ def _resource_names() -> list[str]:
         "sfmapi://version",
         "sfmapi://capabilities",
         "sfmapi://artifacts/formats",
+        "sfmapi://plugins",
+        "sfmapi://plugins/{plugin_id}",
+        "sfmapi://backend/providers",
         "sfmapi://backend/actions",
         "sfmapi://backend/actions/{action_id}",
         "sfmapi://tenants/{tenant_id}/projects",
@@ -112,11 +125,95 @@ def _is_loopback_host(host: str) -> bool:
         return False
 
 
+@contextlib.contextmanager
+def _startup_stdout_to_stderr() -> Iterator[None]:
+    try:
+        stdout_fd = sys.stdout.fileno()
+        stderr_fd = sys.stderr.fileno()
+    except (AttributeError, OSError, ValueError):
+        with contextlib.redirect_stdout(sys.stderr):
+            yield
+        return
+
+    sys.stdout.flush()
+    sys.stderr.flush()
+    saved_stdout_fd = os.dup(stdout_fd)
+    try:
+        os.dup2(stderr_fd, stdout_fd)
+        with contextlib.redirect_stdout(sys.stderr):
+            yield
+    finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os.dup2(saved_stdout_fd, stdout_fd)
+        os.close(saved_stdout_fd)
+
+
+def _load_backend_plugins_for_standalone(*, stdio: bool = False) -> None:
+    settings = get_settings()
+    if not settings.auto_load_backend_plugins:
+        return
+
+    from app.adapters.registry import register_backend, register_backend_provider
+    from sfm_hub.discovery import load_backend_entry_points
+
+    context = _startup_stdout_to_stderr() if stdio else contextlib.nullcontext()
+    with context:
+        load_backend_entry_points(
+            register_backend,
+            register_provider=register_backend_provider,
+        )
+
+
+def _warm_stdio_backend_runtime() -> None:
+    if not os.environ.get("SFMAPI_BACKEND"):
+        return
+
+    from app.adapters.registry import get_backend
+
+    with _startup_stdout_to_stderr():
+        try:
+            get_backend().runtime_versions()
+        except KeyError:
+            return
+        except Exception as exc:
+            print(f"sfmapi.mcp.stdio_backend_warm_failed: {exc}", file=sys.stderr)
+
+
+@contextlib.contextmanager
+def _call_stdout_to_stderr() -> Iterator[None]:
+    with contextlib.redirect_stdout(sys.stderr):
+        yield
+
+
+def _stdio_safe_callable(func: Any) -> Any:
+    signature = inspect.signature(func)
+
+    if inspect.iscoroutinefunction(func):
+
+        @functools.wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            with _call_stdout_to_stderr():
+                return await func(*args, **kwargs)
+
+        async_wrapper.__signature__ = signature  # type: ignore[attr-defined]
+        return async_wrapper
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        with _call_stdout_to_stderr():
+            return func(*args, **kwargs)
+
+    wrapper.__signature__ = signature  # type: ignore[attr-defined]
+    return wrapper
+
+
 def create_mcp_server(
     *,
     name: str = "sfmapi",
     include_index_route: bool = True,
     endpoint_hint: str = "/mcp",
+    stdio_safe_output: bool = False,
 ) -> Any:
     """Create the FastMCP server without importing FastMCP at module import time."""
     from app.mcp import tools as tool_impl
@@ -137,9 +234,13 @@ def create_mcp_server(
         website_url="https://sfmapi.github.io",
         strict_input_validation=False,
     )
+
+    def registerable(func: Any) -> Any:
+        return _stdio_safe_callable(func) if stdio_safe_output else func
+
     for tool in TOOLS:
         mcp.tool(
-            tool,
+            registerable(tool),
             title=TOOL_TITLES.get(tool.__name__),
             annotations=READ_ONLY_TOOL_ANNOTATIONS,
             tags={"sfmapi", "read"},
@@ -152,21 +253,50 @@ def create_mcp_server(
         mime_type="application/json",
         annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
         tags={"sfmapi", "discovery"},
-    )(tool_impl.sfmapi_version)
+    )(registerable(tool_impl.sfmapi_version))
     mcp.resource(
         "sfmapi://capabilities",
         title="sfmapi capabilities",
         mime_type="application/json",
         annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
         tags={"sfmapi", "discovery"},
-    )(tool_impl.sfmapi_capabilities)
+    )(registerable(tool_impl.sfmapi_capabilities))
     mcp.resource(
         "sfmapi://artifacts/formats",
         title="sfmapi artifact formats",
         mime_type="application/json",
         annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
         tags={"sfmapi", "artifacts"},
-    )(tool_impl.list_artifact_formats)
+    )(registerable(tool_impl.list_artifact_formats))
+
+    async def plugins_resource() -> dict[str, Any]:
+        return await tool_impl.list_plugins()
+
+    mcp.resource(
+        "sfmapi://plugins",
+        title="sfmapi backend plugins",
+        mime_type="application/json",
+        annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
+        tags={"sfmapi", "plugins", "discovery"},
+    )(registerable(plugins_resource))
+    mcp.resource(
+        "sfmapi://plugins/{plugin_id}",
+        title="sfmapi backend plugin",
+        mime_type="application/json",
+        annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
+        tags={"sfmapi", "plugins", "discovery"},
+    )(registerable(tool_impl.get_plugin))
+
+    async def backend_providers_resource() -> dict[str, Any]:
+        return await tool_impl.list_backend_providers()
+
+    mcp.resource(
+        "sfmapi://backend/providers",
+        title="sfmapi backend providers",
+        mime_type="application/json",
+        annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
+        tags={"sfmapi", "backend", "plugins", "discovery"},
+    )(registerable(backend_providers_resource))
 
     async def backend_actions_resource() -> dict[str, Any]:
         return await tool_impl.list_backend_actions()
@@ -177,35 +307,35 @@ def create_mcp_server(
         mime_type="application/json",
         annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
         tags={"sfmapi", "backend", "discovery"},
-    )(backend_actions_resource)
+    )(registerable(backend_actions_resource))
     mcp.resource(
         "sfmapi://backend/actions/{action_id}",
         title="sfmapi backend action",
         mime_type="application/json",
         annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
         tags={"sfmapi", "backend", "discovery"},
-    )(tool_impl.get_backend_action)
+    )(registerable(tool_impl.get_backend_action))
     mcp.resource(
         "sfmapi://tenants/{tenant_id}/projects",
         title="sfmapi tenant projects",
         mime_type="application/json",
         annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
         tags={"sfmapi", "projects"},
-    )(tool_impl.list_projects)
+    )(registerable(tool_impl.list_projects))
     mcp.resource(
         "sfmapi://tenants/{tenant_id}/jobs/{job_id}",
         title="sfmapi job",
         mime_type="application/json",
         annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
         tags={"sfmapi", "jobs"},
-    )(tool_impl.get_job)
+    )(registerable(tool_impl.get_job))
     mcp.resource(
         "sfmapi://tenants/{tenant_id}/jobs/{job_id}/progress",
         title="sfmapi job progress",
         mime_type="application/json",
         annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
         tags={"sfmapi", "jobs"},
-    )(tool_impl.get_job_progress)
+    )(registerable(tool_impl.get_job_progress))
 
     async def job_artifacts_resource(tenant_id: str, job_id: str) -> dict[str, Any]:
         return await tool_impl.list_artifacts(tenant_id=tenant_id, job_id=job_id)
@@ -219,28 +349,28 @@ def create_mcp_server(
         mime_type="application/json",
         annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
         tags={"sfmapi", "jobs", "artifacts"},
-    )(job_artifacts_resource)
+    )(registerable(job_artifacts_resource))
     mcp.resource(
         "sfmapi://tenants/{tenant_id}/artifacts/{artifact_id}",
         title="sfmapi artifact",
         mime_type="application/json",
         annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
         tags={"sfmapi", "artifacts"},
-    )(tool_impl.get_artifact)
+    )(registerable(tool_impl.get_artifact))
     mcp.resource(
         "sfmapi://tenants/{tenant_id}/reconstructions/{recon_id}/artifacts",
         title="sfmapi reconstruction artifacts",
         mime_type="application/json",
         annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
         tags={"sfmapi", "reconstructions", "artifacts"},
-    )(reconstruction_artifacts_resource)
+    )(registerable(reconstruction_artifacts_resource))
     mcp.resource(
         "sfmapi://tenants/{tenant_id}/reconstructions/{recon_id}/snapshots",
         title="sfmapi reconstruction snapshots",
         mime_type="application/json",
         annotations=READ_ONLY_RESOURCE_ANNOTATIONS,
         tags={"sfmapi", "reconstructions"},
-    )(tool_impl.list_snapshots)
+    )(registerable(tool_impl.list_snapshots))
 
     async def healthz(request: Any) -> JSONResponse:
         return JSONResponse({"status": "ok", "service": "sfmapi-mcp"})
@@ -288,7 +418,13 @@ def main(argv: Sequence[str] | None = None) -> None:
             "HTTP transport defaults to local-only use. Bind to 127.0.0.1, "
             "or pass --allow-non-loopback when a trusted proxy/network layer protects it."
         )
-    mcp = create_mcp_server(endpoint_hint=args.path)
+    _load_backend_plugins_for_standalone(stdio=transport == "stdio")
+    if transport == "stdio":
+        _warm_stdio_backend_runtime()
+    mcp = create_mcp_server(
+        endpoint_hint=args.path,
+        stdio_safe_output=transport == "stdio",
+    )
     if transport == "stdio":
         mcp.run(transport="stdio")
         return

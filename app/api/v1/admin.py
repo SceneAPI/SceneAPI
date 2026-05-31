@@ -27,6 +27,7 @@ from app.schemas.api.plugins import (
     PluginInstallResponse,
     PluginRegistryItemOut,
     PluginRegistryPage,
+    ProviderPriorityRequest,
     RoutingOut,
     RoutingProfileAssignmentRequest,
     RoutingProfileRequest,
@@ -196,6 +197,8 @@ async def install_plugin(plugin_id: str, body: PluginInstallRequest) -> PluginIn
             package_name=body.package_name,
             dry_run=body.dry_run,
             allow_unsafe_execution=body.allow_unsafe_execution,
+            request_id=body.request_id,
+            provision_runtime=body.provision_runtime,
             force=body.force,
         )
     )
@@ -229,6 +232,12 @@ async def create_routing_profile(body: RoutingProfileRequest) -> RoutingOut:
 async def set_default_routing_profile(body: RoutingProfileAssignmentRequest) -> RoutingOut:
     """Set the default provider routing profile for this sfmapi process."""
     return RoutingOut.model_validate(plugin_service.use_default_profile(body.profile))
+
+
+@router.post("/routing/provider-priority", response_model=RoutingOut)
+async def set_provider_priority(body: ProviderPriorityRequest) -> RoutingOut:
+    """Set fallback provider order for unpinned routed stages."""
+    return RoutingOut.model_validate(plugin_service.use_provider_priority(body.providers))
 
 
 @router.post("/routing/projects/{project_id}", response_model=RoutingOut)

@@ -138,7 +138,7 @@
       "ref": "main",
       "package": "sfmapi-colmap"
     },
-    "docker": {},
+    "docker": null,
     "external_tool": {
       "executable_names": ["colmap", "colmap.exe"],
       "env_vars": ["SFMAPI_COLMAP_EXECUTABLE", "COLMAP_EXE", "SFMAPI_COLMAP_EXE"],
@@ -181,7 +181,7 @@
   "backend_actions": ["colmap.*"],
   "config_schemas": ["colmap.*"],
   "artifact_contracts": ["colmap.database", "colmap.sparse_model"],
-  "licenses": [{"name": "AGPL-3.0-or-later"}],
+  "licenses": [{"name": "Apache-2.0"}],
   "upstream_projects": [
     {"name": "COLMAP", "url": "https://github.com/colmap/colmap", "license": "BSD-3-Clause"}
   ],

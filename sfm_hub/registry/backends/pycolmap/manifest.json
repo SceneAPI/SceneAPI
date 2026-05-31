@@ -58,7 +58,7 @@
       "ref": "main",
       "package": "sfmapi-pycolmap"
     },
-    "docker": {}
+    "docker": null
   },
   "capabilities": [
     "ba.standard",
@@ -105,7 +105,7 @@
   ],
   "licenses": [
     {
-      "name": "AGPL-3.0-or-later"
+      "name": "Apache-2.0"
     }
   ],
   "upstream_projects": [

@@ -211,3 +211,5 @@ class JobAcceptedResponse(BaseModel):
     provider: str | None = None
     artifact_id: str | None = None
     target_format: str | None = None
+    radiance_field_id: str | None = None
+    radiance_evaluation_id: str | None = None

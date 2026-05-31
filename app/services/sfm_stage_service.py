@@ -399,20 +399,26 @@ async def submit_matches(
         raise ValidationError("spec.pairs must be a dict")
     if pairs.get("strategy") == "vocabtree" and not pairs.get("vocab_tree_path"):
         raise ValidationError("pairs.vocab_tree_path is required for pairs.strategy=vocabtree")
-    await _validate_explicit_pairs(session, tenant_id=tenant_id, dataset=d, pairs=pairs)
+    raw_input_artifacts = input_artifacts or _merge_spec_input_artifacts(
+        spec.get("input_artifacts"),
+        pairs.get("input_artifacts"),
+        (spec.get("matcher") or {}).get("input_artifacts")
+        if isinstance(spec.get("matcher"), dict)
+        else None,
+    )
+    await _validate_explicit_pairs(
+        session,
+        tenant_id=tenant_id,
+        dataset=d,
+        pairs=pairs,
+        input_artifacts=raw_input_artifacts,
+    )
     r, db_path = await _resolve_database_path(session, tenant_id=tenant_id, dataset=d, spec=spec)
     resolved_artifacts = await artifact_service.resolve_input_artifacts(
         session,
         tenant_id=tenant_id,
         dataset_id=d.dataset_id,
-        input_artifacts=input_artifacts
-        or _merge_spec_input_artifacts(
-            spec.get("input_artifacts"),
-            pairs.get("input_artifacts"),
-            (spec.get("matcher") or {}).get("input_artifacts")
-            if isinstance(spec.get("matcher"), dict)
-            else None,
-        ),
+        input_artifacts=raw_input_artifacts,
     )
     selected_db_path = artifact_service.database_path_from_input_artifacts(
         resolved_artifacts,
@@ -446,11 +452,14 @@ async def _validate_explicit_pairs(
     tenant_id: str,
     dataset: Dataset,
     pairs: dict[str, Any],
+    input_artifacts: dict[str, Any] | None = None,
 ) -> None:
+    has_pair_artifact = bool((input_artifacts or {}).get("pairs"))
     if pairs.get("strategy") != "explicit":
-        if pairs.get("image_pairs") or pairs.get("pairs_blob_sha"):
+        if pairs.get("image_pairs") or pairs.get("pairs_blob_sha") or has_pair_artifact:
             raise ValidationError(
-                "pairs.image_pairs and pairs.pairs_blob_sha require pairs.strategy=explicit"
+                "pairs.image_pairs, pairs.pairs_blob_sha, and input_artifacts.pairs "
+                "require pairs.strategy=explicit"
             )
         return
 
@@ -458,11 +467,14 @@ async def _validate_explicit_pairs(
     pairs_blob_sha = pairs.get("pairs_blob_sha")
     has_inline = bool(image_pairs)
     has_blob = bool(pairs_blob_sha)
-    if has_inline == has_blob:
+    if sum(bool(value) for value in (has_inline, has_blob, has_pair_artifact)) != 1:
         raise ValidationError(
             "pairs.strategy=explicit requires exactly one of pairs.image_pairs "
-            "or pairs.pairs_blob_sha"
+            "or pairs.pairs_blob_sha, or input_artifacts.pairs"
         )
+
+    if has_pair_artifact:
+        return
 
     if has_blob:
         blob = await session.get(Blob, str(pairs_blob_sha))

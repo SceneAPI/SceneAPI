@@ -260,14 +260,17 @@ class PairsSpec(BaseModel):
     def _validate_explicit_pairs(self) -> Self:
         has_inline = bool(self.image_pairs)
         has_blob = self.pairs_blob_sha is not None
+        has_input_artifact = "pairs" in self.input_artifacts
         if self.strategy == "explicit":
-            if has_inline == has_blob:
+            if sum(bool(value) for value in (has_inline, has_blob, has_input_artifact)) != 1:
                 raise ValueError(
-                    "strategy='explicit' requires exactly one of image_pairs or pairs_blob_sha"
+                    "strategy='explicit' requires exactly one of image_pairs, "
+                    "pairs_blob_sha, or input_artifacts.pairs"
                 )
-        elif has_inline or has_blob:
+        elif has_inline or has_blob or has_input_artifact:
             raise ValueError(
-                "image_pairs and pairs_blob_sha are only valid with strategy='explicit'"
+                "image_pairs, pairs_blob_sha, and input_artifacts.pairs are only valid "
+                "with strategy='explicit'"
             )
         return self
 

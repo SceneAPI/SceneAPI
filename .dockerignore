@@ -3,6 +3,9 @@
 .pytest_cache
 .mypy_cache
 .ruff_cache
+.tmp
+.tmp-*
+.uv-cache-codex
 .coverage
 coverage.xml
 htmlcov
@@ -24,3 +27,4 @@ tests
 deploy
 logs
 *.log
+uploads

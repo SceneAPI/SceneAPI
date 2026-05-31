@@ -7,12 +7,15 @@ import logging
 import os
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from sfm_hub.install import InstallPlan
 
 _log = logging.getLogger(__name__)
+
+ProvisioningStatus = Literal["not_requested", "planned", "running", "succeeded", "failed"]
 
 
 class InstalledPlugin(BaseModel):
@@ -25,6 +28,11 @@ class InstalledPlugin(BaseModel):
     resolved_commit: str | None = None
     installed_at: str
     enabled: bool = True
+    provision_runtime: bool = False
+    provisioned: bool = False
+    provisioning_status: ProvisioningStatus = "not_requested"
+    provisioning_error: str | None = None
+    request_id: str | None = None
 
 
 class RoutingProfile(BaseModel):
@@ -89,6 +97,11 @@ def _record_installed(
             and existing.source_url == record.source_url
             and existing.ref == record.ref
             and existing.enabled == record.enabled
+            and existing.provision_runtime == record.provision_runtime
+            and existing.provisioned == record.provisioned
+            and existing.provisioning_status == record.provisioning_status
+            and existing.provisioning_error == record.provisioning_error
+            and existing.request_id == record.request_id
         )
         if same:
             return state
@@ -111,6 +124,11 @@ def record_install(
     *,
     path: Path | None = None,
     enabled: bool = True,
+    provision_runtime: bool = False,
+    provisioned: bool = False,
+    provisioning_status: ProvisioningStatus = "not_requested",
+    provisioning_error: str | None = None,
+    request_id: str | None = None,
 ) -> PluginState:
     state = load_state(path)
     return _record_installed(
@@ -123,6 +141,11 @@ def record_install(
             resolved_commit=plan.resolved_commit,
             installed_at=datetime.now(UTC).isoformat(),
             enabled=enabled,
+            provision_runtime=provision_runtime,
+            provisioned=provisioned,
+            provisioning_status=provisioning_status,
+            provisioning_error=provisioning_error,
+            request_id=request_id,
         ),
         path=path,
     )
@@ -136,6 +159,11 @@ def record_manual_install(
     ref: str = "",
     path: Path | None = None,
     enabled: bool = True,
+    provision_runtime: bool = False,
+    provisioned: bool = False,
+    provisioning_status: ProvisioningStatus = "not_requested",
+    provisioning_error: str | None = None,
+    request_id: str | None = None,
 ) -> PluginState:
     state = load_state(path)
     return _record_installed(
@@ -147,6 +175,11 @@ def record_manual_install(
             ref=ref,
             installed_at=datetime.now(UTC).isoformat(),
             enabled=enabled,
+            provision_runtime=provision_runtime,
+            provisioned=provisioned,
+            provisioning_status=provisioning_status,
+            provisioning_error=provisioning_error,
+            request_id=request_id,
         ),
         path=path,
     )
@@ -199,6 +232,20 @@ def set_default_profile(name: str, *, path: Path | None = None) -> PluginState:
     if name not in state.profiles:
         raise KeyError(f"unknown routing profile {name!r}")
     state.default_profile = name
+    save_state(state, path)
+    return state
+
+
+def set_provider_priority(providers: list[str], *, path: Path | None = None) -> PluginState:
+    known = _known_provider_ids()
+    unknown = sorted(set(providers) - known)
+    if unknown:
+        raise KeyError(
+            "provider priority references unknown provider id(s): "
+            f"{', '.join(unknown)}"
+        )
+    state = load_state(path)
+    state.provider_priority = list(providers)
     save_state(state, path)
     return state
 

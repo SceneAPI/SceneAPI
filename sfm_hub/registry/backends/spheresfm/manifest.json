@@ -45,7 +45,7 @@
       "ref": "main",
       "package": "sfmapi-spheresfm"
     },
-    "docker": {},
+    "docker": null,
     "external_tool": {
       "executable_names": [
         "spheresfm"
@@ -92,7 +92,7 @@
   ],
   "licenses": [
     {
-      "name": "AGPL-3.0-or-later"
+      "name": "Apache-2.0"
     }
   ],
   "upstream_projects": [

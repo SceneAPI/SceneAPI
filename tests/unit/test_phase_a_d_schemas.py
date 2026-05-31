@@ -82,6 +82,21 @@ def test_pairs_spec_accepts_explicit_inline_pairs() -> None:
     assert body["image_pairs"] == [{"image_name1": "a.jpg", "image_name2": "b.jpg"}]
 
 
+def test_pairs_spec_accepts_explicit_pairs_input_artifact() -> None:
+    p = PairsSpec(
+        strategy="explicit",
+        input_artifacts={
+            "pairs": {
+                "artifact_id": "01H00000000000000000000000",
+                "kind": "pairs.image_names.v1",
+            }
+        },
+    )
+    body = p.model_dump()
+    assert body["strategy"] == "explicit"
+    assert body["input_artifacts"]["pairs"]["kind"] == "pairs.image_names.v1"
+
+
 def test_pairs_spec_explicit_requires_one_pair_source() -> None:
     with pytest.raises(ValueError, match="requires exactly one"):
         PairsSpec(strategy="explicit")
@@ -90,6 +105,17 @@ def test_pairs_spec_explicit_requires_one_pair_source() -> None:
             strategy="explicit",
             image_pairs=[{"image_name1": "a.jpg", "image_name2": "b.jpg"}],
             pairs_blob_sha="0" * 64,
+        )
+    with pytest.raises(ValueError, match="requires exactly one"):
+        PairsSpec(
+            strategy="explicit",
+            image_pairs=[{"image_name1": "a.jpg", "image_name2": "b.jpg"}],
+            input_artifacts={
+                "pairs": {
+                    "artifact_id": "01H00000000000000000000000",
+                    "kind": "pairs.image_names.v1",
+                }
+            },
         )
 
 

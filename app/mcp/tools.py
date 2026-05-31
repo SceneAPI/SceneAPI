@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from sqlalchemy import select
 
@@ -38,6 +39,7 @@ from app.services import (
     backend_action_service,
     job_progress_service,
     job_service,
+    plugin_service,
     project_service,
     reconstruction_service,
 )
@@ -45,6 +47,10 @@ from app.services import (
 
 def _dump(value: BaseModel) -> dict[str, Any]:
     return value.model_dump(mode="json", by_alias=True)
+
+
+def _encode(value: Any) -> Any:
+    return jsonable_encoder(value, by_alias=True)
 
 
 def resolve_tenant(tenant_id: str | None) -> str:
@@ -116,6 +122,61 @@ async def get_backend_action(action_id: str, provider: str | None = None) -> dic
     return _dump(
         BackendActionOut.model_validate(
             backend_action_service.get_action(action_id, provider=provider)
+        )
+    )
+
+
+async def list_plugins(query: str | None = None) -> dict[str, Any]:
+    """List registered backend plugins and their install/enabled state."""
+    return {
+        "items": _encode(plugin_service.list_plugins(query)),
+        "next_page_token": None,
+        "total": None,
+    }
+
+
+async def get_plugin(plugin_id: str) -> dict[str, Any]:
+    """Read one backend plugin manifest and state."""
+    return _encode(plugin_service.get_plugin(plugin_id))
+
+
+async def doctor_plugin(plugin_id: str) -> dict[str, Any]:
+    """Run read-only diagnostics for one backend plugin."""
+    return _encode(plugin_service.doctor_plugin(plugin_id))
+
+
+async def list_backend_providers() -> dict[str, Any]:
+    """List enabled backend providers exposed by loaded plugins."""
+    return {
+        "items": _encode(plugin_service.list_providers()),
+        "next_page_token": None,
+        "total": None,
+    }
+
+
+async def plan_plugin_install(
+    plugin_id: str,
+    method: str = "uv",
+    github_url: str | None = None,
+    ref: str | None = None,
+    package_name: str | None = None,
+    request_id: str | None = None,
+    provision_runtime: bool = True,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Plan a plugin install without executing commands or recording state."""
+    return _encode(
+        plugin_service.install_plugin(
+            plugin_id,
+            method=method,
+            github_url=github_url,
+            ref=ref,
+            package_name=package_name,
+            dry_run=True,
+            allow_unsafe_execution=False,
+            request_id=request_id,
+            provision_runtime=provision_runtime,
+            force=force,
         )
     )
 
@@ -486,6 +547,11 @@ TOOLS = (
     list_portable_stages,
     list_backend_actions,
     get_backend_action,
+    list_plugins,
+    get_plugin,
+    doctor_plugin,
+    list_backend_providers,
+    plan_plugin_install,
     list_projects,
     list_jobs,
     get_job,

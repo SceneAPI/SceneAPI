@@ -4,13 +4,30 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 from dataclasses import dataclass
 from typing import Literal
 
-from sfm_hub.models import DockerRuntime
+from sfm_hub.models import ContainerServiceRuntime, DockerRuntime
 
 MUTABLE_REFS = {"main", "master", "develop", "dev", "trunk"}
 COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
+
+
+def _container_service_direct_reference(
+    plugin_id: str, runtime: ContainerServiceRuntime
+) -> str:
+    image = runtime.image
+    if image is None:
+        endpoint = runtime.service.default_url or f"${runtime.service.url_env}"
+        return f"container_service:{endpoint}"
+    if image.image:
+        return f"{image.image}@{image.digest}" if image.digest else image.image
+    if image.build is not None:
+        source = image.build.context or image.build.source
+        ref = f"@{image.build.ref}" if image.build.ref else ""
+        return f"build:{source}{ref}"
+    return f"container_service:{plugin_id}"
 
 
 @dataclass(frozen=True)
@@ -37,7 +54,7 @@ class GitHubSource:
 
 @dataclass(frozen=True)
 class InstallPlan:
-    method: Literal["uv", "docker", "external_tool"]
+    method: Literal["uv", "docker", "container_service", "external_tool"]
     source: GitHubSource
     direct_reference: str
     command: list[str]
@@ -119,6 +136,45 @@ def build_docker_install_plan(
         )
     return InstallPlan(
         method="docker",
+        source=source,
+        direct_reference=direct_reference,
+        command=command,
+        warnings=warnings,
+    )
+
+
+def build_container_service_install_plan(
+    plugin_id: str,
+    runtime: ContainerServiceRuntime | None,
+    *,
+    source: GitHubSource,
+) -> InstallPlan:
+    warnings: list[str] = []
+    command: list[str] = []
+    direct_reference = f"container_service:{plugin_id}"
+    if runtime is None:
+        warnings.append(f"plugin {plugin_id!r} does not define a container_service runtime")
+    else:
+        direct_reference = _container_service_direct_reference(plugin_id, runtime)
+        if runtime.image is not None:
+            command = [
+                sys.executable,
+                "-m",
+                "sfm_hub.container_runtime",
+                "provision",
+                plugin_id,
+            ]
+            warnings.append(
+                "container_service install will provision a Docker service when "
+                "the configured endpoint is local; otherwise attach to the configured service"
+            )
+        else:
+            warnings.append(
+                "container_service mode attaches to an already-running plugin service; "
+                f"run `sfmapi plugins doctor {plugin_id}` to verify protocol health"
+            )
+    return InstallPlan(
+        method="container_service",
         source=source,
         direct_reference=direct_reference,
         command=command,

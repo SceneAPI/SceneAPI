@@ -15,6 +15,7 @@ from app.core.ids import new_id
 from app.db.models import JobEvent, StageArtifact, Task
 from app.mcp import tools
 from app.services import job_service, project_service
+from sfm_hub.state import record_manual_install
 
 
 class _FakeFastMCP:
@@ -89,7 +90,7 @@ async def _seed_project_job_and_progress(session) -> tuple[str, str, str]:
             uri="memory://database.db",
             metadata_json={
                 "artifact_format": "sfmapi.matches.verified.v1",
-                "artifact_type": "matches",
+                "datatype": "match_graph",
                 "schema_version": 1,
             },
         )
@@ -160,6 +161,44 @@ async def test_mcp_version_and_capabilities_tools() -> None:
 
 
 @pytest.mark.unit
+async def test_mcp_plugin_tools_expose_providers_doctor_and_redacted_install_plan() -> None:
+    record_manual_install("hloc", method="uv", enabled=True)
+
+    plugins = await tools.list_plugins()
+    hloc = next(item for item in plugins["items"] if item["plugin_id"] == "hloc")
+    assert hloc["installed"] is True
+    assert hloc["enabled"] is True
+
+    detail = await tools.get_plugin("hloc")
+    assert detail["manifest"]["plugin_id"] == "hloc"
+    assert detail["installed"] is True
+
+    providers = await tools.list_backend_providers()
+    provider_ids = {item["provider_id"] for item in providers["items"]}
+    assert "hloc" in provider_ids
+
+    doctor = await tools.doctor_plugin("hloc")
+    assert doctor["plugin_id"] == "hloc"
+    assert all("metadata" in check for check in doctor["checks"])
+
+    request_id = "123e4567-e89b-12d3-a456-426614174000"
+    plan = await tools.plan_plugin_install(
+        "local_test",
+        github_url="https://github.com/SFMAPI/sfmapi_custom.git@v0.1.0",
+        package_name="sfmapi-custom",
+        request_id=request_id,
+    )
+    assert plan["dry_run"] is True
+    assert plan["installed"] is False
+    assert plan["request_id"] == request_id
+    assert plan["provisioning_status"] == "planned"
+    assert "env" not in plan["provisioning"]
+    assert plan["provisioning"]["env_keys"] == []
+    assert plan["provisioning"]["redacted_env"] == {}
+    assert plan["provisioning"]["outputs"] == {}
+
+
+@pytest.mark.unit
 def test_mcp_tenant_scope_rejects_cross_tenant_reads(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = get_settings()
     monkeypatch.setattr(settings, "auth_mode", "api_key")
@@ -209,6 +248,11 @@ def test_create_mcp_server_registers_curated_tools(monkeypatch: pytest.MonkeyPat
     assert "list_artifact_formats" in server.tools
     assert "validate_artifact" in server.tools
     assert "plan_artifact_conversion" in server.tools
+    assert "list_plugins" in server.tools
+    assert "get_plugin" in server.tools
+    assert "doctor_plugin" in server.tools
+    assert "list_backend_providers" in server.tools
+    assert "plan_plugin_install" in server.tools
     assert "list_projects" in server.tools
     assert "list_portable_stages" in server.tools
     assert server.kwargs["strict_input_validation"] is False
@@ -219,6 +263,9 @@ def test_create_mcp_server_registers_curated_tools(monkeypatch: pytest.MonkeyPat
     assert server.tools["get_job_progress"]["annotations"]["openWorldHint"] is False
     assert "sfmapi://version" in server.resources
     assert "sfmapi://artifacts/formats" in server.resources
+    assert "sfmapi://plugins" in server.resources
+    assert "sfmapi://plugins/{plugin_id}" in server.resources
+    assert "sfmapi://backend/providers" in server.resources
     assert "sfmapi://tenants/{tenant_id}/jobs/{job_id}/progress" in server.resources
     assert "sfmapi://tenants/{tenant_id}/jobs/{job_id}/artifacts" in server.resources
     assert server.resources["sfmapi://version"]["annotations"]["readOnlyHint"] is True
@@ -255,6 +302,66 @@ def test_mcp_standalone_defaults_to_http_when_mode_is_http(
     assert _FakeFastMCP.created[-1].runs == [
         {"transport": "http", "host": "127.0.0.1", "port": 9100, "path": "/mcp"}
     ]
+
+
+@pytest.mark.unit
+def test_mcp_standalone_loads_backend_plugins(
+    monkeypatch: pytest.MonkeyPatch,
+    capfd: pytest.CaptureFixture[str],
+) -> None:
+    _FakeFastMCP.created.clear()
+    fake_module = types.SimpleNamespace(FastMCP=_FakeFastMCP)
+    monkeypatch.setitem(sys.modules, "fastmcp", fake_module)
+    calls: list[tuple[Any, Any]] = []
+
+    import sfm_hub.discovery as discovery
+    from app.core.config import reset_settings_for_tests
+    from app.mcp.server import main
+
+    monkeypatch.setattr(
+        discovery,
+        "load_backend_entry_points",
+        lambda register_backend, register_provider: print("plugin stdout")
+        or calls.append((register_backend, register_provider))
+        or [],
+    )
+    reset_settings_for_tests(auto_load_backend_plugins=True)
+    try:
+        main(["--transport", "stdio"])
+    finally:
+        reset_settings_for_tests()
+
+    captured = capfd.readouterr()
+    assert "plugin stdout" not in captured.out
+    assert "plugin stdout" in captured.err
+    assert len(calls) == 1
+    assert _FakeFastMCP.created[-1].runs == [{"transport": "stdio"}]
+
+
+@pytest.mark.unit
+def test_mcp_stdio_warms_backend_before_serving(monkeypatch: pytest.MonkeyPatch) -> None:
+    _FakeFastMCP.created.clear()
+    fake_module = types.SimpleNamespace(FastMCP=_FakeFastMCP)
+    monkeypatch.setitem(sys.modules, "fastmcp", fake_module)
+    calls: list[str] = []
+
+    import app.mcp.server as mcp_server
+
+    monkeypatch.setattr(
+        mcp_server,
+        "_load_backend_plugins_for_standalone",
+        lambda *, stdio: calls.append(f"load:{stdio}"),
+    )
+    monkeypatch.setattr(
+        mcp_server,
+        "_warm_stdio_backend_runtime",
+        lambda: calls.append("warm"),
+    )
+
+    mcp_server.main(["--transport", "stdio"])
+
+    assert calls == ["load:True", "warm"]
+    assert _FakeFastMCP.created[-1].runs == [{"transport": "stdio"}]
 
 
 @pytest.mark.unit
@@ -298,9 +405,12 @@ async def test_real_fastmcp_lists_annotations_and_reads_resources(session) -> No
     resource_uris = {str(resource.uri) for resource in resources}
     assert "sfmapi://version" in resource_uris
     assert "sfmapi://artifacts/formats" in resource_uris
+    assert "sfmapi://plugins" in resource_uris
+    assert "sfmapi://backend/providers" in resource_uris
 
     templates = await server.list_resource_templates()
     template_uris = {template.uri_template for template in templates}
+    assert "sfmapi://plugins/{plugin_id}" in template_uris
     assert "sfmapi://tenants/{tenant_id}/jobs/{job_id}/progress" in template_uris
     assert "sfmapi://tenants/{tenant_id}/jobs/{job_id}/artifacts" in template_uris
 
@@ -311,6 +421,10 @@ async def test_real_fastmcp_lists_annotations_and_reads_resources(session) -> No
     projects = await server.read_resource("sfmapi://tenants/default/projects")
     projects_body = json.loads(projects.contents[0].content)
     assert projects_body["items"][0]["project_id"] == project_id
+
+    plugins = await server.read_resource("sfmapi://plugins")
+    plugins_body = json.loads(plugins.contents[0].content)
+    assert "hloc" in {item["plugin_id"] for item in plugins_body["items"]}
 
     progress = await server.read_resource(f"sfmapi://tenants/default/jobs/{job_id}/progress")
     progress_body = json.loads(progress.contents[0].content)
@@ -325,6 +439,7 @@ async def test_real_fastmcp_lists_annotations_and_reads_resources(session) -> No
 async def test_real_fastmcp_client_can_call_tool_and_read_resource(session) -> None:
     pytest.importorskip("fastmcp")
     _project_id, job_id, _task_id = await _seed_project_job_and_progress(session)
+    record_manual_install("hloc", method="uv", enabled=True)
 
     from fastmcp import Client
 
@@ -341,6 +456,23 @@ async def test_real_fastmcp_client_can_call_tool_and_read_resource(session) -> N
         artifacts_result = await client.call_tool("list_artifacts", {"job_id": job_id})
         artifacts_body = json.loads(artifacts_result.content[0].text)
         assert artifacts_body["items"][0]["name"] == "verified"
+
+        providers_result = await client.call_tool("list_backend_providers", {})
+        providers_body = json.loads(providers_result.content[0].text)
+        assert "hloc" in {item["provider_id"] for item in providers_body["items"]}
+
+        install_result = await client.call_tool(
+            "plan_plugin_install",
+            {
+                "plugin_id": "local_test",
+                "github_url": "https://github.com/SFMAPI/sfmapi_custom.git@v0.1.0",
+                "package_name": "sfmapi-custom",
+                "request_id": "123e4567-e89b-12d3-a456-426614174000",
+            },
+        )
+        install_body = json.loads(install_result.content[0].text)
+        assert install_body["provisioning"]["redacted_env"] == {}
+        assert "env" not in install_body["provisioning"]
 
         resource = await client.read_resource(f"sfmapi://tenants/default/jobs/{job_id}/progress")
         resource_body = json.loads(resource[0].text)

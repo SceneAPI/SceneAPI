@@ -31,15 +31,243 @@
     "github_url": {"type": "string", "pattern": "^https://github.com/.+"},
     "entry_points": {"type": "array", "items": {"type": "string"}},
     "providers": {"type": "array", "minItems": 1},
-    "runtime_modes": {"type": "object"},
+    "runtime_modes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uv": {"anyOf": [{"$ref": "#/$defs/uv_runtime"}, {"type": "null"}]},
+        "docker": {"anyOf": [{"$ref": "#/$defs/docker_runtime"}, {"type": "null"}]},
+        "container_service": {
+          "anyOf": [{"$ref": "#/$defs/container_service_runtime"}, {"type": "null"}]
+        },
+        "external_tool": {
+          "anyOf": [{"$ref": "#/$defs/external_tool_runtime"}, {"type": "null"}]
+        }
+      }
+    },
     "capabilities": {"type": "array", "items": {"type": "string"}},
     "backend_actions": {"type": "array", "items": {"type": "string"}},
     "config_schemas": {"type": "array", "items": {"type": "string"}},
     "artifact_contracts": {"type": "array", "items": {"type": "string"}},
     "licenses": {"type": "array"},
     "upstream_projects": {"type": "array"},
-    "compatibility": {"type": "object"},
+    "compatibility": {"$ref": "#/$defs/compatibility"},
     "conformance": {"type": "object"},
     "trust_tier": {"enum": ["official", "verified", "community", "local"]}
+  },
+  "$defs": {
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "sfmapi": {"type": "string"},
+        "python": {"type": ["string", "null"]},
+        "os": {"type": "array", "items": {"type": "string"}},
+        "cuda": {"type": ["string", "null"]},
+        "torch": {
+          "anyOf": [{"$ref": "#/$defs/torch_runtime"}, {"type": "null"}]
+        },
+        "tool_versions": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        }
+      }
+    },
+    "torch_runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "policy": {"enum": ["optional", "recommended", "required"]},
+        "device": {"enum": ["cpu", "cuda"]},
+        "index_url": {"type": "string", "pattern": "^https://.+"},
+        "cpu_index_url": {"type": "string", "pattern": "^https://.+"},
+        "packages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^\\S+$"}
+        },
+        "install_env": {
+          "type": "object",
+          "additionalProperties": {"type": "string"},
+          "propertyNames": {"pattern": "^[A-Z_][A-Z0-9_]*$"}
+        }
+      }
+    },
+    "uv_runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "package"],
+      "properties": {
+        "source": {"const": "git"},
+        "url": {"type": "string", "pattern": "^https://github.com/.+"},
+        "ref": {"type": "string"},
+        "package": {"type": "string", "minLength": 1}
+      }
+    },
+    "docker_runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "image": {"type": ["string", "null"]},
+        "build_context": {"type": ["string", "null"]}
+      }
+    },
+    "container_service_runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "protocol_version", "service"],
+      "properties": {
+        "protocol": {"const": "sfmapi-plugin-http-v1"},
+        "protocol_version": {"type": "string"},
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "default_url": {
+              "type": "string",
+              "pattern": "^http://[^\\s/@#:]+(?:\\:[0-9]+)?(?:/[^\\s#]*)?$"
+            },
+            "url_env": {
+              "type": "string",
+              "pattern": "^[A-Z_][A-Z0-9_]*$",
+              "minLength": 1
+            }
+          },
+          "anyOf": [
+            {"required": ["default_url"]},
+            {"required": ["url_env"]}
+          ]
+        },
+        "image": {
+          "anyOf": [{"$ref": "#/$defs/container_service_image"}, {"type": "null"}]
+        },
+        "object_store": {
+          "anyOf": [{"$ref": "#/$defs/container_service_object_store"}, {"type": "null"}]
+        },
+        "cache": {"$ref": "#/$defs/container_service_cache"},
+        "provenance": {"$ref": "#/$defs/container_service_provenance"},
+        "healthcheck": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {"type": "string", "minLength": 1},
+            "timeout_seconds": {"type": "integer", "minimum": 1}
+          }
+        },
+        "execution": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {"type": "string", "pattern": "^/[^\\s]*$"},
+            "timeout_seconds": {"type": "integer", "minimum": 1},
+            "mounts": {"$ref": "#/$defs/container_service_mounts"},
+            "gpu": {"enum": ["none", "optional", "required"]},
+            "env": {
+              "type": "array",
+              "items": {"type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$"}
+            },
+            "secrets": {
+              "type": "array",
+              "items": {"type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$"}
+            },
+            "retry": {"$ref": "#/$defs/container_service_retry"},
+            "shutdown_timeout_seconds": {"type": "integer", "minimum": 0},
+            "log_collection": {"enum": ["stdout", "file", "both"]},
+            "artifact_collection": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "container_service_image": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "image": {"type": ["string", "null"]},
+        "digest": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-fA-F]{64}$"},
+        "registry": {"type": ["string", "null"]},
+        "build": {
+          "anyOf": [{"$ref": "#/$defs/container_service_build"}, {"type": "null"}]
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["image"],
+          "properties": {"image": {"type": "string"}}
+        },
+        {
+          "required": ["build"],
+          "properties": {"build": {"$ref": "#/$defs/container_service_build"}}
+        }
+      ]
+    },
+    "container_service_build": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {"enum": ["git", "local", "release"]},
+        "context": {"type": ["string", "null"]},
+        "dockerfile": {"type": "string"},
+        "ref": {"type": ["string", "null"]},
+        "args": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        }
+      }
+    },
+    "container_service_object_store": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url_env": {"type": ["string", "null"], "pattern": "^[A-Z_][A-Z0-9_]*$"},
+        "input_prefix": {"type": ["string", "null"]},
+        "output_prefix": {"type": ["string", "null"]}
+      }
+    },
+    "container_service_cache": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "policy": {"enum": ["none", "read_only", "read_write"]},
+        "scope": {"enum": ["request", "plugin", "global"]},
+        "path": {"type": ["string", "null"], "pattern": "^/[^\\s]*$"}
+      }
+    },
+    "container_service_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "image_digest_required": {"type": "boolean"},
+        "sbom_url": {"type": ["string", "null"]},
+        "attestation_url": {"type": ["string", "null"]},
+        "source_revision": {"type": ["string", "null"]}
+      }
+    },
+    "container_service_mounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "input_path": {"type": "string", "pattern": "^/[^\\s]*$"},
+        "output_path": {"type": "string", "pattern": "^/[^\\s]*$"},
+        "work_path": {"type": "string", "pattern": "^/[^\\s]*$"},
+        "log_path": {"type": "string", "pattern": "^/[^\\s]*$"}
+      }
+    },
+    "container_service_retry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_attempts": {"type": "integer", "minimum": 1},
+        "backoff_seconds": {"type": "integer", "minimum": 0}
+      }
+    },
+    "external_tool_runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "executable_names": {"type": "array", "items": {"type": "string"}},
+        "env_vars": {"type": "array", "items": {"type": "string"}},
+        "version_args": {"type": "array", "items": {"type": "string"}}
+      }
+    }
   }
 }

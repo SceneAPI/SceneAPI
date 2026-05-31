@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -57,29 +57,68 @@ class PluginDetailOut(BaseModel):
 class PluginInstallRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    method: Literal["uv", "docker", "external_tool"] = "uv"
+    method: Literal["uv", "docker", "container_service", "external_tool"] = "uv"
     github_url: str | None = None
     ref: str | None = None
     package_name: str | None = None
     dry_run: bool = True
     allow_unsafe_execution: bool = False
+    request_id: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+    )
+    """Optional UUID-style idempotency key for retrying non-dry-run installs."""
+    provision_runtime: bool = True
+    """Run the installed plugin package's runtime provisioner when available.
+
+    Provisioners are plugin-owned hooks for downloading release assets, cloning
+    upstream engines, or building native tools after the Python package is
+    installed. Use ``false`` to install only the wrapper package.
+    """
     force: bool = False
     """Install even when the manifest's declared host compatibility
     (os / python) does not match this host. Mismatches still ride back
     in ``warnings``."""
 
 
+class PluginProvisionStepOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    name: str | None = None
+    action: str | None = None
+    status: str | None = None
+
+
+class PluginProvisioningOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    available: bool = False
+    provisioned: bool = False
+    steps: list[PluginProvisionStepOut] = Field(default_factory=list)
+    env_keys: list[str] = Field(default_factory=list)
+    redacted_env: dict[str, str] = Field(default_factory=dict)
+    outputs: dict[str, str] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class PluginInstallResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     plugin_id: str
-    method: Literal["uv", "docker", "external_tool"]
+    method: Literal["uv", "docker", "container_service", "external_tool"]
     dry_run: bool
     installed: bool
     command: list[str] = Field(default_factory=list)
     direct_reference: str | None = None
     warnings: list[str] = Field(default_factory=list)
     resolved_commit: str | None = None
+    provision_runtime: bool = False
+    provisioned: bool = False
+    provisioning_status: str = "not_requested"
+    provisioning_error: str | None = None
+    request_id: str | None = None
+    provisioning: PluginProvisioningOut | None = None
 
 
 class PluginDoctorOut(BaseModel):
@@ -135,3 +174,9 @@ class RoutingProfileAssignmentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     profile: str
+
+
+class ProviderPriorityRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    providers: list[str] = Field(default_factory=list)

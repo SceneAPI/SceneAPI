@@ -5,11 +5,13 @@ from __future__ import annotations
 import sys
 from contextlib import suppress
 from typing import Any
+from uuid import UUID
 
 from app.core.errors import NotFoundError, ValidationError
 from sfm_hub.discovery import discover_plugins, discovered_plugin_ids
 from sfm_hub.doctor import detect_external_tools, doctor_manifest
 from sfm_hub.install import (
+    build_container_service_install_plan,
     build_docker_install_plan,
     build_external_tool_plan,
     build_install_plan,
@@ -18,6 +20,12 @@ from sfm_hub.install import (
     run_uv_install,
 )
 from sfm_hub.models import PluginManifest
+from sfm_hub.provision import (
+    ProvisioningError,
+    normalize_provisioning_result,
+    planned_package_provisioning,
+    run_package_provisioner,
+)
 from sfm_hub.registry import get_manifest, list_manifests, search_manifests
 from sfm_hub.routing import provider_records
 from sfm_hub.state import (
@@ -27,6 +35,7 @@ from sfm_hub.state import (
     record_manual_install,
     set_default_profile,
     set_project_profile,
+    set_provider_priority,
     set_workspace_profile,
     upsert_profile,
 )
@@ -122,8 +131,15 @@ def install_plugin(
     package_name: str | None = None,
     dry_run: bool = True,
     allow_unsafe_execution: bool = False,
+    request_id: str | None = None,
+    provision_runtime: bool = True,
     force: bool = False,
 ) -> dict[str, Any]:
+    _validate_request_id(request_id)
+    if method not in {"uv", "docker", "container_service", "external_tool"}:
+        raise ValidationError(
+            "method must be one of: uv, docker, container_service, external_tool"
+        )
     if not dry_run and not allow_unsafe_execution:
         raise ValidationError(
             "plugin installation can execute local tools; set allow_unsafe_execution=true "
@@ -157,19 +173,116 @@ def install_plugin(
             ref=ref or (runtime.ref if runtime is not None else None),
             package=package_name or manifest.package_name,
         )
-        plan = (
-            build_docker_install_plan(plugin_id, manifest.runtime_modes.docker, source=source)
-            if method == "docker"
-            else build_external_tool_plan(plugin_id, source=source)
-        )
+        if method == "docker":
+            plan = build_docker_install_plan(plugin_id, manifest.runtime_modes.docker, source=source)
+        elif method == "container_service":
+            plan = build_container_service_install_plan(
+                plugin_id,
+                manifest.runtime_modes.container_service,
+                source=source,
+            )
+        else:
+            plan = build_external_tool_plan(plugin_id, source=source)
         if not dry_run:
-            run_install_command(plan)
+            existing = load_state().installed.get(plugin_id)
+            if (
+                request_id
+                and existing is not None
+                and existing.request_id == request_id
+                and existing.method == method
+            ):
+                if existing.provisioning_status == "failed":
+                    raise ValidationError(
+                        existing.provisioning_error
+                        or "plugin install/provisioning failed"
+                    )
+                return {
+                    "plugin_id": plugin_id,
+                    "method": method,
+                    "dry_run": False,
+                    "installed": True,
+                    "command": plan.command,
+                    "direct_reference": plan.direct_reference,
+                    "warnings": plan.warnings + compat_warnings,
+                    "resolved_commit": plan.resolved_commit,
+                    "provision_runtime": existing.provision_runtime,
+                    "provisioned": existing.provisioned,
+                    "provisioning_status": existing.provisioning_status,
+                    "provisioning_error": existing.provisioning_error,
+                    "request_id": request_id,
+                    "provisioning": None,
+                }
+            if method == "docker":
+                docker_runtime = manifest.runtime_modes.docker
+                if docker_runtime is None:
+                    raise ValidationError(f"plugin {plugin_id!r} does not define a docker runtime")
+                if not plan.command:
+                    raise ValidationError(
+                        f"plugin {plugin_id!r} docker runtime has no pull/build command"
+                    )
+            if method == "container_service" and manifest.runtime_modes.container_service is None:
+                raise ValidationError(
+                    f"plugin {plugin_id!r} does not define a container_service runtime"
+                )
+            if method == "container_service":
+                def fail_install(message: str) -> None:
+                    record_manual_install(
+                        plugin_id,
+                        method=method,
+                        source_url=manifest.github_url,
+                        ref=source.ref,
+                        enabled=True,
+                        provisioning_status="failed",
+                        provisioning_error=message,
+                        request_id=request_id,
+                    )
+                    raise ValidationError(message)
+
+                pre_report = doctor_manifest(manifest)
+                pre_check = next(
+                    item for item in pre_report.checks if item.name == "container_service"
+                )
+                if (
+                    pre_check.status == "warn"
+                    and "endpoint is not configured" in pre_check.detail
+                ):
+                    fail_install(f"container_service health check failed: {pre_check.detail}")
+                if not provision_runtime:
+                    if pre_check.status != "pass":
+                        fail_install(f"container_service health check failed: {pre_check.detail}")
+                    check = pre_check
+                else:
+                    if plan.command:
+                        try:
+                            run_install_command(plan)
+                        except Exception as exc:
+                            fail_install(f"container_service provisioning failed: {exc}")
+                        report = doctor_manifest(manifest)
+                        check = next(
+                            item for item in report.checks if item.name == "container_service"
+                        )
+                    elif pre_check.status == "pass":
+                        check = pre_check
+                    else:
+                        fail_install(f"container_service health check failed: {pre_check.detail}")
+                if check.status != "pass":
+                    fail_install(f"container_service health check failed: {check.detail}")
+            else:
+                run_install_command(plan)
             record_manual_install(
                 plugin_id,
                 method=method,
                 source_url=manifest.github_url,
                 ref=source.ref,
                 enabled=True,
+                provision_runtime=provision_runtime,
+                provisioned=bool(method == "container_service" and plan.command),
+                provisioning_status=(
+                    "succeeded"
+                    if method == "container_service" and provision_runtime and plan.command
+                    else "not_requested"
+                ),
+                request_id=request_id,
             )
         return {
             "plugin_id": plugin_id,
@@ -180,6 +293,28 @@ def install_plugin(
             "direct_reference": plan.direct_reference,
             "warnings": plan.warnings + compat_warnings,
             "resolved_commit": plan.resolved_commit,
+            "provision_runtime": bool(
+                method == "container_service"
+                and manifest.runtime_modes.container_service is not None
+                and provision_runtime
+            ),
+            "provisioned": bool(
+                not dry_run
+                and method == "container_service"
+                and provision_runtime
+                and plan.command
+            ),
+            "provisioning_status": (
+                "succeeded"
+                if not dry_run
+                and method == "container_service"
+                and provision_runtime
+                and plan.command
+                else "not_requested"
+            ),
+            "provisioning_error": None,
+            "request_id": request_id,
+            "provisioning": None,
         }
 
     if manifest is not None and github_url is None:
@@ -198,10 +333,86 @@ def install_plugin(
         raise ValidationError(str(exc)) from exc
     plan = build_install_plan(source)
     installed = False
+    provisioning: dict[str, Any] | None = None
+    provisioning_status = "not_requested"
+    provisioning_error: str | None = None
     if not dry_run:
+        existing = load_state().installed.get(plugin_id)
+        if request_id and existing is not None and existing.request_id == request_id:
+            if existing.provisioning_status == "failed":
+                raise ValidationError(
+                    "plugin runtime provisioning failed: "
+                    + (existing.provisioning_error or "previous attempt failed")
+                )
+            return {
+                "plugin_id": plugin_id,
+                "method": "uv",
+                "dry_run": False,
+                "installed": True,
+                "command": plan.command,
+                "direct_reference": plan.direct_reference,
+                "warnings": plan.warnings + compat_warnings,
+                "resolved_commit": plan.resolved_commit,
+                "provision_runtime": existing.provision_runtime,
+                "provisioned": existing.provisioned,
+                "provisioning_status": existing.provisioning_status,
+                "provisioning_error": existing.provisioning_error,
+                "request_id": request_id,
+                "provisioning": None,
+            }
         run_uv_install(plan)
-        record_install(plugin_id, plan)
+        if provision_runtime:
+            record_install(
+                plugin_id,
+                plan,
+                provision_runtime=True,
+                provisioned=False,
+                provisioning_status="running",
+                request_id=request_id,
+            )
+            try:
+                provisioning = run_package_provisioner(
+                    plan.source.inferred_package,
+                    dry_run=False,
+                    force=force,
+                )
+                provisioning = normalize_provisioning_result(provisioning)
+            except ProvisioningError as exc:
+                provisioning_error = str(exc)
+                record_install(
+                    plugin_id,
+                    plan,
+                    provision_runtime=True,
+                    provisioned=False,
+                    provisioning_status="failed",
+                    provisioning_error=provisioning_error,
+                    request_id=request_id,
+                )
+                raise ValidationError(f"plugin runtime provisioning failed: {exc}") from exc
+            provisioned = bool(provisioning["provisioned"])
+            provisioning_status = "succeeded" if provisioned else "skipped"
+            record_install(
+                plugin_id,
+                plan,
+                provision_runtime=True,
+                provisioned=provisioned,
+                provisioning_status=provisioning_status,
+                request_id=request_id,
+            )
+        else:
+            record_install(
+                plugin_id,
+                plan,
+                provision_runtime=False,
+                provisioned=False,
+                provisioning_status="not_requested",
+                request_id=request_id,
+            )
         installed = True
+    elif provision_runtime:
+        provisioning = planned_package_provisioning(plan.source.inferred_package)
+        provisioning_status = "planned"
+    provisioning_warnings = [] if provisioning is None else list(provisioning["warnings"])
     return {
         "plugin_id": plugin_id,
         "method": "uv",
@@ -209,9 +420,27 @@ def install_plugin(
         "installed": installed,
         "command": plan.command,
         "direct_reference": plan.direct_reference,
-        "warnings": plan.warnings + compat_warnings,
+        "warnings": plan.warnings + provisioning_warnings + compat_warnings,
         "resolved_commit": plan.resolved_commit,
+        "provision_runtime": provision_runtime,
+        "provisioned": bool(provisioning and provisioning["provisioned"]),
+        "provisioning_status": provisioning_status,
+        "provisioning_error": provisioning_error,
+        "request_id": request_id,
+        "provisioning": provisioning,
     }
+
+
+def _validate_request_id(request_id: str | None) -> None:
+    if request_id is None:
+        return
+    try:
+        request_id.encode("ascii")
+        parsed = UUID(request_id)
+    except (UnicodeEncodeError, ValueError) as exc:
+        raise ValidationError("request_id must be a UUID string") from exc
+    if str(parsed) != request_id.lower():
+        raise ValidationError("request_id must be a canonical hyphenated UUID string")
 
 
 def enable_plugin(plugin_id: str) -> dict[str, Any]:
@@ -298,6 +527,14 @@ def create_profile(name: str, routes: dict[str, list[str]]) -> dict[str, Any]:
 
 def use_default_profile(name: str) -> dict[str, Any]:
     set_default_profile(name)
+    return routing_state()
+
+
+def use_provider_priority(providers: list[str]) -> dict[str, Any]:
+    try:
+        set_provider_priority(providers)
+    except KeyError as exc:
+        raise ValidationError(str(exc)) from exc
     return routing_state()
 
 

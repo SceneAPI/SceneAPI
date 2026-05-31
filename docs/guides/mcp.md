@@ -6,6 +6,19 @@ from the full OpenAPI document: agents get stable tools for discovery,
 jobs, progress, projects, reconstructions, and sealed snapshots without
 being exposed to every low-level REST operation.
 
+## Plugin discovery tools
+
+The MCP adapter exposes read-only plugin/runtime discovery:
+
+- `list_plugins` and `get_plugin` inspect registered plugin manifests and
+  installed/enabled state.
+- `list_backend_providers` lists enabled provider ids and advertised
+  capabilities.
+- `doctor_plugin` runs the same diagnostics as `POST /v1/admin/plugins/{id}:doctor`.
+- `plan_plugin_install` returns a dry-run install plan only. It never executes
+  commands or records state, and provisioning output uses `env_keys`,
+  `redacted_env`, and `outputs` rather than raw secret values.
+
 ## Install
 
 Install the optional dependency group:
@@ -227,8 +240,11 @@ clients that prefer resource reads over tool calls:
 - `sfmapi://version`
 - `sfmapi://capabilities`
 - `sfmapi://artifacts/formats`
+- `sfmapi://plugins`
+- `sfmapi://plugins/{plugin_id}`
 - `sfmapi://backend/actions`
 - `sfmapi://backend/actions/{action_id}`
+- `sfmapi://backend/providers`
 - `sfmapi://tenants/{tenant_id}/projects`
 - `sfmapi://tenants/{tenant_id}/jobs/{job_id}`
 - `sfmapi://tenants/{tenant_id}/jobs/{job_id}/progress`

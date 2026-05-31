@@ -381,6 +381,123 @@ class SubModel(Base):
     )
 
 
+class RadianceField(Base):
+    __tablename__ = "radiance_field"
+    __table_args__ = (
+        Index("ix_radiance_field_tenant_id", "tenant_id"),
+        Index("ix_radiance_field_project_id", "project_id"),
+    )
+
+    radiance_field_id: Mapped[str] = mapped_column(ULIDType, primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(String(ID_LEN), nullable=False, default="default")
+    project_id: Mapped[str] = mapped_column(
+        String(ID_LEN), ForeignKey("project.project_id", ondelete="CASCADE"), nullable=False
+    )
+    dataset_id: Mapped[str | None] = mapped_column(
+        String(ID_LEN), ForeignKey("dataset.dataset_id", ondelete="SET NULL"), nullable=True
+    )
+    recon_id: Mapped[str | None] = mapped_column(
+        String(ID_LEN),
+        ForeignKey("reconstruction.recon_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    method: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="running")
+    spec_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    summary_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+
+class RadianceSnapshot(Base):
+    __tablename__ = "radiance_snapshot"
+    __table_args__ = (
+        UniqueConstraint(
+            "radiance_field_id",
+            "seq",
+            name="uq_radiance_snapshot_radiance_field_id_seq",
+        ),
+        Index("ix_radiance_snapshot_tenant_id", "tenant_id"),
+        Index("ix_radiance_snapshot_radiance_field_id", "radiance_field_id"),
+    )
+
+    snapshot_id: Mapped[str] = mapped_column(ULIDType, primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(String(ID_LEN), nullable=False, default="default")
+    radiance_field_id: Mapped[str] = mapped_column(
+        String(ID_LEN),
+        ForeignKey("radiance_field.radiance_field_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    sealed_path: Mapped[str] = mapped_column(String(2048), nullable=False)
+    summary_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+
+class RadianceEvaluation(Base):
+    __tablename__ = "radiance_evaluation"
+    __table_args__ = (
+        Index("ix_radiance_evaluation_tenant_id", "tenant_id"),
+        Index("ix_radiance_evaluation_radiance_field_id", "radiance_field_id"),
+    )
+
+    evaluation_id: Mapped[str] = mapped_column(ULIDType, primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(String(ID_LEN), nullable=False, default="default")
+    radiance_field_id: Mapped[str] = mapped_column(
+        String(ID_LEN),
+        ForeignKey("radiance_field.radiance_field_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    snapshot_seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    dataset_id: Mapped[str | None] = mapped_column(String(ID_LEN), nullable=True)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    method: Mapped[str] = mapped_column(String(64), nullable=False)
+    split: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="running")
+    config_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    metrics_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    artifacts_json: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+    error_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    job_id: Mapped[str | None] = mapped_column(String(ID_LEN), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+
+class RadianceVariant(Base):
+    __tablename__ = "radiance_variant"
+    __table_args__ = (
+        Index("ix_radiance_variant_tenant_id", "tenant_id"),
+        Index("ix_radiance_variant_snapshot_id", "snapshot_id"),
+    )
+
+    variant_id: Mapped[str] = mapped_column(ULIDType, primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(String(ID_LEN), nullable=False, default="default")
+    snapshot_id: Mapped[str] = mapped_column(
+        String(ID_LEN),
+        ForeignKey("radiance_snapshot.snapshot_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    format: Mapped[str] = mapped_column(String(32), nullable=False)
+    uri: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    media_type: Mapped[str | None] = mapped_column(String(127), nullable=True)
+    summary_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+
 class StageArtifact(Base):
     __tablename__ = "stage_artifact"
     __table_args__ = (

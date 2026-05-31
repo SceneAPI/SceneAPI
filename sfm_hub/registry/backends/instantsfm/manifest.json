@@ -1,7 +1,7 @@
 {
   "plugin_id": "instantsfm",
   "display_name": "InstantSfM",
-  "description": "Wrapper + SDK material is plain AGPL-3.0-or-later with no added restrictions. Upstream InstantSfM (cre185/InstantSfM) is CC-BY-NC-4.0; that non-commercial term is upstream's and binds whoever runs InstantSfM, not added by sfmapi. sfmapi's commercial/dual license does not extend to this plugin.",
+  "description": "Wrapper + SDK material is Apache-2.0. Upstream InstantSfM (cre185/InstantSfM) is CC-BY-NC-4.0; that non-commercial term is upstream's and binds whoever runs InstantSfM, not added by sfmapi.",
   "package_name": "sfmapi-instantsfm",
   "github_url": "https://github.com/SFMAPI/sfmapi_instantsfm.git",
   "entry_points": [
@@ -27,7 +27,70 @@
       "ref": "main",
       "package": "sfmapi-instantsfm"
     },
-    "docker": {}
+    "docker": null,
+    "container_service": {
+      "protocol": "sfmapi-plugin-http-v1",
+      "protocol_version": "1.0",
+      "service": {
+        "url_env": "SFMAPI_INSTANTSFM_SERVICE_URL"
+      },
+      "image": {
+        "build": {
+          "source": "git",
+          "context": "https://github.com/SFMAPI/sfmapi_instantsfm.git",
+          "dockerfile": "Dockerfile",
+          "ref": "main",
+          "args": {
+            "TORCH_DEVICE": "cuda",
+            "TORCH_INDEX_URL": "https://download.pytorch.org/whl/cu128",
+            "TORCH_CPU_INDEX_URL": "https://download.pytorch.org/whl/cpu",
+            "TORCH_PACKAGES": "torch torchvision torchaudio",
+            "TORCH_CUDA_ARCH_LIST": "8.0;8.6;8.9;9.0;12.0"
+          }
+        }
+      },
+      "object_store": {
+        "url_env": "SFMAPI_PLUGIN_OBJECT_STORE_URL",
+        "input_prefix": "instantsfm/input/",
+        "output_prefix": "instantsfm/output/"
+      },
+      "cache": {
+        "policy": "read_write",
+        "scope": "plugin",
+        "path": "/sfmapi/cache"
+      },
+      "provenance": {
+        "image_digest_required": false,
+        "source_revision": "main"
+      },
+      "healthcheck": {
+        "path": "/healthz",
+        "timeout_seconds": 5
+      },
+      "execution": {
+        "path": "/execute",
+        "timeout_seconds": 3600,
+        "mounts": {
+          "input_path": "/sfmapi/input",
+          "output_path": "/sfmapi/output",
+          "work_path": "/sfmapi/work",
+          "log_path": "/sfmapi/logs"
+        },
+        "gpu": "required",
+        "env": [
+          "TORCH_HOME",
+          "TORCH_DEVICE"
+        ],
+        "secrets": [],
+        "retry": {
+          "max_attempts": 2,
+          "backoff_seconds": 0
+        },
+        "shutdown_timeout_seconds": 10,
+        "log_collection": "both",
+        "artifact_collection": true
+      }
+    }
   },
   "capabilities": [
     "map.global"
@@ -35,11 +98,13 @@
   "backend_actions": [
     "instantsfm.*"
   ],
-  "config_schemas": [],
+  "config_schemas": [
+    "instantsfm.mapping.global"
+  ],
   "artifact_contracts": [],
   "licenses": [
     {
-      "name": "AGPL-3.0-or-later"
+      "name": "Apache-2.0"
     }
   ],
   "upstream_projects": [
@@ -56,7 +121,42 @@
       "windows",
       "linux"
     ],
-    "cuda": "recommended"
+    "cuda": "required",
+    "torch": {
+      "policy": "required",
+      "device": "cuda",
+      "index_url": "https://download.pytorch.org/whl/cu128",
+      "cpu_index_url": "https://download.pytorch.org/whl/cpu",
+      "packages": [
+        "torch",
+        "torchvision",
+        "torchaudio"
+      ],
+      "install_env": {
+        "TORCH_DEVICE": "cuda",
+        "TORCH_INDEX_URL": "https://download.pytorch.org/whl/cu128",
+        "TORCH_CPU_INDEX_URL": "https://download.pytorch.org/whl/cpu",
+        "TORCH_PACKAGES": "torch torchvision torchaudio"
+      }
+    },
+    "source_build": {
+      "upstream_path": "third_party/instantsfm",
+      "submodule": true,
+      "install": "uv pip install --no-deps -e third_party/instantsfm",
+      "dependency_overrides": {
+        "scikit-sparse": "local SciPy-backed sksparse.cholmod shim",
+        "pypose @ git+https://github.com/pypose/pypose.git@bae": "bae-kai"
+      },
+      "optional_groups": {
+        "gaussian_splatting": {
+          "env": "SFMAPI_INSTANTSFM_INSTALL_GS=1",
+          "packages": [
+            "gsplat",
+            "fused-ssim @ git+https://github.com/rahul-goel/fused-ssim"
+          ]
+        }
+      }
+    }
   },
   "conformance": {
     "status": "not_run",

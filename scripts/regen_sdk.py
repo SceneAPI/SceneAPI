@@ -18,6 +18,7 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -55,6 +56,14 @@ def _restore_python_metadata() -> None:
         print(f"-> restored {len(_metadata_cache)} package metadata file(s)")
 
 
+def _canonicalize_spec(path: Path) -> None:
+    spec = json.loads(path.read_text(encoding="utf-8"))
+    info = spec.get("info")
+    if isinstance(info, dict):
+        info.pop("x-generated-by", None)
+    path.write_text(json.dumps(spec, indent=2) + "\n", encoding="utf-8")
+
+
 def main() -> int:
     if not DUMP_SCRIPT.is_file():
         print(f"missing {DUMP_SCRIPT}", file=sys.stderr)
@@ -71,6 +80,7 @@ def main() -> int:
     ).returncode
     if rc != 0:
         return rc
+    _canonicalize_spec(SPEC_PATH)
     shutil.copyfile(SPEC_PATH, SDK_SPEC_PATH)
     print(f"-> copied OpenAPI snapshot to {SDK_SPEC_PATH}")
 

@@ -38,6 +38,9 @@ class Paths:
     def reconstruction_root(self, tenant_id: str, project_id: str, reconstruction_id: str) -> Path:
         return self.project_root(tenant_id, project_id) / "reconstructions" / reconstruction_id
 
+    def radiance_field_root(self, tenant_id: str, project_id: str, radiance_field_id: str) -> Path:
+        return self.project_root(tenant_id, project_id) / "radiance_fields" / radiance_field_id
+
     def snapshot_root(
         self, tenant_id: str, project_id: str, reconstruction_id: str, seq: int
     ) -> Path:

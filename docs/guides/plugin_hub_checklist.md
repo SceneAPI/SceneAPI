@@ -4,6 +4,9 @@ Status: closed for the sfmapi-side registry, entry-point discovery,
 install planning, CLI, operator API, benchmark validation, and
 provider-routing execution contract.
 
+Open runtime API gaps from the latest review are tracked in
+`docs/guides/plugin_runtime_api_gap_closure_checklist.md`.
+
 ## Product Contract
 
 - [x] Keep `sfmapi` as the main interaction point for users.
@@ -33,7 +36,8 @@ provider-routing execution contract.
 - [x] Provider aliases registered into the process-local backend registry.
 - [x] GitHub-link parser for plugin sources.
 - [x] uv direct-reference install-plan generation.
-- [x] Docker install-plan generation.
+- [x] Docker install-plan generation for manifests with image/build metadata.
+- [x] Container-service install-plan recording for already-running plugin services.
 - [x] External-tool install plans and runtime metadata in manifests.
 - [x] External tool detection through PATH and configured env vars, including version checks.
 - [x] HTTP install execution hardened behind `allow_unsafe_execution=true`; dry-run remains default.
@@ -55,7 +59,10 @@ Every bundled manifest includes `plugin_id`, `display_name`, `description`,
 - [x] Branch, tag, and commit refs are accepted.
 - [x] Mutable refs such as `main` produce warnings.
 - [x] uv install commands use direct references.
+- [x] uv installs can plan/run a plugin-owned runtime provisioner for release
+  downloads, prebuilt assets, or native builds.
 - [x] Docker install plans emit `docker pull` or `docker build` commands when metadata exists.
+- [x] Container-service install plans record service-mode intent without running shell commands.
 - [x] Commit SHA refs are recorded as resolved commits in local state.
 
 Example:
@@ -65,6 +72,7 @@ sfmapi plugins install colmap_cli --method uv --dry-run
 sfmapi plugins install local_test \
   --github https://github.com/SFMAPI/sfmapi_custom.git@v0.1.0 \
   --package sfmapi-custom --dry-run
+sfmapi plugins install hloc --method uv --no-provision-runtime
 ```
 
 ## sfmapi CLI
@@ -75,6 +83,7 @@ sfmapi plugins install local_test \
 - [x] `sfmapi plugins install <plugin_id> --method uv`
 - [x] `sfmapi plugins install <plugin_id> --github <url>`
 - [x] `sfmapi plugins install <plugin_id> --method docker`
+- [x] `sfmapi plugins install <plugin_id> --method container_service`
 - [x] `sfmapi plugins enable <plugin_id>`
 - [x] `sfmapi plugins disable <plugin_id>`
 - [x] `sfmapi plugins doctor <plugin_id>`
@@ -104,6 +113,7 @@ sfmapi plugins install local_test \
 - [x] `POST /v1/admin/plugins/{plugin_id}:disable`
 - [x] `POST /v1/admin/routing/profiles`
 - [x] `POST /v1/admin/routing/default`
+- [x] `POST /v1/admin/routing/provider-priority`
 - [x] `POST /v1/admin/routing/projects/{project_id}`
 - [x] `POST /v1/admin/routing/workspaces`
 
@@ -124,22 +134,23 @@ sfmapi plugins install local_test \
 
 | Plugin id | Providers | GitHub source | Runtime modes |
 |---|---|---|---|
-| `colmap_cli` | `colmap_cli` | `https://github.com/SFMAPI/sfmapi_colmap_cli.git` | `uv`, `external_tool`, `docker` |
-| `pycolmap` | `colmap_pycolmap` | `https://github.com/SFMAPI/sfmapi_pycolmap.git` | `uv`, `docker` |
-| `colmap_native` | `colmap_cli`, `colmap_pycolmap`, `colmap_cpp_native`, `colmap_cpp_inmemory` | `https://github.com/SFMAPI/sfmapi_colmap.git` | `uv`, `external_tool`, `docker` |
+| `colmap_cli` | `colmap_cli` | `https://github.com/SFMAPI/sfmapi_colmap_cli.git` | `uv`, `external_tool` |
+| `pycolmap` | `colmap_pycolmap` | `https://github.com/SFMAPI/sfmapi_pycolmap.git` | `uv` |
+| `colmap_native` | `colmap_cli`, `colmap_pycolmap`, `colmap_cpp_native`, `colmap_cpp_inmemory` | `https://github.com/SFMAPI/sfmapi_colmap.git` | `uv`, `external_tool` |
 | `realityscan_cli` | `realityscan_cli` | `https://github.com/SFMAPI/sfmapi_realityscan.git` | `uv`, `external_tool` |
-| `hloc` | `hloc` | `https://github.com/SFMAPI/sfmapi_hloc.git` | `uv`, `docker` |
-| `instantsfm` | `instantsfm` | `https://github.com/SFMAPI/sfmapi_instantsfm.git` | `uv`, `docker` |
-| `spheresfm` | `spheresfm` | `https://github.com/SFMAPI/sfmapi_spheresfm.git` | `uv`, `external_tool`, `docker` |
+| `hloc` | `hloc` | `https://github.com/SFMAPI/sfmapi_hloc.git` | `uv` |
+| `instantsfm` | `instantsfm` | `https://github.com/SFMAPI/sfmapi_instantsfm.git` | `uv` |
+| `spheresfm` | `spheresfm` | `https://github.com/SFMAPI/sfmapi_spheresfm.git` | `uv`, `external_tool` |
 
 ## Backend App Adoption Contract
 
 Backend app repositories should expose `plugin.py`, a typed plugin object,
 `[project.entry-points."sfmapi.backends"]`, provider ids matching the manifest,
 config schemas, artifact contracts, doctor checks, GitHub install metadata,
-optional Docker metadata, external-tool detection where applicable, and tests
-for manifest validation, entry-point discovery, provider registration, and API
-discovery.
+optional Docker or container-service metadata, an optional
+`package.provisioning.provision()` hook for owned runtime setup,
+external-tool detection where applicable, and tests for manifest validation,
+entry-point discovery, provider registration, and API discovery.
 
 Entry-point plugin objects are executable contracts now, not just
 documentation. They may expose `manifest`, `get_plugin_manifest()`,

@@ -43,7 +43,13 @@ from app.core.paths import Paths
 from app.db.models import Dataset, Image, ImageSource, Job, Task
 from app.db.session import get_session_factory
 from app.orchestrator.lease import now_utc, refresh_lease, try_acquire_lease
-from app.services import artifact_service, dataset_service, image_service, reconstruction_service
+from app.services import (
+    artifact_service,
+    dataset_service,
+    image_service,
+    radiance_service,
+    reconstruction_service,
+)
 from app.workers.progress import (
     WorkerProgressReporter,
     reset_progress_reporter,
@@ -95,6 +101,20 @@ def _task_recon_id(task: Task) -> str | None:
     return str(recon_id) if recon_id else None
 
 
+def _task_radiance_field_id(task: Task) -> str | None:
+    state = task.task_state_json or {}
+    inputs = state.get("inputs") or {}
+    radiance_field_id = inputs.get("radiance_field_id")
+    return str(radiance_field_id) if radiance_field_id else None
+
+
+def _task_radiance_evaluation_id(task: Task) -> str | None:
+    state = task.task_state_json or {}
+    inputs = state.get("inputs") or {}
+    evaluation_id = inputs.get("evaluation_id")
+    return str(evaluation_id) if evaluation_id else None
+
+
 async def _mark_task_reconstruction_status(session: Any, task: Task, status: str) -> None:
     if task.kind != "map":
         return
@@ -109,27 +129,70 @@ async def _mark_task_reconstruction_status(session: Any, task: Task, status: str
     )
 
 
+async def _mark_task_radiance_status(session: Any, task: Task, status: str) -> None:
+    if task.kind not in {"radiance_train", "radiance_eval"}:
+        return
+    if task.kind == "radiance_eval":
+        evaluation_id = _task_radiance_evaluation_id(task)
+        if evaluation_id is not None:
+            await radiance_service.mark_radiance_evaluation_status(
+                session,
+                tenant_id=task.tenant_id,
+                evaluation_id=evaluation_id,
+                status=status,
+            )
+        return
+    radiance_field_id = _task_radiance_field_id(task)
+    if radiance_field_id is None:
+        return
+    await radiance_service.mark_radiance_field_status(
+        session,
+        tenant_id=task.tenant_id,
+        radiance_field_id=radiance_field_id,
+        status=status,
+    )
+
+
 async def _apply_task_success_side_effects(
     session: Any, task: Task, outputs: dict[str, Any] | None
 ) -> None:
-    if task.kind != "map":
-        return
-    recon_id = _task_recon_id(task)
-    if recon_id is None:
-        return
     result = outputs or {}
-    models = result.get("models")
-    if not isinstance(models, list):
-        models = []
-    model_summaries = [cast(dict[str, Any], m) for m in models if isinstance(m, dict)]
-    await reconstruction_service.record_mapping_result(
-        session,
-        tenant_id=task.tenant_id,
-        recon_id=recon_id,
-        models=model_summaries,
-        snapshot_seq=result.get("snapshot_seq"),
-        snapshot_path=result.get("snapshot_path"),
-    )
+    if task.kind == "map":
+        recon_id = _task_recon_id(task)
+        if recon_id is None:
+            return
+        models = result.get("models")
+        if not isinstance(models, list):
+            models = []
+        model_summaries = [cast(dict[str, Any], m) for m in models if isinstance(m, dict)]
+        await reconstruction_service.record_mapping_result(
+            session,
+            tenant_id=task.tenant_id,
+            recon_id=recon_id,
+            models=model_summaries,
+            snapshot_seq=result.get("snapshot_seq"),
+            snapshot_path=result.get("snapshot_path"),
+        )
+    elif task.kind == "radiance_train":
+        radiance_field_id = _task_radiance_field_id(task)
+        if radiance_field_id is None:
+            return
+        await radiance_service.record_radiance_train_result(
+            session,
+            tenant_id=task.tenant_id,
+            radiance_field_id=radiance_field_id,
+            outputs=result,
+        )
+    elif task.kind == "radiance_eval":
+        evaluation_id = _task_radiance_evaluation_id(task)
+        if evaluation_id is None:
+            return
+        await radiance_service.record_radiance_evaluation_result(
+            session,
+            tenant_id=task.tenant_id,
+            evaluation_id=evaluation_id,
+            outputs=result,
+        )
 
 
 def _int_or_none(value: object) -> int | None:
@@ -450,6 +513,7 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             task.status = "cancelled_dirty" if job.cancel_force else "cancelled"
             task.finished_at = now_utc()
             await _mark_task_reconstruction_status(session, task, "failed")
+            await _mark_task_radiance_status(session, task, "failed")
             await session.commit()
             await _maybe_finalize_job(session, task.job_id)
             log.info("task.cancelled", force=job.cancel_force)
@@ -457,6 +521,7 @@ async def execute_task(task_id: str) -> dict[str, Any]:
         task.status = "running"
         task.started_at = now_utc()
         await _mark_task_reconstruction_status(session, task, "running")
+        await _mark_task_radiance_status(session, task, "running")
         await session.commit()
 
     handler = get_handlers().get(task.kind)
@@ -470,6 +535,7 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             t.error_message = f"No handler for kind={task.kind}"
             t.finished_at = now_utc()
             await _mark_task_reconstruction_status(session, t, "failed")
+            await _mark_task_radiance_status(session, t, "failed")
             await session.commit()
             await _maybe_finalize_job(session, t.job_id)
         return {"status": "failed"}
@@ -516,6 +582,7 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             t.error_message = str(e)
             t.finished_at = now_utc()
             await _mark_task_reconstruction_status(session, t, "failed")
+            await _mark_task_radiance_status(session, t, "failed")
             await session.commit()
             await _maybe_finalize_job(session, t.job_id)
         return {"status": "failed", "error": "pycolmap_unavailable"}
@@ -530,6 +597,7 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             t.error_message = str(e)[:2000]
             t.finished_at = now_utc()
             await _mark_task_reconstruction_status(session, t, "failed")
+            await _mark_task_radiance_status(session, t, "failed")
             await session.commit()
             await _maybe_finalize_job(session, t.job_id)
         return {"status": "failed", "error": str(e)}

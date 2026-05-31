@@ -9,6 +9,7 @@ per-pair algorithm."""
 from __future__ import annotations
 
 import contextlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -26,14 +27,73 @@ from app.workers.progress import get_progress_reporter
 from app.workers.tasks._registry import task_handler
 
 
-def _materialize_explicit_pairs(task: Task, pairs: dict[str, Any]) -> Path:
+def _pair_text_from_json_artifact(source: Path) -> str:
+    try:
+        payload = json.loads(source.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValidationError(f"pairs artifact {source} is not valid JSON") from exc
+    if not isinstance(payload, dict):
+        raise ValidationError(f"pairs artifact {source} must be a JSON object")
+    raw_pairs = payload.get("pairs")
+    if not isinstance(raw_pairs, list) or not raw_pairs:
+        raise ValidationError(f"pairs artifact {source} requires a non-empty pairs array")
+    lines: list[str] = []
+    for index, item in enumerate(raw_pairs):
+        if isinstance(item, dict):
+            image_name1 = item.get("image_name1") or item.get("image1") or item.get("name1")
+            image_name2 = item.get("image_name2") or item.get("image2") or item.get("name2")
+        elif isinstance(item, (list, tuple)) and len(item) >= 2:
+            image_name1, image_name2 = item[0], item[1]
+        else:
+            raise ValidationError(f"pairs artifact {source} pairs[{index}] must be a two-item pair")
+        image_name1 = str(image_name1 or "")
+        image_name2 = str(image_name2 or "")
+        if not image_name1 or not image_name2 or image_name1 == image_name2:
+            raise ValidationError(
+                f"pairs artifact {source} pairs[{index}] requires two different image names"
+            )
+        lines.append(f"{image_name1} {image_name2}\n")
+    return "".join(lines)
+
+
+def _materialize_pairs_artifact(task: Task, artifact: dict[str, Any]) -> Path:
+    uri = artifact.get("uri")
+    if not uri:
+        raise ValidationError("input_artifacts.pairs.uri is required")
+    source = Path(str(uri))
+    if not source.is_file():
+        raise ValidationError(f"input_artifacts.pairs.uri does not exist: {source}")
+    artifact_format = str(artifact.get("artifact_format") or "")
+    media_type = str(artifact.get("media_type") or "")
+    if (
+        artifact_format == "sfmapi.pairs.image_names.v1"
+        and (media_type == "application/json" or source.suffix.lower() == ".json")
+    ):
+        stage = Paths(get_settings()).workspace_root / "_stage" / task.task_id
+        stage.mkdir(parents=True, exist_ok=True)
+        pairs_path = stage / "input_artifact_pairs.txt"
+        pairs_path.write_text(_pair_text_from_json_artifact(source), encoding="utf-8", newline="\n")
+        return pairs_path
+    return source
+
+
+def _materialize_explicit_pairs(
+    task: Task,
+    pairs: dict[str, Any],
+    input_artifacts: dict[str, Any] | None,
+) -> Path:
     if pairs.get("pairs_blob_sha"):
         return get_blob_store().local_path(str(pairs["pairs_blob_sha"]))
+
+    pair_artifact = (input_artifacts or {}).get("pairs")
+    if isinstance(pair_artifact, dict):
+        return _materialize_pairs_artifact(task, pair_artifact)
 
     image_pairs = pairs.get("image_pairs") or []
     if not isinstance(image_pairs, list) or not image_pairs:
         raise ValidationError(
-            "pairs.strategy=explicit requires pairs.image_pairs or pairs.pairs_blob_sha"
+            "pairs.strategy=explicit requires pairs.image_pairs, pairs.pairs_blob_sha, "
+            "or input_artifacts.pairs"
         )
 
     stage = Paths(get_settings()).workspace_root / "_stage" / task.task_id
@@ -65,7 +125,7 @@ def _match_options(
     matcher.pop("input_artifacts", None)
 
     if pairs.get("strategy") == "explicit":
-        pairs_path = _materialize_explicit_pairs(task, pairs)
+        pairs_path = _materialize_explicit_pairs(task, pairs, input_artifacts)
         pairs["pairs_path"] = str(pairs_path)
         pairs["match_list_path"] = str(pairs_path)
 

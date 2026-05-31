@@ -36,6 +36,51 @@ def test_cli_install_from_github_dry_run(capsys: pytest.CaptureFixture[str]) -> 
     assert "sfmapi-custom @ git+https://github.com/SFMAPI/sfmapi_custom.git@v0.1.0" in out
 
 
+def test_cli_container_service_install_dry_run(capsys: pytest.CaptureFixture[str]) -> None:
+    main(["plugins", "install", "hloc", "--method", "container_service", "--dry-run"])
+
+    out = capsys.readouterr().out
+    assert "container_service:hloc" in out
+    assert "does not define a container_service runtime" in out
+
+
+def test_cli_install_redacts_provisioning_env(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import plugin_service
+
+    monkeypatch.setattr(plugin_service, "run_uv_install", lambda plan: None)
+    monkeypatch.setattr(
+        plugin_service,
+        "run_package_provisioner",
+        lambda package_name, *, dry_run, force: {
+            "available": True,
+            "provisioned": True,
+            "steps": [{"name": "secret", "api_key": "secret-value"}],
+            "env": {"SFMAPI_PLUGIN_TOKEN": "secret-value"},
+            "warnings": [],
+        },
+    )
+
+    main(
+        [
+            "plugins",
+            "install",
+            "local_test",
+            "--github",
+            "https://github.com/SFMAPI/sfmapi_custom.git@v0.1.0",
+            "--package",
+            "sfmapi-custom",
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert "secret-value" not in out
+    assert "SFMAPI_PLUGIN_TOKEN" in out
+    assert "<redacted>" in out
+
+
 def test_cli_profiles_and_providers(capsys: pytest.CaptureFixture[str]) -> None:
     record_manual_install("colmap_cli", method="external_tool")
 

@@ -163,6 +163,86 @@ def test_worker_feature_options_keep_portable_and_backend_envelopes() -> None:
     assert options["sift"]["max_num_features"] == 4096
 
 
+class ColmapLikeBackend(StubBackend):
+    """Fake COLMAP-family backend: advertises colmap capabilities and a
+    machine-readable command schema, but does NOT override
+    list_backend_config_schemas -- so the framework's canonical
+    _colmap_config_descriptors path (the single source the plugins now import)
+    is what builds the rows."""
+
+    name = "colmap_like"
+    version = "1.0"
+    vendor = "tests"
+
+    def capabilities(self) -> set[str]:
+        return {
+            "features.extract.sift",
+            "pairs.exhaustive",
+            "pairs.spatial",
+            "pairs.from_poses",
+            "matchers.nn-mutual",
+            "matches.verify",
+            "ba.standard",
+        }
+
+    def colmap_command_schema(self, command: str) -> dict[str, Any]:
+        return {
+            "schema_source": "synthetic",
+            "option_count": 2,
+            "options": [
+                {"name": "SiftMatching.max_ratio", "schema": {"type": "number"}},
+                # runtime-managed -> must be filtered out of the option schema
+                {"name": "database_path", "schema": {"type": "string"}},
+            ],
+        }
+
+
+class RadianceLikeBackend(StubBackend):
+    name = "radiance_like"
+    version = "1.0"
+    vendor = "tests"
+
+    def capabilities(self) -> set[str]:
+        return {"radiance.train", "radiance.evaluate"}
+
+
+def test_framework_colmap_descriptors_are_single_source_with_from_poses() -> None:
+    rows = backend_config._colmap_config_descriptors(ColmapLikeBackend(), include_schema=True)
+    by_id = {r["config_id"]: r for r in rows}
+    # from_poses now lives in the canonical table and is served wherever the
+    # capability is advertised (previously only one of three plugins had it).
+    assert "colmap.pairs.from_poses" in by_id
+    fp = by_id["colmap.pairs.from_poses"]
+    assert fp["capability"] == "pairs.from_poses"
+    # description interpolates the capability (regression guard for the old
+    # literal "{capability}" f-string bug) and backtick-wraps it.
+    assert "{capability}" not in fp["description"]
+    assert "`pairs.from_poses`" in fp["description"]
+    # option schema keeps real options, drops runtime-managed ones.
+    props = fp["option_schema"]["properties"]
+    assert "SiftMatching.max_ratio" in props
+    assert "database_path" not in props
+    # capability-gated: map.global isn't advertised, so it isn't served.
+    assert "colmap.mapping.global" not in by_id
+    # the framework-served colmap schemas must satisfy the contract checker.
+    assert backend_config.backend_config_contract_violations(ColmapLikeBackend()) == []
+
+
+def test_framework_radiance_train_schema_is_capability_gated() -> None:
+    rows = backend_config._radiance_config_descriptors(RadianceLikeBackend(), include_schema=True)
+    by_id = {r["config_id"]: r for r in rows}
+    assert "radiance.train" in by_id
+    props = by_id["radiance.train"]["option_schema"]["properties"]
+    assert {"num_gaussians", "max_resolution", "init", "test_every"} <= set(props)
+    # a backend without radiance.train serves nothing from this path.
+    assert backend_config._radiance_config_descriptors(ColmapLikeBackend(), include_schema=True) == []
+    # regression guard: the radiance.train schema must satisfy the config-schema
+    # contract checker (valid stage + additionalProperties:false). This catches
+    # the original bug where stage="radiance" was not a valid stage and the
+    # schema used additionalProperties:true.
+    assert backend_config.backend_config_contract_violations(RadianceLikeBackend()) == []
+
+
 def test_worker_match_options_split_pairs_and_matcher_backend_options() -> None:
     options = _match_options(
         cast(Any, object()),

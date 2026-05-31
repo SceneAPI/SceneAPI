@@ -33,6 +33,72 @@ The generated package contains endpoint modules under
 and hand-written helpers for chunked upload, SSE event streaming,
 binary point parsing, and job waiting.
 
+### Plugin install and routing
+
+Operator plugin routes are generated like the rest of the REST API. Use
+dry-run requests for planning and inspect only redacted provisioning output:
+
+```python
+from sfmapi_client_gen import Client
+from sfmapi_client_gen.api.admin.install_plugin_v1_admin_plugins_plugin_id_install_post import sync
+from sfmapi_client_gen.models.plugin_install_request import PluginInstallRequest
+from sfmapi_client_gen.models.plugin_install_request_method import PluginInstallRequestMethod
+
+client = Client(base_url="http://localhost:8080")
+plan = sync(
+    "local_test",
+    client=client,
+    body=PluginInstallRequest(
+        method=PluginInstallRequestMethod.UV,
+        github_url="https://github.com/SFMAPI/sfmapi_custom.git",
+        ref="v0.1.0",
+        package_name="sfmapi-custom",
+        dry_run=True,
+        provision_runtime=True,
+    ),
+)
+print(plan.provisioning.env_keys if plan.provisioning else [])
+```
+
+Container-service installs record an already-running service and validate its
+health/version protocol before enabling the provider:
+
+```python
+from sfmapi_client_gen.api.admin.install_plugin_v1_admin_plugins_plugin_id_install_post import sync
+from sfmapi_client_gen.models.plugin_install_request import PluginInstallRequest
+from sfmapi_client_gen.models.plugin_install_request_method import PluginInstallRequestMethod
+
+result = sync(
+    "instantsfm",
+    client=client,
+    body=PluginInstallRequest(
+        method=PluginInstallRequestMethod.CONTAINER_SERVICE,
+        dry_run=False,
+        allow_unsafe_execution=True,
+        request_id="550e8400-e29b-41d4-a716-446655440010",
+    ),
+)
+print(result.provisioning_status)
+```
+
+When several providers can run a stage, set fallback priority explicitly:
+
+```python
+from sfmapi_client_gen.api.admin.set_provider_priority_v1_admin_routing_provider_priority_post import sync
+from sfmapi_client_gen.models.provider_priority_request import ProviderPriorityRequest
+
+routing = sync(
+    client=client,
+    body=ProviderPriorityRequest(providers=["colmap_pycolmap", "colmap_cli"]),
+)
+print(routing.provider_priority)
+```
+
+Older generated SDKs can still call these routes through their raw HTTP client.
+Treat `provisioning`, `provisioning_status`, `redacted_env`, and
+`provider_priority` as additive fields until the SDK is regenerated from the
+current OpenAPI snapshot.
+
 ## TypeScript client
 
 ```bash
