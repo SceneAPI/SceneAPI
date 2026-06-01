@@ -1,0 +1,174 @@
+"""Reusable plugin HTTP service adapter -- the server side of
+``sfmapi-plugin-http-v1``.
+
+A ``container_service`` plugin runs ONE backend object and exposes it over HTTP
+so the sfmapi server can drive it across a versioned protocol (see
+``docs/guides/container_plugin_runtime_checklist.md``). This module builds that
+server: a plugin packages its :class:`~app.adapters.backend.Backend` + a task
+executor, calls :func:`build_plugin_server`, and runs the returned ASGI app.
+
+The endpoints satisfy the contracts the sfmapi side already speaks:
+
+* ``GET  /healthz``             -- liveness (``sfm_hub.doctor`` probes this).
+* ``GET  /version``            -- protocol + provenance (doctor's protocol-
+  contract check reads ``protocol`` / ``protocol_version``).
+* ``GET  /capabilities``       -- the backend capability set.
+* ``GET  /actions``            -- the backend's extension actions.
+* ``POST /actions/{id}:validate`` -- validate an action's params.
+* ``POST /execute``            -- run one task (the radiance/stage worker POSTs
+  ``{protocol, task_kind, capability, tenant_id, job_id, task_id, provider,
+  inputs, spec}`` here and reads ``{protocol, ...result}`` back).
+
+Compatibility is major-version based (:func:`protocol_compatible`).
+"""
+
+from __future__ import annotations
+
+import hashlib
+from typing import Any, Protocol
+
+PROTOCOL = "sfmapi-plugin-http-v1"
+PROTOCOL_VERSION = "1.0"
+
+
+def capabilities_hash(capabilities) -> str:
+    """Stable hash of a capability set -- lets the server detect a backend whose
+    advertised features changed without re-probing every action."""
+    joined = "\n".join(sorted(str(c) for c in capabilities))
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+
+def protocol_compatible(client_protocol_version: str) -> bool:
+    """Major-version compatibility for ``sfmapi-plugin-http-v1``: a client and
+    server are compatible iff they share the protocol major version, so a future
+    ``...-http-v2`` (or a 2.x version string) is correctly rejected as
+    incompatible while 1.x variants interoperate."""
+    try:
+        return client_protocol_version.split(".", 1)[0] == PROTOCOL_VERSION.split(".", 1)[0]
+    except Exception:
+        return False
+
+
+class TaskExecutor(Protocol):
+    """The task runner a plugin supplies: execute one task, return its result
+    payload (serialized back to the sfmapi worker as the task outputs)."""
+
+    def __call__(
+        self,
+        *,
+        task_kind: str,
+        capability: str,
+        inputs: dict[str, Any],
+        spec: dict[str, Any],
+        tenant_id: str,
+        job_id: str,
+        task_id: str,
+        provider: str,
+    ) -> dict[str, Any]: ...
+
+
+def build_plugin_server(
+    backend: Any,
+    *,
+    plugin_id: str,
+    package_version: str,
+    executor: TaskExecutor,
+):
+    """Build the ASGI app serving ``backend`` over ``sfmapi-plugin-http-v1``."""
+    from fastapi import Body, FastAPI
+    from fastapi.responses import JSONResponse
+
+    app = FastAPI(title=f"sfmapi plugin {plugin_id}", docs_url=None, redoc_url=None)
+    caps = sorted(str(c) for c in backend.capabilities())
+
+    @app.get("/healthz")
+    async def healthz() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/version")
+    async def version() -> dict[str, str]:
+        return {
+            "protocol": PROTOCOL,
+            "protocol_version": PROTOCOL_VERSION,
+            "plugin_id": plugin_id,
+            "package_version": package_version,
+            "backend_version": str(getattr(backend, "version", "")),
+            "capabilities_hash": capabilities_hash(caps),
+        }
+
+    @app.get("/capabilities")
+    async def capabilities() -> dict[str, Any]:
+        return {
+            "schema_version": 1,
+            "backend": {
+                "name": str(getattr(backend, "name", plugin_id)),
+                "version": str(getattr(backend, "version", "")),
+                "vendor": str(getattr(backend, "vendor", "")),
+            },
+            "features": caps,
+        }
+
+    @app.get("/actions")
+    async def actions() -> dict[str, Any]:
+        try:
+            from app.adapters.backend_actions import list_backend_actions
+
+            rows = list_backend_actions(backend, include_schemas=False)
+        except Exception:
+            rows = []
+        return {"actions": rows}
+
+    @app.post("/actions/{action_id}:validate")
+    async def validate_action(action_id: str, params: dict[str, Any] = Body(default={})):
+        try:
+            from app.adapters.backend_actions import validate_backend_action
+
+            errors = validate_backend_action(backend, action_id, params or {})
+        except Exception as exc:  # action surface optional
+            return JSONResponse(
+                {"valid": False, "errors": [str(exc)]}, status_code=200
+            )
+        return {"valid": not errors, "errors": list(errors)}
+
+    @app.post("/execute")
+    async def execute(payload: dict[str, Any] = Body(...)):
+        if payload.get("protocol") != PROTOCOL:
+            return JSONResponse(
+                {
+                    "error": "protocol_mismatch",
+                    "expected": PROTOCOL,
+                    "got": payload.get("protocol"),
+                },
+                status_code=400,
+            )
+        try:
+            result = executor(
+                task_kind=str(payload["task_kind"]),
+                capability=str(payload.get("capability", "")),
+                inputs=dict(payload.get("inputs") or {}),
+                spec=dict(payload.get("spec") or {}),
+                tenant_id=str(payload.get("tenant_id", "")),
+                job_id=str(payload.get("job_id", "")),
+                task_id=str(payload.get("task_id", "")),
+                provider=str(payload.get("provider", "")),
+            )
+        except KeyError as exc:
+            return JSONResponse(
+                {"error": "missing_field", "field": str(exc).strip("'")},
+                status_code=400,
+            )
+        if not isinstance(result, dict):
+            result = {"result": result}
+        return {"protocol": PROTOCOL, **result}
+
+    return app
+
+
+__all__ = [
+    "PROTOCOL",
+    "PROTOCOL_VERSION",
+    "TaskExecutor",
+    "build_plugin_server",
+    "capabilities_hash",
+    "protocol_compatible",
+]

@@ -22,20 +22,22 @@ before treating `container_service` or plugin provisioning as production-ready.
 - [x] Add typed execution, mount, GPU, env, secret, timeout, retry, shutdown,
   log, and artifact-collection specs.
 - [x] Add digest/image provenance, cache policy, and object-store specs.
-- [ ] Add protocol compatibility rules for future `sfmapi-plugin-http-v2`.
+- [x] Add protocol compatibility rules for future `sfmapi-plugin-http-v2`
+  (`app.plugin_server.protocol_compatible` -- major-version based; rejects 2.x).
 
 ## Plugin Service Protocol
 
-- [ ] Implement a reusable plugin service adapter that exposes one backend
-  object over HTTP.
-- [ ] Implement `GET /healthz` returning service health.
-- [ ] Implement `GET /version` returning `protocol`,
+- [x] Implement a reusable plugin service adapter that exposes one backend
+  object over HTTP (`app/plugin_server.py` `build_plugin_server`; tested in
+  `tests/unit/test_plugin_server.py`).
+- [x] Implement `GET /healthz` returning service health.
+- [x] Implement `GET /version` returning `protocol`,
   `protocol_version`, plugin id, package version, backend version, and optional
   capabilities hash. `sfmapi-plugin-http-v1` compatibility is major-version
   based.
-- [ ] Implement `GET /capabilities`.
-- [ ] Implement `GET /actions`.
-- [ ] Implement `POST /actions/{action_id}:validate`.
+- [x] Implement `GET /capabilities`.
+- [x] Implement `GET /actions`.
+- [x] Implement `POST /actions/{action_id}:validate`.
 - [x] Define the bridge execution endpoint as `POST /execute` with
   `request_id`, `plugin_id`, `provider`, `action_id`, `inputs`, mounted IO
   roles, redacted env/secret key names, logs, and artifacts.
