@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "SceneAPI"
+version = "0.0.1"
+description = "API for scene reconstruction"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+  { name = "SceneAPI" },
+]
+keywords = ["3d", "reconstruction", "scene"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/SceneAPI/SceneAPI"
+Repository = "https://github.com/SceneAPI/SceneAPI"
+Issues = "https://github.com/SceneAPI/SceneAPI/issues"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/README.md",
+  "/pyproject.toml",
+  "/src",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sceneapi"]
