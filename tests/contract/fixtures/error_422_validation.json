@@ -13,7 +13,7 @@
       "type": "missing"
     }
   ],
-  "instance": "http://contract/v1/projects",
+  "instance": "/v1/projects",
   "status": 422,
   "title": "Validation error",
   "type": "https://sfmapi.github.io/errors/validation"

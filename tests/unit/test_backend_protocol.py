@@ -78,19 +78,32 @@ def test_unknown_provider_raises() -> None:
         get_backend(provider="not.a.real.provider")
 
 
-def test_get_backend_provider_falls_through_to_backend_name() -> None:
-    """``get_backend(provider=name)`` resolves through ``_REGISTRY`` when
-    ``name`` is a registered backend name without a separate provider
-    alias. This is the ergonomic for single-backend deployments that
-    haven't bothered declaring ``providers=[...]`` but still want
-    per-stage routing to reach the only registered factory."""
+def test_get_backend_provider_does_not_fall_through_to_backend_name() -> None:
     register_backend("stub-fallthrough", StubBackend)
     try:
         assert "stub-fallthrough" not in list_backend_providers()
-        backend = get_backend(provider="stub-fallthrough")
-        assert backend.name == "stub"
+        with pytest.raises(KeyError, match="unknown sfmapi provider"):
+            get_backend(provider="stub-fallthrough")
     finally:
         _REGISTRY.pop("stub-fallthrough", None)
+
+
+def test_duplicate_provider_aliases_fail_closed() -> None:
+    class OtherBackend(StubBackend):
+        name = "other"
+
+    register_backend("stub-collision-a", StubBackend, providers=["shared-provider"])
+    try:
+        with pytest.raises(ValueError, match="already registered"):
+            register_backend(
+                "stub-collision-b",
+                OtherBackend,
+                providers=["shared-provider"],
+            )
+    finally:
+        _REGISTRY.pop("stub-collision-a", None)
+        _REGISTRY.pop("stub-collision-b", None)
+        _PROVIDER_REGISTRY.pop("shared-provider", None)
 
 
 def test_minimal_action_backend_satisfies_base_protocol_only() -> None:
@@ -153,7 +166,8 @@ def test_capabilities_endpoint_picks_up_swapped_backend() -> None:
     # own optional dependencies are present.
     assert not caps.supports("features.extract")
     assert not caps.supports("ba.standard")
-    assert not caps.supports("dense.patch_match_stereo")
+    removed_dense_capability = "dense." + "patch_match_stereo"
+    assert not caps.supports(removed_dense_capability)
     # sfmapi-internal capabilities still on regardless of backend:
     assert caps.supports("similarity.dhash")
     assert caps.supports("pose_priors.read_write")

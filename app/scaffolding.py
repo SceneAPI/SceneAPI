@@ -98,6 +98,7 @@ from sfmapi.backends import Plugin
 from .backend import ${class_name}Backend
 
 MANIFEST: dict = {
+    "schema_version": 1,
     "plugin_id": "${plugin_id}",
     "display_name": "${display_name}",
     "description": "${description}",

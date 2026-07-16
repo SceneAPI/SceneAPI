@@ -15,6 +15,10 @@ from app.schemas.api.similarity import (
     SimilarityNeighborOut,
     SimilarityQueryResponse,
 )
+from app.schemas.pipeline_spec import (
+    PROVIDER_SELECTOR_MAX_LENGTH,
+    PROVIDER_SELECTOR_PATTERN,
+)
 from app.services import sfm_stage_service, similarity_service
 
 router = APIRouter(prefix="/datasets/{dataset_id}/similarity", tags=["similarity"])
@@ -70,8 +74,8 @@ async def build(
     provider: str | None = Query(
         default=None,
         min_length=1,
-        max_length=64,
-        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
         description="Optional provider id to execute a vlad build job.",
     ),
     tenant_id: str = Depends(current_tenant),

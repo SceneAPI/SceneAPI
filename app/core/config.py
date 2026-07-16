@@ -36,9 +36,11 @@ class Settings(BaseSettings):
     blob_s3_region: str | None = None
     blob_s3_endpoint_url: str | None = None
 
-    # Pluggable queue backend. `arq` enqueues to Redis (production);
+    # Pluggable queue backend. `arq` enqueues to Redis through ARQ;
+    # `raw_redis` LPUSHes plain task ids for the C++ bridge worker;
     # `inline` runs each task synchronously in-process (tests, dev).
-    queue_backend: Literal["arq", "inline"] = "arq"
+    queue_backend: Literal["arq", "inline", "raw_redis"] = "arq"
+    queue_key: str = "sfmapi:queue:default"
 
     # Ephemeral mode — single-process, zero persistence. Switches the
     # DB to in-memory SQLite (shared-cache StaticPool), the blob store

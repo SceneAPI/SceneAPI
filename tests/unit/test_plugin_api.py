@@ -36,6 +36,26 @@ def _start_container_service(
     return server, thread, f"http://{host}:{port}"
 
 
+def _catalog_responses(plugin_id: str) -> dict[str, tuple[int, bytes]]:
+    return {
+        "/datatypes": (
+            200,
+            f'{{"schema_version":1,"plugin_id":"{plugin_id}","datatypes":[]}}'.encode(),
+        ),
+        "/processors": (
+            200,
+            (
+                f'{{"schema_version":1,"plugin_id":"{plugin_id}",'
+                '"processors":[],"processor_extensions":[]}'
+            ).encode(),
+        ),
+        "/pipelines": (
+            200,
+            f'{{"schema_version":1,"plugin_id":"{plugin_id}","pipelines":[]}}'.encode(),
+        ),
+    }
+
+
 async def test_plugin_registry_admin_api_and_provider_discovery(client: AsyncClient) -> None:
     plugins = await client.get("/v1/admin/plugins")
     assert plugins.status_code == 200, plugins.text
@@ -70,6 +90,65 @@ async def test_plugin_registry_admin_api_and_provider_discovery(client: AsyncCli
     providers = await client.get("/v1/backend/providers")
     assert providers.status_code == 200, providers.text
     assert providers.json()["items"] == []
+
+
+async def test_provider_pagination_keeps_duplicate_provider_ids(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import plugin_service
+
+    def row(provider_id: str, plugin_id: str) -> dict[str, object]:
+        return {
+            "provider_id": provider_id,
+            "plugin_id": plugin_id,
+            "display_name": plugin_id,
+            "description": None,
+            "capabilities": [],
+            "backend_actions": [],
+            "runtime_modes": [],
+            "installed": True,
+            "enabled": True,
+            "_links": {"plugin": {"href": f"/v1/admin/plugins/{plugin_id}"}},
+        }
+
+    monkeypatch.setattr(
+        plugin_service,
+        "list_providers",
+        lambda: [
+            row("shared", "beta"),
+            row("shared", "alpha"),
+            row("unique", "gamma"),
+        ],
+    )
+
+    first = await client.get("/v1/backend/providers", params={"page_size": 1})
+    assert first.status_code == 200, first.text
+    first_body = first.json()
+    assert first_body["items"][0]["provider_id"] == "shared"
+    assert first_body["items"][0]["plugin_id"] == "alpha"
+    assert first_body["total"] == 3
+    assert first_body["next_page_token"] == "shared|alpha"
+
+    second = await client.get(
+        "/v1/backend/providers",
+        params={"page_size": 1, "page_token": first_body["next_page_token"]},
+    )
+    assert second.status_code == 200, second.text
+    second_body = second.json()
+    assert second_body["items"][0]["provider_id"] == "shared"
+    assert second_body["items"][0]["plugin_id"] == "beta"
+    assert second_body["next_page_token"] == "shared|beta"
+
+    third = await client.get(
+        "/v1/backend/providers",
+        params={"page_size": 1, "page_token": second_body["next_page_token"]},
+    )
+    assert third.status_code == 200, third.text
+    third_body = third.json()
+    assert third_body["items"][0]["provider_id"] == "unique"
+    assert third_body["items"][0]["plugin_id"] == "gamma"
+    assert third_body["next_page_token"] is None
 
 
 async def test_plugin_admin_accepts_github_install_source(client: AsyncClient) -> None:
@@ -161,6 +240,7 @@ async def test_plugin_admin_container_service_runtime_flow(
                 200,
                 b'{"protocol":"sfmapi-plugin-http-v1","protocol_version":"1.0"}',
             ),
+            **_catalog_responses("hloc"),
         }
     )
     try:
@@ -262,14 +342,14 @@ async def test_backend_routing_endpoint_is_available(client: AsyncClient) -> Non
 async def test_admin_routing_profile_assignment_api(client: AsyncClient) -> None:
     priority = await client.post(
         "/v1/admin/routing/provider-priority",
-        json={"providers": ["colmap_cli"]},
+        json={"providers": ["colmap_cli@colmap_cli"]},
     )
     assert priority.status_code == 200, priority.text
-    assert priority.json()["provider_priority"] == ["colmap_cli"]
+    assert priority.json()["provider_priority"] == ["colmap_cli@colmap_cli"]
 
     profile = await client.post(
         "/v1/admin/routing/profiles",
-        json={"name": "hybrid", "routes": {"features": ["colmap_cli"]}},
+        json={"name": "hybrid", "routes": {"features": ["colmap_cli@colmap_cli"]}},
     )
     assert profile.status_code == 200, profile.text
     assert "hybrid" in profile.json()["profiles"]

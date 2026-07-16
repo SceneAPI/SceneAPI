@@ -23,9 +23,27 @@ from app.schemas.api.backend_actions import (
 )
 from app.schemas.api.jobs import JobAcceptedResponse
 from app.schemas.api.plugins import ProviderOut, ProviderPage, RoutingOut
-from app.services import backend_action_service, plugin_service
+from app.services import backend_action_service, plugin_service, project_service
 
 router = APIRouter(prefix="/backend", tags=["backend"])
+
+_PROVIDER_PAGE_TOKEN_SEPARATOR = "|"
+
+
+def _provider_page_key(row: dict[str, object]) -> tuple[str, str]:
+    return (str(row["provider_id"]), str(row["plugin_id"]))
+
+
+def _encode_provider_page_token(row: dict[str, object]) -> str:
+    provider_id, plugin_id = _provider_page_key(row)
+    return f"{provider_id}{_PROVIDER_PAGE_TOKEN_SEPARATOR}{plugin_id}"
+
+
+def _decode_provider_page_token(token: str) -> tuple[str, str]:
+    if _PROVIDER_PAGE_TOKEN_SEPARATOR not in token:
+        return (token, "")
+    provider_id, plugin_id = token.split(_PROVIDER_PAGE_TOKEN_SEPARATOR, 1)
+    return (provider_id, plugin_id)
 
 
 @router.get("", response_model=BackendOut)
@@ -121,10 +139,23 @@ async def list_artifact_contracts(
 async def validate_action(
     action_id: str,
     body: BackendActionValidateRequest,
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
 ) -> BackendActionValidateResponse:
     """Validate backend action inputs without creating a job."""
+    if body.project_id is not None:
+        await project_service.get_project(
+            session,
+            tenant_id=tenant_id,
+            project_id=body.project_id,
+        )
     return BackendActionValidateResponse.model_validate(
-        backend_action_service.validate_action(action_id, body.inputs, provider=body.provider)
+        backend_action_service.validate_action(
+            action_id,
+            body.inputs,
+            provider=body.provider,
+            project_id=body.project_id,
+        )
     )
 
 
@@ -145,7 +176,7 @@ async def run_action(
     use ``GET /v1/jobs/{job_id}``, ``/progress``, cancellation, and SSE
     exactly as they do for standard SfM workflows.
     """
-    job_id, tasks, backend = await backend_action_service.submit_action(
+    job_id, tasks, backend, provider = await backend_action_service.submit_action(
         session,
         tenant_id=tenant_id,
         project_id=body.project_id,
@@ -160,7 +191,7 @@ async def run_action(
             project_id=body.project_id,
             action_id=action_id,
             backend=backend,
-            provider=body.provider,
+            provider=provider,
         )
     )
 
@@ -204,17 +235,20 @@ async def list_providers(
     page_size: int = Query(50, ge=1, le=500),
 ) -> ProviderPage:
     """List enabled providers discovered from installed sfm_hub plugins."""
-    rows = plugin_service.list_providers()
+    rows = sorted(plugin_service.list_providers(), key=_provider_page_key)
+    total = len(rows)
     if page_token:
-        rows = [row for row in rows if str(row["provider_id"]) > page_token]
+        after = _decode_provider_page_token(page_token)
+        rows = [row for row in rows if _provider_page_key(row) > after]
     page = rows[: page_size + 1]
     next_page_token = None
     if len(page) > page_size:
-        next_page_token = str(page[page_size - 1]["provider_id"])
+        next_page_token = _encode_provider_page_token(page[page_size - 1])
         page = page[:page_size]
     return ProviderPage(
         items=[ProviderOut.model_validate(row) for row in page],
         next_page_token=next_page_token,
+        total=total,
     )
 
 

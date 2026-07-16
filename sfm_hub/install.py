@@ -7,11 +7,22 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from typing import Literal
+from urllib.parse import urlsplit
 
 from sfm_hub.models import ContainerServiceRuntime, DockerRuntime
 
 MUTABLE_REFS = {"main", "master", "develop", "dev", "trunk"}
 COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
+GITHUB_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+PUBLIC_PACKAGE_RE = re.compile(
+    r"^[A-Za-z0-9_.-]+(?:\[[A-Za-z0-9_.-]+(?:,[A-Za-z0-9_.-]+)*\])?$"
+)
+PUBLIC_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
+SENSITIVE_TEXT_RE = re.compile(
+    r"(token|secret|password|authorization|bearer|api[_-]?key|access[_-]?key|"
+    r"client[_-]?secret|private[_-]?key|credential|sfmapi_)",
+    re.IGNORECASE,
+)
 
 
 def _container_service_direct_reference(
@@ -73,25 +84,50 @@ def parse_github_source(
     text = text.removeprefix("git+")
 
     inline_ref: str | None = None
-    if ("@" in text and not text.startswith("https://github.com/")) or (
-        text.startswith("https://github.com/") and text.count("@") == 1
-    ):
+    if "://" not in text and "@" in text:
         text, inline_ref = text.rsplit("@", 1)
-
-    tree_marker = "/tree/"
-    if tree_marker in text:
-        text, inline_ref = text.split(tree_marker, 1)
 
     if re.match(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", text):
         text = f"https://github.com/{text}"
-    if not text.startswith("https://github.com/"):
-        raise ValueError("plugin source must be a https://github.com/... URL")
 
-    parts = text.removesuffix("/").split("/")
-    if len(parts) < 5 or not parts[-2] or not parts[-1]:
+    parsed = urlsplit(text)
+    if parsed.username or parsed.password:
+        raise ValueError("GitHub URL must not include credentials")
+    if parsed.scheme != "https" or parsed.netloc.lower() != "github.com":
+        raise ValueError("plugin source must be a https://github.com/... URL")
+    if parsed.query or parsed.fragment:
+        raise ValueError("GitHub URL must not include query or fragment")
+
+    path = parsed.path
+    if "@" in path:
+        path, inline_ref = path.rsplit("@", 1)
+    parts = [part for part in path.strip("/").split("/") if part]
+    if len(parts) < 2:
         raise ValueError("GitHub URL must include owner and repository")
-    normalized = "/".join(parts[:5]).removesuffix(".git")
+    owner, repo = parts[0], parts[1].removesuffix(".git")
+    if (
+        not GITHUB_NAME_RE.match(owner)
+        or not GITHUB_NAME_RE.match(repo)
+        or repo in {".", ".."}
+    ):
+        raise ValueError("GitHub URL must include a valid owner and repository")
+    if len(parts) > 2:
+        if len(parts) >= 4 and parts[2] == "tree":
+            inline_ref = "/".join(parts[3:])
+        else:
+            raise ValueError("GitHub URL must identify a repository, not a repository path")
     chosen_ref = ref or inline_ref or "main"
+    if (
+        not PUBLIC_REF_RE.match(chosen_ref)
+        or ".." in chosen_ref.split("/")
+        or SENSITIVE_TEXT_RE.search(chosen_ref)
+    ):
+        raise ValueError("plugin source ref must be a public branch, tag, or commit")
+    if package is not None and (
+        not PUBLIC_PACKAGE_RE.match(package) or SENSITIVE_TEXT_RE.search(package)
+    ):
+        raise ValueError("package name must be a public Python package name")
+    normalized = f"https://github.com/{owner}/{repo}"
     return GitHubSource(url=normalized, ref=chosen_ref, package=package)
 
 

@@ -2,18 +2,17 @@
 
 sfmapi is an **API standard for SfM**, not a single-backend service.
 Every endpoint that depends on a non-trivial backend feature
-(matching, mapping, dense MVS, retrieval, localization, etc.)
+(matching, mapping, retrieval, localization, radiance, etc.)
 declares a capability flag. Servers advertise which flags they
 support via ``GET /v1/capabilities``; clients gate UI affordances on
 the response. Endpoints that hit an unsupported capability return
 ``501 Not Implemented`` carrying the canonical capability name —
 never a generic 500.
 
-The registry below is the **canonical list** of capability strings.
-A backend that adds a feature MUST register a name here so clients
-have a stable id to test against. Backend implementations may report
-features beyond this list (and clients MUST treat unknown names as
-opaque), but anything reported here is part of the standard.
+The registry below is the **canonical public list** of capability
+strings. Backend implementations may expose new behavior internally, but
+publicly advertised capability ids are closed here until the plugin
+capability namespace is versioned and client-gated.
 
 Conformance levels
 ------------------
@@ -156,14 +155,10 @@ OPTIONAL_CAPABILITIES: tuple[str, ...] = (
     # Radiance-field / 3D Gaussian Splatting resources. These stay
     # separate from sparse-SfM reconstruction snapshots.
     "radiance.train",
-    "radiance.resume",
-    "radiance.render",
     "radiance.evaluate",
     "radiance.metrics.psnr",
     "radiance.metrics.ssim",
     "radiance.metrics.lpips",
-    "radiance.export",
-    "radiance.convert",
     # Backend extension action catalog. These flags mean the server
     # can expose backend-native operations without adding each
     # backend-specific command to the portable capability registry.
@@ -173,6 +168,10 @@ OPTIONAL_CAPABILITIES: tuple[str, ...] = (
     "backend.action_jobs",
     "backend.config_schemas",
     "backend.artifact_contracts",
+    # Generic typed-processor pipeline execution. Validation is served by
+    # sfmapi itself; actual execution needs a provider/runtime bridge that can
+    # run arbitrary Processor steps.
+    "pipelines.custom_execution",
     # Execution mode: the backend can run portable stages without
     # materializing intermediate artifacts (no on-disk database / sparse
     # model) — e.g. an in-process COLMAP bridge. Advisory: clients may
@@ -217,6 +216,7 @@ INFRASTRUCTURE_CAPABILITY_FAMILIES: dict[str, str] = {
     # radiance-field resources / backend meta / tooling
     "radiance": "radiance-field (3DGS) resources",
     "backend": "backend extension meta surfaces",
+    "pipelines": "generic typed-processor pipeline execution",
     "compute": "execution-mode advisories",
     "segment": "image segmentation",
     "rigs": "multi-camera rig configuration",
@@ -422,6 +422,15 @@ def detect_capabilities() -> Capabilities:
     caps.features["inputs.timestamps"] = True
     caps.features["import.kapture"] = True
     caps.features["import.archive"] = True
+    # The built-in deterministic stub radiance path is implemented by sfmapi
+    # itself for parity, SDK, and smoke-test workflows; it is not an engine
+    # capability reported by StubBackend.capabilities().
+    if backend_impl.name == "stub":
+        caps.features["radiance.train"] = True
+        caps.features["radiance.evaluate"] = True
+        caps.features["radiance.metrics.psnr"] = True
+        caps.features["radiance.metrics.ssim"] = True
+        caps.features["radiance.metrics.lpips"] = True
     # Video frame extraction needs ffmpeg on PATH.
     import shutil as _sh
 
@@ -447,14 +456,14 @@ def require(capability: str, *, reason: str = "") -> None:
 __all__ = [
     "ALL_KNOWN",
     "CORE_CAPABILITIES",
-    "OPTIONAL_CAPABILITIES",
     "INFRASTRUCTURE_CAPABILITY_FAMILIES",
-    "capability_family",
-    "is_infrastructure_capability",
+    "OPTIONAL_CAPABILITIES",
     "BackendInfo",
     "Capabilities",
+    "capability_family",
     "detect_capabilities",
     "empty_capabilities",
+    "is_infrastructure_capability",
     "require",
     "reset_capabilities_cache",
 ]

@@ -247,5 +247,5 @@ async def test_features_unknown_provider_returns_problem_with_candidates(
     assert resp.status_code == 422, resp.text
     body = resp.json()
     assert body.get("status") == 422
-    assert body.get("candidates") == ["alpha", "beta"]
+    assert body.get("candidates") == ["alpha@alpha_plugin", "beta@beta_plugin"]
     assert "routing profile" in (body.get("suggested_fix") or "")

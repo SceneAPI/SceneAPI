@@ -1,6 +1,6 @@
 {
   "detail": "Project 01HZNOTAREALPROJID00000000 not found",
-  "instance": "http://contract/v1/projects/01HZNOTAREALPROJID00000000",
+  "instance": "/v1/projects/01HZNOTAREALPROJID00000000",
   "status": 404,
   "title": "Resource not found",
   "type": "https://sfmapi.github.io/errors/not_found"

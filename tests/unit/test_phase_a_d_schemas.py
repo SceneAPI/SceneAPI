@@ -9,13 +9,17 @@ the legacy combined ``MatchesSpec`` was retired.
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
+from app.schemas.api.artifacts import ArtifactConversionPlanRequest
+from app.schemas.api.projections import ProjectionJobRequest
 from app.schemas.api.scene import (
     ImuMeasurement,
     PosePrior,
     Rigid3,
     Rotation,
 )
+from app.schemas.api.stages import VocabTreeSpec
 from app.schemas.pipeline_spec import (
     BundleAdjustmentSpec,
     FeaturesSpec,
@@ -49,6 +53,26 @@ def test_features_spec_accepts_alternative_type() -> None:
     assert body["provider"] == "hloc"
     assert body["max_num_features"] == 4096
     assert body["backend_options"] == {"SuperPoint.max_keypoints": 4096}
+
+
+def test_features_spec_accepts_legacy_sift_aliases() -> None:
+    f = FeaturesSpec.model_validate({
+        "extractor_options": {"peak_threshold": 0.01},
+        "sift_max_num_features": 4096,
+        "sift_first_octave": -1,
+    })
+
+    assert f.type == "sift"
+    assert f.max_num_features == 4096
+    assert f.backend_options == {"peak_threshold": 0.01, "sift_first_octave": -1}
+
+
+def test_features_spec_rejects_sift_aliases_for_non_sift_type() -> None:
+    with pytest.raises(PydanticValidationError):
+        FeaturesSpec.model_validate({
+            "type": "superpoint",
+            "sift_max_num_features": 4096,
+        })
 
 
 def test_pairs_spec_strategies() -> None:
@@ -179,6 +203,29 @@ def test_ba_spec_accepts_featuremetric_mode() -> None:
     assert spec.mode == "featuremetric"
     assert spec.provider == "hloc"
     assert spec.backend_options == {"featuremetric.max_num_iterations": 20}
+
+
+def test_stage_specs_reject_overlength_provider_selector_components() -> None:
+    with pytest.raises(PydanticValidationError):
+        VocabTreeSpec(provider="p" * 65)
+
+    with pytest.raises(PydanticValidationError):
+        VocabTreeSpec(provider=("p" * 64) + "@" + ("g" * 65))
+
+
+def test_artifact_and_projection_requests_accept_plugin_qualified_provider() -> None:
+    provider = ("p" * 64) + "@" + ("g" * 64)
+
+    assert ArtifactConversionPlanRequest(provider=provider).provider == provider
+    assert ProjectionJobRequest(provider=provider).provider == provider
+
+
+def test_artifact_and_projection_requests_reject_overlength_provider_components() -> None:
+    with pytest.raises(PydanticValidationError):
+        ArtifactConversionPlanRequest(provider="p" * 65)
+
+    with pytest.raises(PydanticValidationError):
+        ProjectionJobRequest(provider=("p" * 64) + "@" + ("g" * 65))
 
 
 def test_ba_spec_loss_kernel_default_squared() -> None:

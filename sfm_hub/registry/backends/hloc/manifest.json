@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "plugin_id": "hloc",
   "display_name": "Hierarchical Localization",
   "description": "Backend plugin for hloc feature, retrieval, matching, and localization workflows.",

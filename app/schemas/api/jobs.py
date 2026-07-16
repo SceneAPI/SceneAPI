@@ -7,7 +7,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.core.public_outputs import sanitize_public_outputs
+from app.core.public_outputs import (
+    sanitize_public_error_message,
+    sanitize_public_outputs,
+)
 from app.schemas.api.common import Link
 from app.schemas.api.scene import Sim3
 
@@ -65,6 +68,12 @@ class JobOut(BaseModel):
     error_class: str | None = None
     error_message: str | None = None
     links: dict[str, Link | None] | None = Field(default=None, alias="_links")
+
+    @model_validator(mode="after")
+    def _sanitize_error_message(self) -> JobOut:
+        if self.error_message is not None:
+            self.error_message = sanitize_public_error_message(self.error_message)
+        return self
 
 
 class TaskOut(BaseModel):
@@ -191,7 +200,8 @@ class JobAcceptedResponse(BaseModel):
 
     - ``recon_id`` — endpoints nested under a reconstruction
     - ``dataset_id`` / ``project_id`` — parent-pointer for top-level routes
-    - ``method`` — mesh submission method
+    - ``method`` — optional stage/backend method selector echoed by
+      submitters that accept one
     - ``applied_sim3`` — georegister applied transform
     - ``target_recon_id`` / ``source_recon_ids`` — ``reconstructions:merge``
     - ``strategy`` — ``similarity:build``

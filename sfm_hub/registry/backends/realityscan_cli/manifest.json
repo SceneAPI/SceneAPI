@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "plugin_id": "realityscan_cli",
   "display_name": "RealityScan CLI",
   "description": "Backend plugin for installed RealityScan or RealityCapture command-line tools.",

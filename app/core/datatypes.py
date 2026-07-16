@@ -78,6 +78,7 @@ def contract_dict() -> dict:
                 "type_id": t.type_id,
                 "title": t.title,
                 "kind": t.kind,
+                "aliases": [],
                 "description": t.description,
             }
             for t in CORE_DATA_TYPES
@@ -86,10 +87,10 @@ def contract_dict() -> dict:
 
 
 __all__ = [
-    "CORE_DATA_TYPES",
-    "CORE_DATA_TYPES_BY_ID",
     "CONTRACT_NAME",
     "CONTRACT_SCHEMA_VERSION",
+    "CORE_DATA_TYPES",
+    "CORE_DATA_TYPES_BY_ID",
     "DATA_TYPE_KINDS",
     "DataType",
     "contract_dict",

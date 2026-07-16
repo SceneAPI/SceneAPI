@@ -47,6 +47,8 @@ flowchart LR
 - **Pagination** (AIP-158): keyset via `?page_token=` + `?page_size=`.
   Responses include `next_page_token` (`null` ends the cursor).
   Page tokens are opaque — clients MUST NOT parse them.
+  Documented snapshot/navigation-index endpoints may use a compact
+  sequence-index envelope instead of `Page<T>`.
 - **Long-running ops**: `POST` returns `202 Accepted` with
   `JobAcceptedResponse{job_id, task_ids[], …}` and a
   `Location: /v1/jobs/{id}` header. Cancel via `POST
@@ -273,6 +275,61 @@ when matching against a specific feature artifact.
 `recipe ∈ {incremental, global, hierarchical, spherical}` and
 `spec.kind` MUST match.
 
+Recipe availability is composed from the selected stage and mapping
+capabilities, for example `features.extract.<type>`, the pair/match/verify
+capabilities, and `map.incremental`; there is no umbrella recipe
+capability.
+
+## Typed dataflow discovery
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/v1/datatypes` | - | `DataTypesContract` |
+| GET | `/v1/attributes` | - | `AttributesContract` |
+| GET | `/v1/operations` | - | legacy flat `OperationsContract` |
+| GET | `/v1/processors` | - | named-port `ProcessorsContract` |
+| GET | `/v1/pipelines` | - | `PipelinesContract` |
+| POST | `/v1/pipelines:validate` | `{initial_inputs?, steps}` | `PipelineValidateResponse` |
+| POST | `/v1/projects/{pid}/pipelines:run` | legacy flat chain or typed DAG request | legacy SfM chain returns 202; native typed DAGs return 501 until the typed executor lands |
+
+The composition law is `A.supplier[out].datatype ==
+B.consumer[in].datatype`. `/v1/processors` is the native registry;
+`/v1/operations` remains a compatibility projection. Processor
+`capabilities` are current execution selectors, not the final P6 split between
+capability families and provider/runtime requirements.
+The current core `match_graph` contract has one compatibility refinement:
+mapping still assumes verified matches, so P5b must split raw and verified
+match graphs into nominal DataTypes or make the refinement explicit in
+`PortSpec`.
+
+## Radiance / 3DGS
+
+Radiance fields are a capability-gated standard extension for NeRF / 3D
+Gaussian Splatting style resources. They are separate from sparse
+reconstruction snapshots; dense MVS and mesh generation remain outside the
+sfmapi core and belong behind backend actions or downstream APIs.
+This extension is alpha until the radiance docs and bench suites are complete.
+
+| Method | Path | Body / Query | Returns |
+|---|---|---|---|
+| POST | `/v1/projects/{pid}/radiance_fields:train` | `RadianceTrainRequest` | 202 + `JobAccepted` |
+| GET | `/v1/projects/{pid}/radiance_fields` | `?page_token=&page_size=` | `Page<RadianceField>` |
+| GET | `/v1/radiance_fields/{rfid}` | - | `RadianceField` |
+| POST | `/v1/radiance_fields/{rfid}:evaluate` | `RadianceEvaluateRequest` | 202 + `JobAccepted` |
+| GET | `/v1/radiance_fields/{rfid}/evaluations` | `?page_token=&page_size=` | `Page<RadianceEvaluation>` |
+| GET | `/v1/radiance_evaluations/{eid}` | - | `RadianceEvaluation` |
+| GET | `/v1/radiance_evaluations/{eid}/metrics` | - | `RadianceMetrics` |
+| GET | `/v1/radiance_evaluations/{eid}/artifacts/metrics.json` | - | JSON |
+| GET | `/v1/radiance_fields/{rfid}/snapshots` | - | alpha sequence index: `RadianceSnapshotListResponse` |
+| GET | `/v1/radiance_fields/{rfid}/snapshots/{seq}` | - | `RadianceSnapshot` |
+| GET | `/v1/radiance_fields/{rfid}/snapshots/{seq}/{name}` | `?download=true` | file bytes |
+
+Portable snapshot file names are `metadata.json`, `summary.json`,
+`point_cloud.ply`, `metrics.json`, and `transforms.json` when present. Missing
+optional files return 404. Implementations advertise `radiance.train`,
+`radiance.evaluate`, or narrower `radiance.metrics.*` capabilities according
+to the provider surface they expose.
+
 ## Reconstructions / submodels / snapshots
 
 | Method | Path | Query / Body | Returns |
@@ -307,12 +364,19 @@ verification emits several candidate pair sets.
 | GET | `/v1/artifacts/{artifact_id}` | - | `StageArtifact` |
 | GET | `/v1/artifacts/{artifact_id}/content` | `?download=true` | file bytes |
 | POST | `/v1/artifacts/{artifact_id}:conversionPlan` | `{provider?, to_format?, accepted_formats?, require_lossless?}` | `ArtifactConversionPlan` |
-| POST | `/v1/artifacts/{artifact_id}:convert` | `{provider?, to_format?, accepted_formats?, to_kind?, name?, options?}` | 202 + `JobAccepted` |
+| POST | `/v1/artifacts/{artifact_id}:convert` | `{provider?, to_format?, accepted_formats?, require_lossless?, to_kind?, name?, options?}` | 202 + `JobAccepted` |
 | POST | `/v1/artifacts/{artifact_id}:validate` | - | `ArtifactValidation` |
 
 `StageArtifact.uri` is metadata, not a portability contract. Use
-`/content` for local server-managed file artifacts. Remote URIs and
-paths outside sfmapi-managed storage are not dereferenced by the API.
+`/content` only for local server-managed regular-file artifacts named
+by top-level `StageArtifact.uri` or a backend output descriptor's top-level
+`path`. Remote URIs, absent top-level URIs, missing or unmanaged local
+paths, `files[]`-only local paths, and local directory artifacts do not
+advertise `_links.content` and are not dereferenced by the API.
+Directory artifact kinds such as
+`reconstruction.snapshot`, `reconstruction.sparse.v1`,
+`reconstruction.submodel`, and `radiance.snapshot` publish `uri: null`
+when their source URI is a local directory.
 
 Stage submissions can pass selected artifacts through
 `input_artifacts`, for example:
@@ -350,7 +414,8 @@ conversion path from the selected backend's artifact contracts. Pass
 `provider` to target a specific installed backend provider, or omit it
 to use the process default backend. Pass
 `accepted_formats` in preference order to let sfmapi negotiate the
-target format; pass `to_format` for an exact target. `:convert`
+target format; pass `to_format` for an exact target. Set
+`require_lossless=true` to reject lossy conversion paths. `:convert`
 submits the selected conversion as a normal job and requires the
 backend to implement `convert_artifact(...)`. Multi-step paths are
 executed inside that conversion task by calling the backend once per
@@ -397,11 +462,15 @@ For "right now" use cases that don't need a Project/Dataset row.
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| POST | `/v1/oneshot/features` | image bytes + `?provider=` (`Content-Type: image/...`) | `OneShotFeaturesResponse` |
-| POST | `/v1/oneshot/localize` | image bytes + `?recon_id=&provider=` | `OneShotLocalizeResponse` |
+| POST | `/v1/oneshot/features` | image bytes + `?type=&provider=&max_num_features=&use_gpu=&seed=` (`Content-Type: image/...`) | `OneShotFeaturesResponse` |
+| POST | `/v1/oneshot/localize` | image bytes + `?recon_id=&type=&provider=&max_num_features=&use_gpu=&seed=` | `OneShotLocalizeResponse` |
 
 Bytes are tempfile'd then deleted; no DB row is created. Capped at
 `SFMAPI_ONESHOT_MAX_REQUEST_BYTES` (50 MiB default).
+
+One-shot feature extraction is gated by the requested
+`features.extract.<type>` capability. One-shot localization is gated by
+`localize.from_memory`; there is no umbrella one-shot capability.
 
 ## Jobs
 

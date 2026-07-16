@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1._helpers import accepted_response
-from app.api.v1.artifacts import artifact_links
+from app.api.v1.artifacts import artifact_out
 from app.core.errors import NotFoundError, ValidationError
 from app.core.http import file_etag, if_none_match_hit, not_modified, weak_etag
 from app.core.paths import Paths
@@ -27,11 +27,57 @@ from app.schemas.api.reconstructions import (
     SnapshotListResponse,
     SubModelOut,
 )
+from app.schemas.pipeline_spec import (
+    PROVIDER_SELECTOR_MAX_LENGTH,
+    PROVIDER_SELECTOR_PATTERN,
+)
 from app.services import artifact_service, reconstruction_service, sfm_stage_service
 from app.storage import observations as obs_store
 from app.storage import tiles as tiles_store
 
 router = APIRouter(tags=["reconstructions"])
+
+_FILE_RESPONSE = {
+    200: {
+        "content": {
+            "application/octet-stream": {
+                "schema": {"type": "string", "format": "binary"}
+            },
+            "application/x-sfm-points-v1": {
+                "schema": {"type": "string", "format": "binary"}
+            },
+            "application/json": {
+                "schema": {"type": "object", "additionalProperties": True}
+            },
+        },
+        "description": "Snapshot file bytes or JSON sidecar content.",
+    }
+}
+
+_POINT_TILE_RESPONSE = {
+    200: {
+        "content": {
+            "application/octet-stream": {
+                "schema": {"type": "string", "format": "binary"}
+            },
+            "application/x-sfm-points-v1": {
+                "schema": {"type": "string", "format": "binary"}
+            }
+        },
+        "description": "Binary point tile bytes.",
+    }
+}
+
+_JSON_FILE_RESPONSE = {
+    200: {
+        "content": {
+            "application/json": {
+                "schema": {"type": "object", "additionalProperties": True}
+            }
+        },
+        "description": "JSON file content.",
+    }
+}
 
 
 def _recon_links(recon_id: str) -> dict[str, Link]:
@@ -83,8 +129,8 @@ class MergeRequest(BaseModel):
     provider: str | None = Field(
         default=None,
         min_length=1,
-        max_length=64,
-        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
         description="Optional provider id to execute the merge.",
     )
 
@@ -165,7 +211,7 @@ async def list_reconstruction_artifacts(
         name=name,
     )
     return Page(
-        items=[to_out(StageArtifactOut, row, links=artifact_links(row)) for row in rows],
+        items=[artifact_out(row) for row in rows],
         next_page_token=next_page_token,
     )
 
@@ -242,7 +288,11 @@ def _serve_snapshot_file(
     return FileResponse(target, media_type=media_type, filename=name, headers=headers)
 
 
-@router.get("/reconstructions/{recon_id}/snapshots/{seq}/{name}")
+@router.get(
+    "/reconstructions/{recon_id}/snapshots/{seq}/{name}",
+    response_class=FileResponse,
+    responses=_FILE_RESPONSE,
+)
 async def read_snapshot_file(
     recon_id: str,
     seq: int,
@@ -270,7 +320,11 @@ async def read_snapshot_file(
     return _serve_snapshot_file(target, name=name, request=request, download=download)
 
 
-@router.get("/reconstructions/{recon_id}/snapshots/{seq}/submodels/{idx}/{name}")
+@router.get(
+    "/reconstructions/{recon_id}/snapshots/{seq}/submodels/{idx}/{name}",
+    response_class=FileResponse,
+    responses=_FILE_RESPONSE,
+)
 async def read_submodel_snapshot_file(
     recon_id: str,
     seq: int,
@@ -317,7 +371,11 @@ async def _resolve_snapshot_dir(
 # ---- octree tiles -------------------------------------------------------
 
 
-@router.get("/reconstructions/{recon_id}/snapshots/{seq}/tiles/index.json")
+@router.get(
+    "/reconstructions/{recon_id}/snapshots/{seq}/tiles/index.json",
+    response_class=Response,
+    responses=_JSON_FILE_RESPONSE,
+)
 async def tiles_index(
     recon_id: str,
     seq: int,
@@ -350,6 +408,8 @@ async def tiles_index(
 
 @router.get(
     "/reconstructions/{recon_id}/snapshots/{seq}/tiles/{level}/{x}/{y}/{z}.bin",
+    response_class=FileResponse,
+    responses=_POINT_TILE_RESPONSE,
 )
 async def read_tile(
     recon_id: str,
@@ -485,7 +545,11 @@ async def merge_recons_endpoint(
     )
 
 
-@router.get("/reconstructions/{recon_id}/correspondence_graph.json")
+@router.get(
+    "/reconstructions/{recon_id}/correspondence_graph.json",
+    response_class=FileResponse,
+    responses=_JSON_FILE_RESPONSE,
+)
 async def read_correspondence_graph(
     recon_id: str,
     request: Request,
@@ -521,7 +585,11 @@ async def read_correspondence_graph(
     )
 
 
-@router.get("/reconstructions/{recon_id}/two_view_geometries.json")
+@router.get(
+    "/reconstructions/{recon_id}/two_view_geometries.json",
+    response_class=FileResponse,
+    responses=_JSON_FILE_RESPONSE,
+)
 async def read_two_view_geometries(
     recon_id: str,
     request: Request,

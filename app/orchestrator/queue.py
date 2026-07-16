@@ -1,10 +1,12 @@
 """Pluggable task queue.
 
 The orchestrator decides what to enqueue (Task rows from a job DAG);
-the Queue decides where execution happens. Two backends ship in v0:
+the Queue decides where execution happens. Three backends ship in v0:
 
-  - ``arq``: production. Enqueues into Redis via ARQ; the worker
+  - ``arq``: enqueues into Redis via ARQ; the worker
     process (``app/workers/runner.py``) consumes from the same pool.
+  - ``raw_redis``: LPUSHes plain task ids for the C++ bridge worker's
+    BLPOP protocol.
   - ``inline``: tests and ``inline_tasks=True`` dev mode. Calls
     ``run_task`` synchronously in the current event loop. Skips Redis
     entirely.
@@ -16,6 +18,7 @@ Selection is via ``settings.queue_backend`` (or the legacy
 from __future__ import annotations
 
 import contextlib
+from contextvars import ContextVar, Token
 from typing import Any, Protocol, runtime_checkable
 
 from app.core.config import Settings, get_settings
@@ -40,12 +43,12 @@ class Queue(Protocol):
 
 
 # --------------------------------------------------------------------
-#  ARQ (production)
+#  ARQ
 # --------------------------------------------------------------------
 
 
 class ArqQueue:
-    """Production backend — enqueues into Redis via ARQ."""
+    """Enqueue into Redis via ARQ."""
 
     backend: str = "arq"
 
@@ -64,7 +67,9 @@ class ArqQueue:
 
     async def enqueue(self, task_id: str) -> None:
         pool = await self._ensure_pool()
-        await pool.enqueue_job("run_task", task_id, _job_id=task_id)
+        job = await pool.enqueue_job("run_task", task_id)
+        if job is None:
+            raise RuntimeError(f"failed to enqueue task {task_id}")
 
     async def health(self) -> bool:
         try:
@@ -111,17 +116,71 @@ class InlineQueue:
 
 
 # --------------------------------------------------------------------
+#  Raw Redis (C++ bridge worker)
+# --------------------------------------------------------------------
+
+
+class RawRedisQueue:
+    """Plain task-id LPUSH backend consumed by bridge/bridge_worker.py."""
+
+    backend: str = "raw_redis"
+
+    def __init__(self, settings: Settings | None = None) -> None:
+        self.s = settings or get_settings()
+        self._client: Any | None = None
+
+    async def _ensure_client(self) -> Any:
+        if self._client is not None:
+            return self._client
+        import redis.asyncio as redis  # type: ignore
+
+        self._client = redis.from_url(self.s.redis_url, decode_responses=True)
+        return self._client
+
+    async def enqueue(self, task_id: str) -> None:
+        client = await self._ensure_client()
+        await client.lpush(self.s.queue_key, task_id)
+
+    async def health(self) -> bool:
+        try:
+            client = await self._ensure_client()
+            await client.ping()
+            return True
+        except Exception:
+            return False
+
+    async def close(self) -> None:
+        if self._client is not None:
+            with contextlib.suppress(Exception):
+                await self._client.close()
+            self._client = None
+
+
+# --------------------------------------------------------------------
 #  Factory
 # --------------------------------------------------------------------
 
-_BACKENDS: dict[str, type[Any]] = {"arq": ArqQueue, "inline": InlineQueue}
+_BACKENDS: dict[str, type[Any]] = {
+    "arq": ArqQueue,
+    "inline": InlineQueue,
+    "raw_redis": RawRedisQueue,
+}
+_FORCE_INLINE: ContextVar[bool] = ContextVar("sfmapi_force_inline_queue", default=False)
+
+
+def force_inline_queue() -> Token[bool]:
+    return _FORCE_INLINE.set(True)
+
+
+def reset_inline_queue(token: Token[bool]) -> None:
+    _FORCE_INLINE.reset(token)
 
 
 def get_queue(settings: Settings | None = None) -> Queue:
     """Build a queue per ``settings.queue_backend`` (with a legacy
     fall-through for ``inline_tasks=True``)."""
     s = settings or get_settings()
-    backend = "inline" if s.inline_tasks else s.queue_backend
+    backend = "inline" if (_FORCE_INLINE.get() or s.inline_tasks) else s.queue_backend
     cls = _BACKENDS.get(backend)
     if cls is None:
         raise ValueError(f"unknown queue_backend={backend!r}; valid: {sorted(_BACKENDS)}")

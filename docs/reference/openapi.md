@@ -34,11 +34,14 @@ GitHub release as `openapi.json`).
 
 ## Code generation
 
-Use it with any OpenAPI-aware generator:
+Use it with any OpenAPI-aware generator. For the official TypeScript
+SDK, use the repository generator so artifact content responses are
+patched to byte buffers:
 
 ```bash
-# TypeScript types
-npx openapi-typescript https://sfmapi.github.io/_static/openapi.json -o sfmapi.d.ts
+# Official TypeScript SDK types
+cd sfmapi-sdk/typescript
+npm run gen:openapi-types
 
 # Full client
 npx @openapitools/openapi-generator-cli generate \
@@ -46,6 +49,12 @@ npx @openapitools/openapi-generator-cli generate \
     -g python -o ./gen-python
 ```
 
-Our own SDKs (`sfmapi-client` for Python and `@sfmapi/client` for
-TypeScript) are hand-rolled rather than generated, but the OpenAPI
-document is the source of truth either way.
+Third-party TypeScript clients that call `openapi-typescript` directly
+should apply the same artifact-content transform used by
+`sfmapi-sdk/scripts/regen_from_openapi.py`, otherwise binary media
+variants may be emitted as strings instead of byte buffers.
+
+The supported Python and TypeScript SDK surfaces are generated from this
+OpenAPI document (`sfmapi_client_gen` and `@sfmapi/client/generated`).
+The hand-written compatibility wrappers remain for migration, but the
+OpenAPI document is the source of truth either way.

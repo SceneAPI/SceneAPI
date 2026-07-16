@@ -11,7 +11,7 @@ from app.core.errors import ValidationError
 from app.core.tenancy import current_tenant
 from app.db.session import get_db
 from app.schemas.api.common import to_out
-from app.schemas.api.uploads import UploadInit, UploadOut
+from app.schemas.api.uploads import UploadFinalizeRequest, UploadInit, UploadOut
 from app.services import upload_service
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
@@ -61,7 +61,20 @@ async def status_route(
     return to_out(UploadOut, u)
 
 
-@router.patch("/{upload_id}", response_model=UploadOut)
+@router.patch(
+    "/{upload_id}",
+    response_model=UploadOut,
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/octet-stream": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            },
+        }
+    },
+)
 async def patch_chunk(
     upload_id: str,
     request: Request,
@@ -74,7 +87,9 @@ async def patch_chunk(
     Requires ``Content-Range: bytes <start>-<end>/<total>`` (RFC 7233);
     the body length MUST equal the byte range. 422
     ``ValidationError`` on malformed Content-Range or length mismatch.
-    Chunks are idempotent at the same offset — retries are safe.
+    To retry after a lost response, first read upload status and resume
+    at ``received_bytes``; already-committed offsets are rejected as
+    out of order.
     """
     if not content_range:
         raise ValidationError("Content-Range header is required")
@@ -99,7 +114,7 @@ async def patch_chunk(
 @router.post("/{upload_id}:finalize", response_model=UploadOut)
 async def finalize(
     upload_id: str,
-    payload: dict = Body(default_factory=dict),
+    payload: UploadFinalizeRequest = Body(default_factory=UploadFinalizeRequest),
     x_content_sha: str | None = Header(default=None, alias="X-Content-SHA256"),
     tenant_id: str = Depends(current_tenant),
     session: AsyncSession = Depends(get_db),
@@ -109,7 +124,7 @@ async def finalize(
     transition the row to ``finalized`` with the canonical
     ``blob_sha``. AIP-136 ``:finalize`` colon verb (the operation
     has side effects beyond a Standard Update)."""
-    client_sha = x_content_sha or payload.get("content_sha")
+    client_sha = x_content_sha or payload.content_sha
     u = await upload_service.finalize_upload(
         session,
         tenant_id=tenant_id,

@@ -16,10 +16,10 @@ field:
 Forward-compatibility: SDKs MUST treat unknown ``kind`` values as
 ``unsupported`` rather than failing the whole response. Add new
 variants in additive form (new ``kind`` literal + new arm of the
-union); never repurpose an existing ``kind``. Backends advertise the
-recipes they implement via the ``pipelines.{kind}`` capability flags
-(see ``GET /v1/capabilities``); requests against an unsupported
-``kind`` return ``501 capability_unavailable``.
+union); never repurpose an existing ``kind``. Mapping stages advertise
+portable support via ``map.{kind}`` capability flags (see
+``GET /v1/capabilities``). Unsupported stage capabilities fail through
+the submitted job's task status.
 """
 
 from __future__ import annotations
@@ -39,14 +39,23 @@ Portable fields on the stage specs are the stable sfmapi contract.
 backend provider.
 """
 
+PROVIDER_SELECTOR_COMPONENT_MAX_LENGTH = 64
+PROVIDER_SELECTOR_PATTERN = (
+    r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}"
+    r"(?:@[A-Za-z0-9][A-Za-z0-9_.-]{0,63})?$"
+)
+PROVIDER_SELECTOR_MAX_LENGTH = PROVIDER_SELECTOR_COMPONENT_MAX_LENGTH * 2 + 1
+
 
 class _SpecBase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     version: Literal[1] = 1
     provider: str | None = Field(
         None,
         min_length=1,
-        max_length=64,
-        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
         description=(
             "Optional backend implementation selector when more than one "
             "registered provider can run the same portable mapping recipe."
@@ -107,11 +116,11 @@ PipelineSpec = Annotated[
 ]
 
 
-FeatureType = Literal["sift", "superpoint", "aliked", "disk", "r2d2", "d2net"]
+FeatureType = Literal["sift", "superpoint", "aliked", "disk", "r2d2", "d2net", "sosnet"]
 """Canonical names for local feature extractors. The capability flag
 for an extractor is ``features.extract.{type}``; the colmap_mod
-backend advertises ``features.extract.sift`` and (when pycolmap
-exposes it) ``features.extract.aliked``."""
+backend advertises ``features.extract.sift`` and learned-feature plugins
+may advertise extractors such as ``features.extract.sosnet``."""
 
 
 class FeaturesSpec(BaseModel):
@@ -123,13 +132,15 @@ class FeaturesSpec(BaseModel):
 
     Backend-specific extractor controls belong in ``backend_options``."""
 
+    model_config = ConfigDict(extra="forbid")
+
     version: Literal[1] = 1
     type: FeatureType = "sift"
     provider: str | None = Field(
         None,
         min_length=1,
-        max_length=64,
-        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
         description=(
             "Optional backend implementation selector when more than one "
             "registered provider can run the same feature type, for example "
@@ -153,6 +164,34 @@ class FeaturesSpec(BaseModel):
             "backend-specific feature extraction flows."
         ),
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _compat_aliases(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+        feature_type = data.get("type", "sift")
+
+        extractor_options = data.pop("extractor_options", None)
+        if extractor_options is not None and "backend_options" not in data:
+            data["backend_options"] = extractor_options
+        elif isinstance(extractor_options, dict) and isinstance(data.get("backend_options"), dict):
+            data["backend_options"] = {**extractor_options, **data["backend_options"]}
+        elif extractor_options is not None and not isinstance(extractor_options, dict):
+            data["extractor_options"] = extractor_options
+
+        if feature_type == "sift":
+            if "sift_max_num_features" in data and "max_num_features" not in data:
+                data["max_num_features"] = data["sift_max_num_features"]
+            data.pop("sift_max_num_features", None)
+            if "sift_first_octave" in data:
+                if "backend_options" not in data or isinstance(data.get("backend_options"), dict):
+                    backend_options = dict(data.get("backend_options") or {})
+                    backend_options.setdefault("sift_first_octave", data["sift_first_octave"])
+                    data["backend_options"] = backend_options
+                data.pop("sift_first_octave", None)
+        return data
 
 
 PairStrategy = Literal[
@@ -185,6 +224,8 @@ PairStrategy = Literal[
 class ImagePairRef(BaseModel):
     """One explicit pair of dataset image names."""
 
+    model_config = ConfigDict(extra="forbid")
+
     image_name1: str = Field(..., min_length=1, max_length=2048)
     image_name2: str = Field(..., min_length=1, max_length=2048)
 
@@ -202,13 +243,15 @@ class PairsSpec(BaseModel):
 
     Capability flag is ``pairs.{strategy}``."""
 
+    model_config = ConfigDict(extra="forbid")
+
     version: Literal[1] = 1
     strategy: PairStrategy = "exhaustive"
     provider: str | None = Field(
         None,
         min_length=1,
-        max_length=64,
-        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
         description=(
             "Optional backend implementation selector for this pair-selection "
             "stage. Use only to disambiguate providers that expose the same "
@@ -295,13 +338,15 @@ class MatcherSpec(BaseModel):
     are learned matchers. ``loftr`` is semi-dense (no separate
     extractor — set ``FeaturesSpec.type`` to a placeholder)."""
 
+    model_config = ConfigDict(extra="forbid")
+
     version: Literal[1] = 1
     type: MatcherType = "nn-mutual"
     provider: str | None = Field(
         None,
         min_length=1,
-        max_length=64,
-        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
         description=(
             "Optional backend implementation selector when more than one "
             "registered provider can run the same matcher type."
@@ -328,12 +373,14 @@ class MatcherSpec(BaseModel):
 
 
 class VerifySpec(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     version: Literal[1] = 1
     provider: str | None = Field(
         None,
         min_length=1,
-        max_length=64,
-        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
         description=(
             "Optional backend implementation selector for geometric "
             "verification when multiple providers expose matches.verify."
@@ -384,8 +431,8 @@ class BundleAdjustmentSpec(BaseModel):
     provider: str | None = Field(
         None,
         min_length=1,
-        max_length=64,
-        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
         description=(
             "Optional backend implementation selector for bundle adjustment "
             "when multiple providers expose the requested ba.* capability."

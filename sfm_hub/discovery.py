@@ -109,8 +109,15 @@ def discover_plugins(*, load: bool = False) -> list[DiscoveredPlugin]:
     return discovered
 
 
-def discovered_plugin_ids() -> set[str]:
-    return {plugin.plugin_id for plugin in discover_plugins(load=False)}
+def discovered_plugin_ids(*, load_manifests: bool = True) -> set[str]:
+    ids = {plugin.plugin_id for plugin in discover_plugins(load=False)}
+    if load_manifests:
+        ids.update(
+            plugin.plugin_id
+            for plugin in discover_plugins(load=True)
+            if plugin.load_error is None
+        )
+    return ids
 
 
 def discovered_manifests() -> list[PluginManifest]:
@@ -193,7 +200,18 @@ def load_backend_entry_points(
 
             if register_provider is not None:
                 for provider_id, factory in explicit_providers.items():
-                    register_provider(provider_id, factory)
+                    register_provider(f"{provider_id}@{plugin_id}", factory)
+                    try:
+                        register_provider(provider_id, factory)
+                    except ValueError:
+                        _log.warning(
+                            "sfm_hub.discovery.duplicate_explicit_provider_alias",
+                            extra={
+                                "plugin_id": plugin_id,
+                                "entry_point": ep.value,
+                                "provider_id": provider_id,
+                            },
+                        )
                 manifest_provider_ids = manifest.provider_ids() if manifest is not None else []
                 manifest_provider_ids = [
                     pid for pid in manifest_provider_ids if pid not in explicit_providers
@@ -202,12 +220,34 @@ def load_backend_entry_points(
                 if len(registered) == 1:
                     _, factory = registered[0]
                     for provider_id in manifest_provider_ids:
-                        register_provider(provider_id, factory)
+                        register_provider(f"{provider_id}@{plugin_id}", factory)
+                        try:
+                            register_provider(provider_id, factory)
+                        except ValueError:
+                            _log.warning(
+                                "sfm_hub.discovery.duplicate_manifest_provider_alias",
+                                extra={
+                                    "plugin_id": plugin_id,
+                                    "entry_point": ep.value,
+                                    "provider_id": provider_id,
+                                },
+                            )
                 else:
                     for provider_id in manifest_provider_ids:
                         factory = registered_by_name.get(provider_id)
                         if factory is not None:
-                            register_provider(provider_id, factory)
+                            register_provider(f"{provider_id}@{plugin_id}", factory)
+                            try:
+                                register_provider(provider_id, factory)
+                            except ValueError:
+                                _log.warning(
+                                    "sfm_hub.discovery.duplicate_manifest_provider_alias",
+                                    extra={
+                                        "plugin_id": plugin_id,
+                                        "entry_point": ep.value,
+                                        "provider_id": provider_id,
+                                    },
+                                )
                         else:
                             _log.warning(
                                 "sfm_hub.discovery.unmatched_manifest_provider",

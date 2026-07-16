@@ -16,6 +16,8 @@ class UploadEntrySpec(BaseModel):
     canonical content-addressed sha (returned by ``POST
     /v1/uploads/{id}:finalize``)."""
 
+    model_config = ConfigDict(extra="ignore")
+
     name: str = Field(..., min_length=1, max_length=512)
     blob_sha: str = Field(..., min_length=64, max_length=64)
 
@@ -23,6 +25,8 @@ class UploadEntrySpec(BaseModel):
 class UploadSourceSpec(BaseModel):
     """Image source backed by previously-uploaded blobs (sfmapi owns
     the bytes via the content-addressed blob store)."""
+
+    model_config = ConfigDict(extra="ignore")
 
     kind: Literal["upload"] = "upload"
     entries: list[UploadEntrySpec] = Field(default_factory=list)
@@ -33,6 +37,8 @@ class LocalSourceSpec(BaseModel):
     are NEVER copied — workers stream from ``root`` in place. Locked
     by ``L3`` in ``docs/guides/decisions.md`` (50GB local dirs)."""
 
+    model_config = ConfigDict(extra="ignore")
+
     kind: Literal["local"] = "local"
     root: str
     recursive: bool = True
@@ -41,6 +47,8 @@ class LocalSourceSpec(BaseModel):
 class S3SourceSpec(BaseModel):
     """Image source backed by an S3 prefix. Bytes are lazy-downloaded
     to the worker's LRU cache on first read; remote-only by default."""
+
+    model_config = ConfigDict(extra="ignore")
 
     kind: Literal["s3"] = "s3"
     bucket: str
@@ -58,13 +66,14 @@ SourceSpec = Annotated[
 - ``s3``     -> :class:`S3SourceSpec`
 
 Forward-compatibility: SDKs should reject unknown ``kind`` values
-client-side rather than guessing. Backends advertise which sources
-they accept via the ``sources.{kind}`` capability flags; a request
-against an unsupported source kind returns
-``501 capability_unavailable``."""
+client-side rather than guessing. Source-kind availability is validated
+by dataset creation; backend-native source importers live under
+``/v1/backend/actions`` rather than portable capability flags."""
 
 
 class DatasetCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     name: str = Field(..., min_length=1, max_length=255)
     source: SourceSpec
     camera_model: str = "SIMPLE_RADIAL"
@@ -77,6 +86,8 @@ class DatasetCreate(BaseModel):
 class DatasetPatch(BaseModel):
     """Partial update. Unset fields are left untouched. The dataset's
     `source_id` is immutable — to change images, create a new dataset."""
+
+    model_config = ConfigDict(extra="ignore")
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     camera_model: str | None = None

@@ -7,7 +7,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.core.public_outputs import sanitize_public_error, sanitize_public_outputs
 from app.schemas.api.common import Link, LinkedModel
+from app.schemas.pipeline_spec import PROVIDER_SELECTOR_MAX_LENGTH, PROVIDER_SELECTOR_PATTERN
 
 RadianceFieldStatus = Literal[
     "running",
@@ -27,6 +29,17 @@ RadianceEvalMetric = Literal["psnr", "ssim", "lpips"]
 RadianceEvalSplit = Literal["train", "val", "test", "all"]
 RadianceLpipsNet = Literal["alex", "vgg", "squeeze"]
 RadianceEvalBackground = Literal["dataset", "black", "white", "random"]
+
+
+def _public_dict(value: Any) -> dict[str, Any]:
+    sanitized = sanitize_public_outputs(value or {})
+    return sanitized if isinstance(sanitized, dict) else {}
+
+
+def _public_artifact_list(value: Any) -> list[dict[str, Any]]:
+    sanitized = sanitize_public_outputs({"artifacts": value or []})
+    artifacts = sanitized.get("artifacts") if isinstance(sanitized, dict) else []
+    return [item for item in artifacts if isinstance(item, dict)] if isinstance(artifacts, list) else []
 
 
 class RadianceEvalConfig(BaseModel):
@@ -81,7 +94,12 @@ class RadianceTrainRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     dataset_id: str | None = Field(default=None, min_length=1, max_length=64)
     recon_id: str | None = Field(default=None, min_length=1, max_length=64)
-    provider: str = Field(default="stub", min_length=1, max_length=64)
+    provider: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
+    )
     method: str = Field(default="stub", min_length=1, max_length=64)
     max_steps: int = Field(default=1, ge=1, le=10_000_000)
     eval: RadianceEvalConfig | None = None
@@ -100,8 +118,7 @@ class RadianceTrainRequest(BaseModel):
         return self
 
     def spec(self) -> dict[str, Any]:
-        return {
-            "provider": self.provider,
+        payload: dict[str, Any] = {
             "method": self.method,
             "max_steps": self.max_steps,
             **(
@@ -112,6 +129,9 @@ class RadianceTrainRequest(BaseModel):
             "backend_options": dict(self.backend_options),
             "request_id": self.request_id,
         }
+        if self.provider is not None:
+            payload["provider"] = self.provider
+        return payload
 
 
 class RadianceEvaluateRequest(BaseModel):
@@ -121,7 +141,12 @@ class RadianceEvaluateRequest(BaseModel):
 
     snapshot_seq: int | None = Field(default=None, ge=1)
     dataset_id: str | None = Field(default=None, min_length=1, max_length=64)
-    provider: str | None = Field(default=None, min_length=1, max_length=64)
+    provider: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
+    )
     method: str | None = Field(default=None, min_length=1, max_length=64)
     eval: RadianceEvalConfig = Field(default_factory=lambda: RadianceEvalConfig(enabled=True))
     backend_options: dict[str, Any] = Field(default_factory=dict)
@@ -150,6 +175,13 @@ class RadianceFieldOut(LinkedModel):
     updated_at: datetime
     links: dict[str, Link | None] | None = Field(default=None, alias="_links")
 
+    @model_validator(mode="after")
+    def _sanitize_public_fields(self) -> RadianceFieldOut:
+        self.spec = _public_dict(self.spec)
+        if self.summary is not None:
+            self.summary = _public_dict(self.summary)
+        return self
+
 
 class RadianceSnapshotOut(LinkedModel):
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
@@ -157,10 +189,15 @@ class RadianceSnapshotOut(LinkedModel):
     snapshot_id: str
     radiance_field_id: str
     seq: int
-    sealed_path: str
     summary: dict[str, Any] | None = Field(default=None, validation_alias="summary_json")
     created_at: datetime
     links: dict[str, Link | None] | None = Field(default=None, alias="_links")
+
+    @model_validator(mode="after")
+    def _sanitize_public_summary(self) -> RadianceSnapshotOut:
+        if self.summary is not None:
+            self.summary = _public_dict(self.summary)
+        return self
 
 
 class RadianceEvaluationOut(LinkedModel):
@@ -183,6 +220,19 @@ class RadianceEvaluationOut(LinkedModel):
     updated_at: datetime
     links: dict[str, Link | None] | None = Field(default=None, alias="_links")
 
+    @model_validator(mode="after")
+    def _sanitize_public_fields(self) -> RadianceEvaluationOut:
+        self.config = _public_dict(self.config)
+        if self.metrics is not None:
+            self.metrics = RadianceMetrics.model_validate(
+                _public_dict(self.metrics.model_dump(mode="json"))
+            )
+        if self.artifacts is not None:
+            self.artifacts = _public_artifact_list(self.artifacts)
+        if self.error is not None:
+            self.error = sanitize_public_error(self.error)
+        return self
+
 
 class RadianceVariantOut(LinkedModel):
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
@@ -195,6 +245,12 @@ class RadianceVariantOut(LinkedModel):
     summary: dict[str, Any] | None = Field(default=None, validation_alias="summary_json")
     created_at: datetime
     links: dict[str, Link | None] | None = Field(default=None, alias="_links")
+
+    @model_validator(mode="after")
+    def _sanitize_public_summary(self) -> RadianceVariantOut:
+        if self.summary is not None:
+            self.summary = _public_dict(self.summary)
+        return self
 
 
 class RadianceSnapshotListResponse(BaseModel):

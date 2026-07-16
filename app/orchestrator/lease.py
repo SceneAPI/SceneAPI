@@ -9,6 +9,7 @@ engines without dialect branches.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +29,7 @@ async def try_acquire_lease(
     pk_value: str,
     worker_id: str,
     ttl_seconds: int,
+    extra_where: tuple[Any, ...] = (),
 ) -> bool:
     new_expiry = now_utc() + timedelta(seconds=ttl_seconds)
     stmt = (
@@ -35,6 +37,7 @@ async def try_acquire_lease(
         .where(
             pk_col == pk_value,
             or_(lease_col.is_(None), lease_col < now_utc()),
+            *extra_where,
         )
         .values({lease_col.key: new_expiry, worker_col.key: worker_id})
     )

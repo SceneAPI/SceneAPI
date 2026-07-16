@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "plugin_id": "vismatch",
   "display_name": "Vismatch",
   "description": "Backend plugin for Vismatch pairwise image matching models. The plugin writes COLMAP keypoints/matches for downstream sfmapi verification and mapping; individual model licenses remain upstream model-specific.",

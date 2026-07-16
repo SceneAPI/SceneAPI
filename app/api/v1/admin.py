@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,6 +39,8 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 class IssueKeyBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     tenant_id: str
     name: str | None = None
 

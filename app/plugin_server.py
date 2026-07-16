@@ -14,6 +14,9 @@ The endpoints satisfy the contracts the sfmapi side already speaks:
   contract check reads ``protocol`` / ``protocol_version``).
 * ``GET  /capabilities``       -- the backend capability set.
 * ``GET  /actions``            -- the backend's extension actions.
+* ``GET  /datatypes``          -- plugin-declared Data Type extensions.
+* ``GET  /processors``         -- plugin-declared Processor extensions.
+* ``GET  /pipelines``          -- plugin-declared Pipeline extensions.
 * ``POST /actions/{id}:validate`` -- validate an action's params.
 * ``POST /execute``            -- run one task (the radiance/stage worker POSTs
   ``{protocol, task_kind, capability, tenant_id, job_id, task_id, provider,
@@ -28,7 +31,7 @@ import hashlib
 from typing import Any, Protocol
 
 PROTOCOL = "sfmapi-plugin-http-v1"
-PROTOCOL_VERSION = "1.0"
+PROTOCOL_VERSION = "1.1"
 
 
 def capabilities_hash(capabilities) -> str:
@@ -81,8 +84,39 @@ def build_plugin_server(
     app = FastAPI(title=f"sfmapi plugin {plugin_id}", docs_url=None, redoc_url=None)
     caps = sorted(str(c) for c in backend.capabilities())
 
+    def _optional_catalog(method_name: str) -> list[Any]:
+        method = getattr(backend, method_name, None)
+        if method is None:
+            return []
+        rows = method() if callable(method) else method
+        if rows is None:
+            return []
+        return list(rows)
+
+    def _catalog_schema_version() -> int:
+        version = getattr(backend, "catalog_schema_version", 1)
+        if callable(version):
+            version = version()
+        return int(version)
+
+    def _extension_catalog() -> Any:
+        from sfm_hub.models import PluginBackendCatalog
+
+        return PluginBackendCatalog.model_validate(
+            {
+                "schema_version": _catalog_schema_version(),
+                "plugin_id": plugin_id,
+                "capabilities": caps,
+                "datatypes": _optional_catalog("datatypes"),
+                "processors": _optional_catalog("processors"),
+                "processor_extensions": _optional_catalog("processor_extensions"),
+                "pipelines": _optional_catalog("pipelines"),
+            }
+        )
+
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:
+        _extension_catalog()
         return {"status": "ok"}
 
     @app.get("/version")
@@ -98,6 +132,7 @@ def build_plugin_server(
 
     @app.get("/capabilities")
     async def capabilities() -> dict[str, Any]:
+        catalog = _extension_catalog()
         return {
             "schema_version": 1,
             "backend": {
@@ -105,7 +140,7 @@ def build_plugin_server(
                 "version": str(getattr(backend, "version", "")),
                 "vendor": str(getattr(backend, "vendor", "")),
             },
-            "features": caps,
+            "features": catalog.capabilities,
         }
 
     @app.get("/actions")
@@ -118,17 +153,64 @@ def build_plugin_server(
             rows = []
         return {"actions": rows}
 
+    @app.get("/datatypes")
+    async def datatypes() -> dict[str, Any]:
+        catalog = _extension_catalog()
+
+        return {
+            "schema_version": catalog.schema_version,
+            "plugin_id": plugin_id,
+            "datatypes": [
+                row.model_dump(mode="json", exclude_none=True)
+                for row in catalog.datatypes
+            ],
+        }
+
+    @app.get("/processors")
+    async def processors() -> dict[str, Any]:
+        catalog = _extension_catalog()
+
+        return {
+            "schema_version": catalog.schema_version,
+            "plugin_id": plugin_id,
+            "processors": [
+                row.model_dump(mode="json", exclude_none=True)
+                for row in catalog.processors
+            ],
+            "processor_extensions": [
+                row.model_dump(mode="json", exclude_none=True)
+                for row in catalog.processor_extensions
+            ],
+        }
+
+    @app.get("/pipelines")
+    async def pipelines() -> dict[str, Any]:
+        catalog = _extension_catalog()
+
+        return {
+            "schema_version": catalog.schema_version,
+            "plugin_id": plugin_id,
+            "pipelines": [
+                row.model_dump(mode="json", exclude_none=True)
+                for row in catalog.pipelines
+            ],
+        }
+
     @app.post("/actions/{action_id}:validate")
     async def validate_action(action_id: str, params: dict[str, Any] = Body(default={})):
         try:
             from app.adapters.backend_actions import validate_backend_action
 
-            errors = validate_backend_action(backend, action_id, params or {})
+            result = validate_backend_action(action_id, params or {}, backend)
         except Exception as exc:  # action surface optional
             return JSONResponse(
                 {"valid": False, "errors": [str(exc)]}, status_code=200
             )
-        return {"valid": not errors, "errors": list(errors)}
+        return {
+            "valid": bool(result.get("valid")),
+            "errors": list(result.get("errors") or []),
+            "normalized_inputs": dict(result.get("normalized_inputs") or {}),
+        }
 
     @app.post("/execute")
     async def execute(payload: dict[str, Any] = Body(...)):
@@ -141,6 +223,36 @@ def build_plugin_server(
                 },
                 status_code=400,
             )
+        if not protocol_compatible(str(payload.get("protocol_version", ""))):
+            return JSONResponse(
+                {
+                    "error": "protocol_version_mismatch",
+                    "expected": PROTOCOL_VERSION,
+                    "got": payload.get("protocol_version"),
+                },
+                status_code=400,
+            )
+        if payload.get("stage") == "backend_action":
+            try:
+                from app.adapters import backend_actions
+
+                result = backend_actions.run_backend_action(
+                    str(payload["action_id"]),
+                    dict(payload.get("inputs") or {}),
+                    backend=backend,
+                )
+            except KeyError as exc:
+                return JSONResponse(
+                    {"error": "missing_field", "field": str(exc).strip("'")},
+                    status_code=400,
+                )
+            if not isinstance(result, dict):
+                result = {"result": result}
+            return {
+                "protocol": PROTOCOL,
+                "status": "succeeded",
+                "outputs": result,
+            }
         try:
             result = executor(
                 task_kind=str(payload["task_kind"]),

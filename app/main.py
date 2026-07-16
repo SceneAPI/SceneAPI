@@ -15,6 +15,7 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -25,6 +26,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import SfmApiError
 from app.core.ids import new_id
 from app.core.logging import bind_request_context, configure_logging, get_logger
+from app.core.public_outputs import sanitize_public_outputs
 from app.core.profiling import RequestProfilingMiddleware
 
 REQUEST_ID_HEADER = "X-Request-ID"
@@ -65,6 +67,8 @@ def _request_validation_errors_for_wire(exc: RequestValidationError) -> list[dic
                 str(key): str(value) if isinstance(value, BaseException) else value
                 for key, value in ctx.items()
             }
+        if "input" in item:
+            item["input"] = sanitize_public_outputs(item["input"])
         errors.append(item)
     return errors
 
@@ -245,7 +249,7 @@ def create_app() -> FastAPI:
     async def sfmapi_error_handler(request: Request, exc: SfmApiError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
-            content=exc.as_problem(instance=str(request.url)),
+            content=exc.as_problem(instance=request.url.path),
             media_type="application/problem+json",
         )
 
@@ -277,7 +281,7 @@ def create_app() -> FastAPI:
             "title": "Validation error",
             "status": 422,
             "detail": summary or "Request body failed validation",
-            "instance": str(request.url),
+            "instance": request.url.path,
             "errors": errors,
         }
         return JSONResponse(
@@ -337,6 +341,60 @@ def create_app() -> FastAPI:
     app.include_router(capabilities.router, prefix="/v1")
     app.include_router(oneshot.router, prefix="/v1")
     app.include_router(ws_jobs.router)
+
+    def custom_openapi() -> dict[str, Any]:
+        if app.openapi_schema:
+            return app.openapi_schema
+        spec = get_openapi(
+            title=app.title,
+            version=app.version,
+            routes=app.routes,
+        )
+        problem_ref = {"$ref": "#/components/schemas/ProblemResponse"}
+        problem_content = {"application/problem+json": {"schema": problem_ref}}
+        validation_ref = "#/components/schemas/HTTPValidationError"
+        validation_content = {
+            "application/problem+json": {"schema": problem_ref},
+            "application/json": {"schema": {"$ref": validation_ref}},
+        }
+        common_problem_responses = {
+            "400": "Bad request.",
+            "401": "Authentication required.",
+            "403": "Tenant boundary violation.",
+            "404": "Resource not found.",
+            "409": "Conflict.",
+            "413": "Request body too large.",
+            "429": "Quota exceeded.",
+            "501": "Capability not available in this deployment.",
+            "503": "Service unavailable.",
+            "507": "Insufficient storage.",
+        }
+        for path_item in spec.get("paths", {}).values():
+            for operation in path_item.values():
+                if not isinstance(operation, dict):
+                    continue
+                responses = operation.get("responses", {})
+                for code, response in responses.items():
+                    if str(code).startswith("2"):
+                        continue
+                    content = response.get("content") or {}
+                    json_schema = content.get("application/json", {}).get("schema")
+                    if json_schema == {"$ref": validation_ref}:
+                        response["content"] = validation_content
+                    elif json_schema == problem_ref:
+                        response["content"] = problem_content
+                for code, description in common_problem_responses.items():
+                    responses.setdefault(
+                        code,
+                        {
+                            "description": description,
+                            "content": problem_content,
+                        },
+                    )
+        app.openapi_schema = spec
+        return app.openapi_schema
+
+    app.openapi = custom_openapi  # type: ignore[method-assign]
     if mcp_app is not None:
         app.mount(mount_path, mcp_app)
     return app

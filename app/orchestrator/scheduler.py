@@ -16,8 +16,13 @@ from app.core.config import get_settings
 from app.core.ids import new_id
 from app.db.models import Task
 from app.orchestrator.dag import TaskNode
-from app.orchestrator.queue import InlineQueue, get_queue
+from app.orchestrator.queue import InlineQueue, force_inline_queue, get_queue, reset_inline_queue
 from app.services import job_service, runtime_version_service
+
+
+def _dependency_ready(task: Task, status_by_id: dict[str, str]) -> bool:
+    deps = list(task.depends_on_json or [])
+    return all(status_by_id.get(str(dep)) == "succeeded" for dep in deps)
 
 
 async def submit_job_dag(
@@ -32,8 +37,8 @@ async def submit_job_dag(
 ) -> tuple[str, list[Task]]:
     """Persist Job + Task rows and return them. ``inline=True`` forces
     the InlineQueue regardless of settings (used by tests). ARQ enqueue
-    failures (e.g. Redis absent in dev) are suppressed — the tasks
-    remain ``pending`` and will be picked up on the next worker boot."""
+    failures (e.g. Redis absent in dev) are suppressed; the tasks remain
+    ``pending`` and are retried by the ready-pending janitor sweep."""
     rv = await runtime_version_service.ensure_runtime_version(session)
     job = await job_service.create_job(
         session,
@@ -54,13 +59,18 @@ async def submit_job_dag(
     )
     await session.commit()
 
+    status_by_id = {t.task_id: t.status for t in tasks}
     pending = [t for t in tasks if t.status != "succeeded"]
     if not pending:
+        await job_service.finalize_job_if_ready(session, job_id=job.job_id)
+        await session.commit()
         return job.job_id, tasks
+    ready = [t for t in pending if _dependency_ready(t, status_by_id)]
 
+    inline_token = force_inline_queue() if inline else None
     queue = InlineQueue(get_settings()) if inline else get_queue()
     try:
-        for t in pending:
+        for t in ready:
             # Inline mode surfaces task errors directly; ARQ enqueue
             # failures are tolerated (Redis may be absent in dev).
             if isinstance(queue, InlineQueue):
@@ -70,4 +80,6 @@ async def submit_job_dag(
                     await queue.enqueue(t.task_id)
     finally:
         await queue.close()
+        if inline_token is not None:
+            reset_inline_queue(inline_token)
     return job.job_id, tasks

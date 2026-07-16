@@ -159,8 +159,8 @@ literal implementation:
       stages"). → SFMAPI-SPEC.md:1705 + 1811, `app/schemas/api/jobs.py:155`.
 - [x] **Remove C++ SDK vaporware.** `cpp/include/sfmapi/client.hpp` has
       `SubmitDense`, `SubmitMesh`, `ReadDenseIndex/Fused`, `ReadDepthMap`,
-      `ReadNormalMap`, and a `dense.patch_match_stereo` doc example — no `/dense`
-      or `/mesh` routes exist and `dense.*` was purged from the vocabulary.
+      `ReadNormalMap`, and a dense-MVS doc example — no dense or mesh routes
+      exist and `dense.*` was purged from the vocabulary.
       → `../sfmapi-sdk/cpp/include/sfmapi/client.hpp`.
 - [x] **`install_plugin` over an existing install silently overwrites.**
       `record_install` / `record_manual_install` clobber the prior record with no

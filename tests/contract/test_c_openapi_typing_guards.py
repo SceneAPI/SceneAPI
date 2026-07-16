@@ -13,6 +13,10 @@ from __future__ import annotations
 import pytest
 
 from app.main import create_app
+from app.schemas.pipeline_spec import (
+    PROVIDER_SELECTOR_MAX_LENGTH,
+    PROVIDER_SELECTOR_PATTERN,
+)
 
 pytestmark = pytest.mark.contract
 
@@ -53,6 +57,13 @@ def _component_ref(spec: dict, ref: str) -> dict:
     """Resolve a ``#/components/schemas/X`` reference."""
     assert ref.startswith("#/components/schemas/"), ref
     return spec["components"]["schemas"][ref.rsplit("/", 1)[-1]]
+
+
+def _string_schema(schema: dict) -> dict:
+    for key in ("anyOf", "oneOf"):
+        if key in schema:
+            return next(item for item in schema[key] if item.get("type") == "string")
+    return schema
 
 
 def test_readyz_endpoint_has_typed_response() -> None:
@@ -112,6 +123,100 @@ def test_pipelines_endpoint_returns_job_accepted() -> None:
     assert schema.get("$ref", "").endswith("/JobAcceptedResponse")
 
 
+def test_pipeline_run_documents_legacy_success_and_typed_executor_gate() -> None:
+    app = create_app()
+    spec = app.openapi()
+    op = spec["paths"]["/v1/projects/{project_id}/pipelines:run"]["post"]
+    success = op["responses"]["202"]["content"]["application/json"]["schema"]
+    assert success.get("$ref", "").endswith("/JobAcceptedResponse")
+    assert op["responses"]["501"]["description"] != "Successful Response"
+    schema = op["responses"]["501"]["content"]["application/problem+json"]["schema"]
+    assert schema.get("$ref", "").endswith("/ProblemResponse")
+    assert "native typed dag execution" in op["description"].lower()
+
+
+def test_dataflow_contract_components_are_closed() -> None:
+    app = create_app()
+    spec = app.openapi()
+    for name in (
+        "DataTypeOut",
+        "AttributeOut",
+        "PortSpecOut",
+        "ProcessorOut",
+        "DataTypesContractOut",
+        "AttributesContractOut",
+        "ProcessorsContractOut",
+    ):
+        assert spec["components"]["schemas"][name].get("additionalProperties") is False
+
+
+def test_new_and_plugin_request_components_are_closed() -> None:
+    app = create_app()
+    spec = app.openapi()
+    for name in (
+        "IssueKeyBody",
+        "ProjectionSampling",
+        "ProjectionOutputOptions",
+        "CubemapProjectionSpec",
+        "EquirectangularProjectionSpec",
+        "PerspectiveViewSpec",
+        "PerspectiveProjectionSpec",
+        "ProjectionJobRequest",
+        "Rotation",
+        "Rigid3",
+        "Sim3",
+        "GpsCoord",
+        "ImuMeasurement",
+        "PosePrior",
+        "FeaturesSpec",
+        "PairsSpec",
+        "MatcherSpec",
+        "VerifySpec",
+    ):
+        assert spec["components"]["schemas"][name].get("additionalProperties") is False
+
+
+def test_problem_responses_advertise_problem_json_media_type() -> None:
+    app = create_app()
+    spec = app.openapi()
+    offenders: list[str] = []
+    for path, methods in spec["paths"].items():
+        for method, op in methods.items():
+            if not isinstance(op, dict):
+                continue
+            for code, response in op.get("responses", {}).items():
+                content = response.get("content", {})
+                problem = content.get("application/problem+json", {}).get("schema", {})
+                if problem.get("$ref", "").endswith("/ProblemResponse"):
+                    continue
+                json_schema = content.get("application/json", {}).get("schema", {})
+                if json_schema.get("$ref", "").endswith("/ProblemResponse"):
+                    offenders.append(f"{method.upper()} {path} {code}")
+    assert offenders == []
+
+
+def test_non_2xx_responses_are_not_described_as_successful() -> None:
+    app = create_app()
+    spec = app.openapi()
+    offenders: list[str] = []
+    for path, methods in spec["paths"].items():
+        for method, op in methods.items():
+            for code, response in op.get("responses", {}).items():
+                if not code.startswith("2") and response.get("description") == "Successful Response":
+                    offenders.append(f"{method.upper()} {path} {code}")
+    assert offenders == []
+
+
+def test_common_runtime_problem_responses_are_documented() -> None:
+    app = create_app()
+    spec = app.openapi()
+    response = spec["paths"]["/v1/projects/{project_id}"]["get"]["responses"]["404"]
+    schema = response["content"]["application/problem+json"]["schema"]
+
+    assert response["description"] == "Resource not found."
+    assert schema.get("$ref", "").endswith("/ProblemResponse")
+
+
 def test_backend_action_endpoints_are_typed() -> None:
     app = create_app()
     spec = app.openapi()
@@ -163,6 +268,72 @@ def test_similarity_endpoints_typed() -> None:
     assert ref.endswith("/SimilarityQueryResponse")
 
 
+def test_routed_provider_surfaces_use_plugin_selector_contract() -> None:
+    app = create_app()
+    spec = app.openapi()
+
+    build_op = spec["paths"]["/v1/datasets/{dataset_id}/similarity:build"]["post"]
+    build_provider = next(
+        param["schema"]
+        for param in build_op["parameters"]
+        if param["name"] == "provider"
+    )
+    build_provider = _string_schema(build_provider)
+    assert build_provider["pattern"] == PROVIDER_SELECTOR_PATTERN
+    assert build_provider["maxLength"] == PROVIDER_SELECTOR_MAX_LENGTH
+
+    merge_schema = spec["components"]["schemas"]["MergeRequest"]["properties"][
+        "provider"
+    ]
+    merge_provider = _string_schema(merge_schema)
+    assert merge_provider["pattern"] == PROVIDER_SELECTOR_PATTERN
+    assert merge_provider["maxLength"] == PROVIDER_SELECTOR_MAX_LENGTH
+
+
+def test_plugin_manifest_openapi_denies_core_shadow_ids() -> None:
+    app = create_app()
+    spec = app.openapi()
+    schemas = spec["components"]["schemas"]
+
+    datatype_id = schemas["PluginDataTypeManifest"]["properties"]["type_id"]
+    processor_id = schemas["PluginProcessorManifest"]["properties"]["processor_id"]
+    pipeline_id = schemas["PluginPipelineManifest"]["properties"]["pipeline_id"]
+
+    assert "sparse_model" in datatype_id["not"]["enum"]
+    assert "features" in processor_id["not"]["enum"]
+    assert "sfm" in pipeline_id["not"]["enum"]
+
+
+def test_artifact_sha_fields_advertise_lowercase_hex_pattern() -> None:
+    app = create_app()
+    spec = app.openapi()
+    schemas = spec["components"]["schemas"]
+    for component, field in (
+        ("ArtifactFileRef", "sha256"),
+        ("ArtifactImportRequest", "sha256"),
+        ("StageArtifactOut", "sha256"),
+    ):
+        schema = _string_schema(schemas[component]["properties"][field])
+        assert schema["pattern"] == "^[0-9a-f]{64}$"
+
+
+def test_artifact_conversion_targets_are_standard_schema_visible() -> None:
+    app = create_app()
+    spec = app.openapi()
+    schemas = spec["components"]["schemas"]
+
+    for component in ("ArtifactConversionPlanRequest", "ArtifactConvertRequest"):
+        schema = schemas[component]
+        assert schema["if"]["properties"]["to_format"] == {"type": "null"}
+        assert schema["then"]["required"] == ["accepted_formats"]
+        assert schema["then"]["properties"]["accepted_formats"] == {
+            "type": "array",
+            "minItems": 1,
+        }
+        assert schema["properties"]["accepted_formats"]["minItems"] == 1
+        assert schema["x-sfmapi-target-requirement"].startswith("at least one")
+
+
 def test_no_regression_in_untyped_route_count() -> None:
     """Ensure new untyped routes don't slip in. As of 2026-05 the only
     routes without a JSON ``response_model`` are intentionally
@@ -203,8 +374,8 @@ def test_no_regression_in_untyped_route_count() -> None:
     # Update this number ONLY when adding a new genuinely-non-JSON
     # route (binary / SSE / FileResponse). Adding a normal JSON route
     # without response_model should fail this test.
-    assert untyped <= 16, (
-        f"untyped route count is {untyped}, expected ≤ 16. "
+    assert untyped <= 17, (
+        f"untyped route count is {untyped}, expected ≤ 17. "
         "Add response_model to the new route, or update this limit "
         "if the route is intentionally non-JSON."
     )

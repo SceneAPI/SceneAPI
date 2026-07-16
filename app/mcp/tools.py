@@ -13,6 +13,7 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from app.api.v1.artifacts import artifact_out
 from app.core import artifacts as artifact_vocab
 from app.core.capabilities import BackendInfo, empty_capabilities
 from app.core.config import get_settings
@@ -298,7 +299,7 @@ async def list_artifacts(
                 name=name,
             )
     page = Page[StageArtifactOut](
-        items=[to_out(StageArtifactOut, row) for row in rows],
+        items=[artifact_out(row) for row in rows],
         next_page_token=next_page_token,
     )
     return _dump(page)
@@ -312,7 +313,7 @@ async def get_artifact(artifact_id: str, tenant_id: str | None = None) -> dict[s
             tenant_id=resolve_tenant(tenant_id),
             artifact_id=artifact_id,
         )
-    return _dump(to_out(StageArtifactOut, artifact))
+    return _dump(artifact_out(artifact))
 
 
 async def list_artifact_formats() -> dict[str, Any]:
@@ -345,17 +346,19 @@ async def plan_artifact_conversion(
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
     """Plan a conversion path for one artifact without submitting work."""
+    request_payload: dict[str, Any] = {
+        "to_format": to_format,
+        "require_lossless": require_lossless,
+        "provider": provider,
+    }
+    if accepted_formats:
+        request_payload["accepted_formats"] = accepted_formats
     async with session_scope() as session:
         plan = await artifact_conversion_service.get_conversion_plan(
             session,
             tenant_id=resolve_tenant(tenant_id),
             artifact_id=artifact_id,
-            request=ArtifactConversionPlanRequest(
-                to_format=to_format,
-                accepted_formats=accepted_formats or [],
-                require_lossless=require_lossless,
-                provider=provider,
-            ),
+            request=ArtifactConversionPlanRequest(**request_payload),
         )
     return _dump(plan)
 

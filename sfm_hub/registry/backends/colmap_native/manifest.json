@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "plugin_id": "colmap_native",
   "display_name": "Native COLMAP backends",
   "description": "COLMAP backend collection with CLI, pycolmap, native C++, and in-memory provider variants.",

@@ -23,10 +23,13 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
 from app.core.capabilities import ALL_KNOWN
+from app.core.processors import FEATURE_ATTRIBUTES
+from app.schemas.pipeline_spec import FeatureType
 
 pytestmark = pytest.mark.unit
 
@@ -106,3 +109,19 @@ def test_runtime_suffix_capability_prefixes_are_known() -> None:
             "a new capability family was likely introduced in service code "
             "without a corresponding ALL_KNOWN entry"
         )
+
+
+def test_feature_extractors_align_across_capabilities_schema_and_processors() -> None:
+    feature_types = set(get_args(FeatureType))
+    capability_types = {
+        cap.removeprefix("features.extract.")
+        for cap in ALL_KNOWN
+        if cap.startswith("features.extract.")
+    }
+    processor_types = {
+        str(value)
+        for attr in FEATURE_ATTRIBUTES
+        if attr.name == "type"
+        for value in attr.enum
+    }
+    assert feature_types == capability_types == processor_types

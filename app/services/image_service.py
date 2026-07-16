@@ -8,8 +8,9 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ConflictError, NotFoundError
-from app.db.models import Blob, Dataset, Image
+from app.core.errors import ConflictError, NotFoundError, ValidationError
+from app.core.path_safety import validate_safe_relative_path
+from app.db.models import Blob, Dataset, Image, ImageSource
 from app.services.dataset_service import recompute_manifest_hash
 
 
@@ -27,6 +28,14 @@ async def add_image(
     height: int | None = None,
     exif: dict[str, Any] | None = None,
 ) -> Image:
+    validate_safe_relative_path(name, field="name")
+    source = await session.get(ImageSource, dataset.source_id)
+    if source is None:
+        raise NotFoundError("dataset source not found")
+    if source.kind != source_kind:
+        raise ValidationError(
+            f"{source_kind} images require a {source_kind} dataset source"
+        )
     if source_kind == "upload":
         result = await session.execute(select(Blob).where(Blob.sha256 == content_sha))
         b = result.scalar_one_or_none()
@@ -35,6 +44,10 @@ async def add_image(
         b.refcount = b.refcount + 1
         if byte_size is None:
             byte_size = b.byte_size
+    elif source_kind == "local":
+        if rel_path is None:
+            raise ValidationError("local images require rel_path")
+        rel_path = validate_safe_relative_path(rel_path, field="rel_path")
     img = Image(
         tenant_id=tenant_id,
         dataset_id=dataset.dataset_id,

@@ -39,14 +39,15 @@ an admin-only control-plane layer such as a private network, mTLS,
 ingress policy, or deploy-time master key.
 
 ```bash
-# Mint a new key (returns the raw key ONCE — store it).
+# Mint a new key (returns the raw key ONCE - store it).
 curl -X POST http://localhost:8000/v1/admin/api-keys \
+     -H 'Content-Type: application/json' \
      -d '{"tenant_id": "acme", "name": "ci-bot"}'
 
-# List keys (raw_key field is null for non-just-issued rows).
+# List keys (ApiKeyOut rows: api_key_id, tenant_id, name, revoked).
 curl http://localhost:8000/v1/admin/api-keys
 
-# Revoke (returns the row with revoked_at set; key stops working).
+# Revoke (returns the row with revoked=true; key stops working).
 curl -X DELETE http://localhost:8000/v1/admin/api-keys/$KEY_ID
 ```
 

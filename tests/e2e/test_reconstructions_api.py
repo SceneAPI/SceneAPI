@@ -75,6 +75,8 @@ async def test_get_reconstruction_and_list_submodels(client, session, tmp_path) 
     page = list_resp.json()
     assert len(page["items"]) == 1
     assert page["items"][0]["summary"]["num_reg_images"] == 4
+    assert page["items"][0]["sealed_path"] is None
+    assert "/tmp/snapshot" not in repr(page)
     assert page["items"][0]["_links"]["self"]["href"].startswith("/v1/submodels/")
     assert (
         page["items"][0]["_links"]["cameras"]["href"]

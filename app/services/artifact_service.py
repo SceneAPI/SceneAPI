@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from pydantic import BaseModel
@@ -10,7 +11,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import artifacts as artifact_vocab
 from app.core.errors import NotFoundError, ValidationError
+from app.core.public_outputs import (
+    sanitize_public_artifact_file_refs,
+    sanitize_public_artifact_metadata_dict,
+    sanitize_public_artifact_name,
+)
 from app.db.models import StageArtifact, Task
+
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+_RESERVED_ARTIFACT_METADATA_KEYS = (
+    "artifact_format",
+    "datatype",
+    "schema_version",
+    "files",
+    "sha256",
+    "byte_size",
+    "coordinate_frame",
+    "producer",
+)
 
 
 def _task_inputs(task: Task) -> dict[str, Any]:
@@ -26,8 +45,12 @@ def _optional_str(value: Any) -> str | None:
     return text or None
 
 
+def _public_metadata_dict(value: Any) -> dict[str, Any] | None:
+    return sanitize_public_artifact_metadata_dict(value)
+
+
 def _summary(value: Any) -> dict[str, Any] | None:
-    return value if isinstance(value, dict) else None
+    return _public_metadata_dict(value)
 
 
 def _metadata_value(artifact: StageArtifact, key: str) -> Any:
@@ -35,25 +58,152 @@ def _metadata_value(artifact: StageArtifact, key: str) -> Any:
     return metadata.get(key)
 
 
-def _validate_artifact_descriptor(descriptor: Any, *, index: int) -> dict[str, Any]:
+def _public_artifact_file_refs(files: Any) -> list[dict[str, Any]]:
+    """Return only public artifact-file fields; local paths stay internal."""
+    return sanitize_public_artifact_file_refs(files)
+
+
+def _public_artifact_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    metadata_without_files = {key: value for key, value in metadata.items() if key != "files"}
+    public = _public_metadata_dict(metadata_without_files) or {}
+    if isinstance(metadata.get("files"), list):
+        public["files"] = metadata["files"]
+    return public
+
+
+def _artifact_context(context: str, index: int) -> str:
+    return f"{context}[{index}]"
+
+
+def _validate_artifact_file_refs(
+    files: Any,
+    *,
+    index: int,
+    field: str,
+    context: str = "outputs.artifacts",
+) -> None:
+    base = _artifact_context(context, index)
+    if files is None:
+        return
+    if not isinstance(files, list):
+        raise ValidationError(f"{base}.{field} must be a list")
+    for file_index, file_ref in enumerate(files):
+        where = f"{base}.{field}[{file_index}]"
+        if not isinstance(file_ref, dict):
+            raise ValidationError(f"{where} must be an object")
+        if not isinstance(file_ref.get("name"), str) or not file_ref.get("name"):
+            raise ValidationError(f"{where}.name is required")
+        uri = file_ref.get("uri", file_ref.get("path"))
+        if not isinstance(uri, str) or not uri:
+            raise ValidationError(f"{where}.uri is required")
+        for key, max_len in (
+            ("name", 255),
+            ("uri", 2048),
+            ("path", 2048),
+            ("media_type", 127),
+        ):
+            value = file_ref.get(key)
+            if value is not None and (not isinstance(value, str) or len(value) > max_len):
+                raise ValidationError(f"{where}.{key} must be a string up to {max_len} chars")
+        file_sha = file_ref.get("sha256")
+        if file_sha is not None and (
+            not isinstance(file_sha, str) or not _SHA256_RE.fullmatch(file_sha)
+        ):
+            raise ValidationError(f"{where}.sha256 must be a lowercase hex SHA-256 digest")
+        file_size = file_ref.get("byte_size")
+        if file_size is not None and (
+            not isinstance(file_size, int) or isinstance(file_size, bool) or file_size < 0
+        ):
+            raise ValidationError(f"{where}.byte_size must be a non-negative int")
+
+
+def _validate_reserved_metadata(
+    metadata: dict[str, Any],
+    *,
+    index: int,
+    context: str,
+) -> None:
+    base = _artifact_context(context, index)
+    for key in ("artifact_format", "datatype"):
+        value = metadata.get(key)
+        if value is not None and (
+            not isinstance(value, str) or not artifact_vocab.is_valid_artifact_key(value)
+        ):
+            raise ValidationError(
+                f"{base}.metadata.{key} must match {artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
+            )
+    schema_version = metadata.get("schema_version")
+    if schema_version is not None and (
+        not isinstance(schema_version, int)
+        or isinstance(schema_version, bool)
+        or schema_version < 1
+    ):
+        raise ValidationError(f"{base}.metadata.schema_version must be a positive int")
+    _validate_artifact_file_refs(
+        metadata.get("files"),
+        index=index,
+        field="metadata.files",
+        context=context,
+    )
+    sha = metadata.get("sha256")
+    if sha is not None and (not isinstance(sha, str) or not _SHA256_RE.fullmatch(sha)):
+        raise ValidationError(
+            f"{base}.metadata.sha256 must be a lowercase hex SHA-256 digest"
+        )
+    byte_size = metadata.get("byte_size")
+    if byte_size is not None and (
+        not isinstance(byte_size, int) or isinstance(byte_size, bool) or byte_size < 0
+    ):
+        raise ValidationError(f"{base}.metadata.byte_size must be a non-negative int")
+    coordinate_frame = metadata.get("coordinate_frame")
+    if coordinate_frame is not None and (
+        not isinstance(coordinate_frame, str) or len(coordinate_frame) > 255
+    ):
+        raise ValidationError(
+            f"{base}.metadata.coordinate_frame must be a string up to 255 chars"
+        )
+    producer = metadata.get("producer")
+    if producer is not None and not isinstance(producer, dict):
+        raise ValidationError(f"{base}.metadata.producer must be an object")
+
+
+def validate_artifact_descriptor(
+    descriptor: Any,
+    *,
+    index: int,
+    context: str = "outputs.artifacts",
+) -> dict[str, Any]:
+    base = _artifact_context(context, index)
     if not isinstance(descriptor, dict):
-        raise ValidationError(f"outputs.artifacts[{index}] must be an object")
+        raise ValidationError(f"{base} must be an object")
+    original_descriptor = descriptor
+    descriptor = dict(descriptor)
+    raw_metadata = descriptor.get("metadata")
+    if raw_metadata is not None and not isinstance(raw_metadata, dict):
+        raise ValidationError(f"{base}.metadata must be an object")
+    metadata = dict(raw_metadata or {})
+    _validate_reserved_metadata(metadata, index=index, context=context)
+    for key in _RESERVED_ARTIFACT_METADATA_KEYS:
+        if descriptor.get(key) is None and metadata.get(key) is not None:
+            descriptor[key] = metadata[key]
     kind = descriptor.get("kind")
     if not isinstance(kind, str) or not artifact_vocab.is_valid_artifact_key(kind):
         raise ValidationError(
-            f"outputs.artifacts[{index}].kind must match {artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
+            f"{base}.kind must match {artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
         )
     core_kind = artifact_vocab.CORE_ARTIFACT_KINDS.get(kind)
     name = descriptor.get("name")
     if name is not None and (not isinstance(name, str) or len(name) > 255):
-        raise ValidationError(f"outputs.artifacts[{index}].name must be a string up to 255 chars")
+        raise ValidationError(f"{base}.name must be a string up to 255 chars")
+    if name is not None:
+        descriptor["name"] = sanitize_public_artifact_name(name)
     uri = descriptor.get("uri")
     if uri is not None and (not isinstance(uri, str) or len(uri) > 2048):
-        raise ValidationError(f"outputs.artifacts[{index}].uri must be a string up to 2048 chars")
+        raise ValidationError(f"{base}.uri must be a string up to 2048 chars")
     media_type = descriptor.get("media_type")
     if media_type is not None and (not isinstance(media_type, str) or len(media_type) > 127):
         raise ValidationError(
-            f"outputs.artifacts[{index}].media_type must be a string up to 127 chars"
+            f"{base}.media_type must be a string up to 127 chars"
         )
     artifact_format = descriptor.get("artifact_format")
     if artifact_format is None and core_kind is not None:
@@ -72,16 +222,14 @@ def _validate_artifact_descriptor(descriptor: Any, *, index: int) -> dict[str, A
         or not artifact_vocab.is_valid_artifact_key(artifact_format)
     ):
         raise ValidationError(
-            "outputs.artifacts"
-            f"[{index}].artifact_format must match {artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
+            f"{base}.artifact_format must match {artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
         )
     if artifact_format is not None and not artifact_vocab.is_format_compatible_with_kind(
         kind,
         str(artifact_format),
     ):
         raise ValidationError(
-            "outputs.artifacts"
-            f"[{index}].artifact_format {artifact_format!r} is not compatible with kind {kind!r}"
+            f"{base}.artifact_format {artifact_format!r} is not compatible with kind {kind!r}"
         )
     schema_version = descriptor.get("schema_version")
     if schema_version is None and core_kind is not None:
@@ -92,7 +240,18 @@ def _validate_artifact_descriptor(descriptor: Any, *, index: int) -> dict[str, A
         or isinstance(schema_version, bool)
         or schema_version < 1
     ):
-        raise ValidationError(f"outputs.artifacts[{index}].schema_version must be a positive int")
+        raise ValidationError(f"{base}.schema_version must be a positive int")
+    if isinstance(artifact_format, str):
+        format_def = artifact_vocab.CORE_ARTIFACT_FORMATS.get(artifact_format)
+        if (
+            format_def is not None
+            and schema_version is not None
+            and schema_version != format_def.schema_version
+        ):
+            raise ValidationError(
+                f"{base}.schema_version {schema_version!r} does not match "
+                f"artifact_format {artifact_format!r}"
+            )
     datatype = descriptor.get("datatype")
     if datatype is None and artifact_format is not None:
         datatype = artifact_vocab.datatype_for_format(str(artifact_format))
@@ -110,47 +269,71 @@ def _validate_artifact_descriptor(descriptor: Any, *, index: int) -> dict[str, A
         or not artifact_vocab.is_valid_artifact_key(datatype)
     ):
         raise ValidationError(
-            f"outputs.artifacts[{index}].datatype must match "
-            f"{artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
+            f"{base}.datatype must match {artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
         )
-    files = descriptor.get("files")
-    if files is not None:
-        if not isinstance(files, list):
-            raise ValidationError(f"outputs.artifacts[{index}].files must be a list")
-        for file_index, file_ref in enumerate(files):
-            if not isinstance(file_ref, dict):
+    if isinstance(datatype, str):
+        if artifact_format is not None:
+            format_datatype = artifact_vocab.datatype_for_format(str(artifact_format))
+            if format_datatype is not None and datatype != format_datatype:
                 raise ValidationError(
-                    f"outputs.artifacts[{index}].files[{file_index}] must be an object"
+                    f"{base}.datatype {datatype!r} is not compatible with "
+                    f"artifact_format {artifact_format!r}"
                 )
-            if not isinstance(file_ref.get("name"), str) or not file_ref.get("name"):
-                raise ValidationError(
-                    f"outputs.artifacts[{index}].files[{file_index}].name is required"
-                )
-            if not isinstance(file_ref.get("uri"), str) or not file_ref.get("uri"):
-                raise ValidationError(
-                    f"outputs.artifacts[{index}].files[{file_index}].uri is required"
-                )
+        kind_datatype = artifact_vocab.datatype_for_kind(kind)
+        if kind_datatype is not None and datatype != kind_datatype:
+            raise ValidationError(
+                f"{base}.datatype {datatype!r} is not compatible with kind {kind!r}"
+            )
+    _validate_artifact_file_refs(
+        descriptor.get("files"),
+        index=index,
+        field="files",
+        context=context,
+    )
+    sha = descriptor.get("sha256")
+    if sha is not None and (not isinstance(sha, str) or not _SHA256_RE.fullmatch(sha)):
+        raise ValidationError(
+            f"{base}.sha256 must be a lowercase hex SHA-256 digest"
+        )
+    byte_size = descriptor.get("byte_size")
+    if byte_size is not None and (
+        not isinstance(byte_size, int) or isinstance(byte_size, bool) or byte_size < 0
+    ):
+        raise ValidationError(f"{base}.byte_size must be a non-negative int")
+    coordinate_frame = descriptor.get("coordinate_frame")
+    if coordinate_frame is not None and (
+        not isinstance(coordinate_frame, str) or len(coordinate_frame) > 255
+    ):
+        raise ValidationError(
+            f"{base}.coordinate_frame must be a string up to 255 chars"
+        )
+    producer = descriptor.get("producer")
+    if producer is not None and not isinstance(producer, dict):
+        raise ValidationError(f"{base}.producer must be an object")
     summary = descriptor.get("summary")
     if summary is not None and not isinstance(summary, dict):
-        raise ValidationError(f"outputs.artifacts[{index}].summary must be an object")
-    raw_metadata = descriptor.get("metadata")
-    if raw_metadata is not None and not isinstance(raw_metadata, dict):
-        raise ValidationError(f"outputs.artifacts[{index}].metadata must be an object")
-    metadata = dict(raw_metadata or {})
-    for key in (
-        "artifact_format",
-        "datatype",
-        "schema_version",
-        "files",
-        "sha256",
-        "byte_size",
-        "coordinate_frame",
-        "producer",
-    ):
-        if key in descriptor and key not in metadata:
-            metadata[key] = descriptor[key]
+        raise ValidationError(f"{base}.summary must be an object")
+    if producer is not None:
+        descriptor["producer"] = _public_metadata_dict(producer) or {}
+    if summary is not None:
+        descriptor["summary"] = _summary(summary) or {}
+    metadata = _public_artifact_metadata(metadata)
+    for key in _RESERVED_ARTIFACT_METADATA_KEYS:
+        metadata.pop(key, None)
+    for key in _RESERVED_ARTIFACT_METADATA_KEYS:
+        if key in descriptor:
+            if key == "files":
+                metadata["files"] = descriptor["files"]
+            else:
+                metadata[key] = descriptor[key]
     descriptor["metadata"] = metadata
-    return descriptor
+    original_descriptor.clear()
+    original_descriptor.update(descriptor)
+    return original_descriptor
+
+
+def _validate_artifact_descriptor(descriptor: Any, *, index: int) -> dict[str, Any]:
+    return validate_artifact_descriptor(descriptor, index=index)
 
 
 def _append_unique(out: list[dict[str, Any]], item: dict[str, Any]) -> None:
@@ -181,7 +364,7 @@ def normalize_task_outputs(task: Task, outputs: Any) -> dict[str, Any]:
 
     artifacts: list[dict[str, Any]] = []
     for index, descriptor in enumerate(explicit):
-        _append_unique(artifacts, _validate_artifact_descriptor(descriptor, index=index))
+        _append_unique(artifacts, validate_artifact_descriptor(descriptor, index=index))
     if artifacts:
         normalized["artifacts"] = artifacts
     return normalized
@@ -219,7 +402,9 @@ async def record_task_artifacts(
                 uri=_optional_str(item.get("uri")),
                 media_type=_optional_str(item.get("media_type")),
                 summary_json=_summary(item.get("summary")),
-                metadata_json=_summary(item.get("metadata")),
+                metadata_json=dict(item.get("metadata") or {})
+                if isinstance(item.get("metadata"), dict)
+                else None,
             )
         )
     await session.flush()

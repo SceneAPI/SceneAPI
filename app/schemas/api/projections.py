@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Literal, cast
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core.projections import CUBEMAP_FACE_AXES, CUBEMAP_FACE_ORDER
+from app.schemas.pipeline_spec import PROVIDER_SELECTOR_MAX_LENGTH, PROVIDER_SELECTOR_PATTERN
 
 CubemapFace = Literal["front", "right", "back", "left", "up", "down"]
 ProjectionOperation = Literal[
@@ -21,6 +22,8 @@ ProjectionOutputFormat = Literal["source", "jpg", "png", "webp"]
 class ProjectionSampling(BaseModel):
     """Portable sampling controls for image projection jobs."""
 
+    model_config = ConfigDict(extra="forbid")
+
     interpolation: ProjectionInterpolation = "linear"
     antialias: bool = True
     seam_padding_px: int = Field(default=0, ge=0, le=256)
@@ -29,6 +32,8 @@ class ProjectionSampling(BaseModel):
 
 class ProjectionOutputOptions(BaseModel):
     """Portable output controls shared by projection jobs."""
+
+    model_config = ConfigDict(extra="forbid")
 
     format: ProjectionOutputFormat = "source"
     jpeg_quality: int = Field(default=92, ge=1, le=100)
@@ -39,6 +44,8 @@ class ProjectionOutputOptions(BaseModel):
 
 class CubemapProjectionSpec(BaseModel):
     """Equirectangular panorama to six cubemap faces."""
+
+    model_config = ConfigDict(extra="forbid")
 
     convention: Literal["sfmapi-opencv"] = "sfmapi-opencv"
     face_size: int = Field(default=1024, ge=64, le=8192)
@@ -61,6 +68,8 @@ class CubemapProjectionSpec(BaseModel):
 class EquirectangularProjectionSpec(BaseModel):
     """Cubemap faces back to an equirectangular panorama."""
 
+    model_config = ConfigDict(extra="forbid")
+
     convention: Literal["sfmapi-opencv"] = "sfmapi-opencv"
     width: int | None = Field(default=None, ge=64, le=65536)
     height: int | None = Field(default=None, ge=32, le=32768)
@@ -79,6 +88,8 @@ class EquirectangularProjectionSpec(BaseModel):
 class PerspectiveViewSpec(BaseModel):
     """One pinhole view sampled from an equirectangular panorama."""
 
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = Field(default=None, min_length=1, max_length=128)
     yaw_deg: float = Field(default=0.0, ge=-360.0, le=360.0)
     pitch_deg: float = Field(default=0.0, ge=-90.0, le=90.0)
@@ -90,6 +101,8 @@ class PerspectiveViewSpec(BaseModel):
 
 class PerspectiveProjectionSpec(BaseModel):
     """Equirectangular panorama to one or more perspective images."""
+
+    model_config = ConfigDict(extra="forbid")
 
     convention: Literal["sfmapi-opencv"] = "sfmapi-opencv"
     views: list[PerspectiveViewSpec] = Field(
@@ -108,6 +121,8 @@ class ProjectionJobRequest(BaseModel):
     are filled with their portable defaults.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     operation: ProjectionOperation = "equirectangular_to_cubemap"
     cubemap: CubemapProjectionSpec | None = None
     equirectangular: EquirectangularProjectionSpec | None = None
@@ -115,8 +130,8 @@ class ProjectionJobRequest(BaseModel):
     provider: str | None = Field(
         default=None,
         min_length=1,
-        max_length=64,
-        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
         description="Optional provider id to execute this projection job.",
     )
 

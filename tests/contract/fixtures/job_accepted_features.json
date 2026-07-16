@@ -8,6 +8,8 @@
   "method": null,
   "project_id": null,
   "provider": null,
+  "radiance_evaluation_id": null,
+  "radiance_field_id": null,
   "recon_id": null,
   "source_recon_ids": null,
   "strategy": null,

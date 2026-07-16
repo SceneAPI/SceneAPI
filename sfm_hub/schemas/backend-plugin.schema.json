@@ -24,52 +24,272 @@
     "trust_tier"
   ],
   "properties": {
-    "plugin_id": {"type": "string", "minLength": 1},
-    "display_name": {"type": "string", "minLength": 1},
-    "description": {"type": "string"},
-    "package_name": {"type": "string", "minLength": 1},
-    "github_url": {"type": "string", "pattern": "^https://github.com/.+"},
-    "entry_points": {"type": "array", "items": {"type": "string"}},
-    "providers": {"type": "array", "minItems": 1},
+    "schema_version": {
+      "const": 1,
+      "default": 1
+    },
+    "plugin_id": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "package_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+(?:\\[[A-Za-z0-9_.-]+(?:,[A-Za-z0-9_.-]+)*\\])?$"
+    },
+    "github_url": {
+      "type": "string",
+      "pattern": "^https://github.com/.+"
+    },
+    "entry_points": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$"
+      }
+    },
+    "providers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/provider"
+      }
+    },
     "runtime_modes": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "uv": {"anyOf": [{"$ref": "#/$defs/uv_runtime"}, {"type": "null"}]},
-        "docker": {"anyOf": [{"$ref": "#/$defs/docker_runtime"}, {"type": "null"}]},
+        "uv": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/uv_runtime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "docker": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/docker_runtime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "container_service": {
-          "anyOf": [{"$ref": "#/$defs/container_service_runtime"}, {"type": "null"}]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/container_service_runtime"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "external_tool": {
-          "anyOf": [{"$ref": "#/$defs/external_tool_runtime"}, {"type": "null"}]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/external_tool_runtime"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       }
     },
-    "capabilities": {"type": "array", "items": {"type": "string"}},
-    "backend_actions": {"type": "array", "items": {"type": "string"}},
-    "config_schemas": {"type": "array", "items": {"type": "string"}},
-    "artifact_contracts": {"type": "array", "items": {"type": "string"}},
-    "licenses": {"type": "array"},
-    "upstream_projects": {"type": "array"},
-    "compatibility": {"$ref": "#/$defs/compatibility"},
-    "conformance": {"type": "object"},
-    "trust_tier": {"enum": ["official", "verified", "community", "local"]}
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/capability_id"
+      }
+    },
+    "backend_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "config_schemas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "artifact_contracts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "datatypes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/plugin_datatype"
+      }
+    },
+    "processors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/plugin_processor"
+      }
+    },
+    "pipelines": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/plugin_pipeline"
+      }
+    },
+    "processor_extensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/plugin_processor_extension"
+      }
+    },
+    "plugin_dependencies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/plugin_dependency_manifest"
+      }
+    },
+    "licenses": {
+      "type": "array"
+    },
+    "upstream_projects": {
+      "type": "array"
+    },
+    "compatibility": {
+      "$ref": "#/$defs/compatibility"
+    },
+    "conformance": {
+      "type": "object"
+    },
+    "trust_tier": {
+      "enum": [
+        "official",
+        "verified",
+        "community",
+        "local"
+      ]
+    }
   },
   "$defs": {
+    "plugin_dependency_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plugin_id"
+      ],
+      "properties": {
+        "plugin_id": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_id",
+        "display_name"
+      ],
+      "properties": {
+        "provider_id": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/capability_id"
+          }
+        },
+        "backend_actions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "priority_hint": {
+          "type": "integer"
+        }
+      }
+    },
     "compatibility": {
       "type": "object",
       "additionalProperties": true,
       "properties": {
-        "sfmapi": {"type": "string"},
-        "python": {"type": ["string", "null"]},
-        "os": {"type": "array", "items": {"type": "string"}},
-        "cuda": {"type": ["string", "null"]},
+        "sfmapi": {
+          "type": "string"
+        },
+        "python": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "os": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cuda": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "torch": {
-          "anyOf": [{"$ref": "#/$defs/torch_runtime"}, {"type": "null"}]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/torch_runtime"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "tool_versions": {
           "type": "object",
-          "additionalProperties": {"type": "string"}
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
@@ -77,48 +297,104 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "policy": {"enum": ["optional", "recommended", "required"]},
-        "device": {"enum": ["cpu", "cuda"]},
-        "index_url": {"type": "string", "pattern": "^https://.+"},
-        "cpu_index_url": {"type": "string", "pattern": "^https://.+"},
+        "policy": {
+          "enum": [
+            "optional",
+            "recommended",
+            "required"
+          ]
+        },
+        "device": {
+          "enum": [
+            "cpu",
+            "cuda"
+          ]
+        },
+        "index_url": {
+          "type": "string",
+          "pattern": "^https://.+"
+        },
+        "cpu_index_url": {
+          "type": "string",
+          "pattern": "^https://.+"
+        },
         "packages": {
           "type": "array",
           "minItems": 1,
-          "items": {"type": "string", "pattern": "^\\S+$"}
+          "items": {
+            "type": "string",
+            "pattern": "^\\S+$"
+          }
         },
         "install_env": {
           "type": "object",
-          "additionalProperties": {"type": "string"},
-          "propertyNames": {"pattern": "^[A-Z_][A-Z0-9_]*$"}
+          "additionalProperties": {
+            "type": "string"
+          },
+          "propertyNames": {
+            "pattern": "^[A-Z_][A-Z0-9_]*$"
+          }
         }
       }
     },
     "uv_runtime": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["url", "package"],
+      "required": [
+        "url",
+        "package"
+      ],
       "properties": {
-        "source": {"const": "git"},
-        "url": {"type": "string", "pattern": "^https://github.com/.+"},
-        "ref": {"type": "string"},
-        "package": {"type": "string", "minLength": 1}
+        "source": {
+          "const": "git"
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https://github.com/.+"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+(?:\\[[A-Za-z0-9_.-]+(?:,[A-Za-z0-9_.-]+)*\\])?$"
+        }
       }
     },
     "docker_runtime": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "image": {"type": ["string", "null"]},
-        "build_context": {"type": ["string", "null"]}
+        "image": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z0-9](?:[a-z0-9.-]*\\.[a-z0-9.-]*[a-z0-9])(?::[0-9]{1,5})?/[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@sha256:[0-9a-fA-F]{64})?$"
+        },
+        "build_context": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "container_service_runtime": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["protocol", "protocol_version", "service"],
+      "required": [
+        "protocol",
+        "protocol_version",
+        "service"
+      ],
       "properties": {
-        "protocol": {"const": "sfmapi-plugin-http-v1"},
-        "protocol_version": {"type": "string"},
+        "protocol": {
+          "const": "sfmapi-plugin-http-v1"
+        },
+        "protocol_version": {
+          "type": "string"
+        },
         "service": {
           "type": "object",
           "additionalProperties": false,
@@ -134,46 +410,111 @@
             }
           },
           "anyOf": [
-            {"required": ["default_url"]},
-            {"required": ["url_env"]}
+            {
+              "required": [
+                "default_url"
+              ]
+            },
+            {
+              "required": [
+                "url_env"
+              ]
+            }
           ]
         },
         "image": {
-          "anyOf": [{"$ref": "#/$defs/container_service_image"}, {"type": "null"}]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/container_service_image"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "object_store": {
-          "anyOf": [{"$ref": "#/$defs/container_service_object_store"}, {"type": "null"}]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/container_service_object_store"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
-        "cache": {"$ref": "#/$defs/container_service_cache"},
-        "provenance": {"$ref": "#/$defs/container_service_provenance"},
+        "cache": {
+          "$ref": "#/$defs/container_service_cache"
+        },
+        "provenance": {
+          "$ref": "#/$defs/container_service_provenance"
+        },
         "healthcheck": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "path": {"type": "string", "minLength": 1},
-            "timeout_seconds": {"type": "integer", "minimum": 1}
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "timeout_seconds": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         },
         "execution": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "path": {"type": "string", "pattern": "^/[^\\s]*$"},
-            "timeout_seconds": {"type": "integer", "minimum": 1},
-            "mounts": {"$ref": "#/$defs/container_service_mounts"},
-            "gpu": {"enum": ["none", "optional", "required"]},
+            "path": {
+              "type": "string",
+              "pattern": "^/[^\\s]*$"
+            },
+            "timeout_seconds": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "mounts": {
+              "$ref": "#/$defs/container_service_mounts"
+            },
+            "gpu": {
+              "enum": [
+                "none",
+                "optional",
+                "required"
+              ]
+            },
             "env": {
               "type": "array",
-              "items": {"type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$"}
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z_][A-Z0-9_]*$"
+              }
             },
             "secrets": {
               "type": "array",
-              "items": {"type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$"}
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Z_][A-Z0-9_]*$"
+              }
             },
-            "retry": {"$ref": "#/$defs/container_service_retry"},
-            "shutdown_timeout_seconds": {"type": "integer", "minimum": 0},
-            "log_collection": {"enum": ["stdout", "file", "both"]},
-            "artifact_collection": {"type": "boolean"}
+            "retry": {
+              "$ref": "#/$defs/container_service_retry"
+            },
+            "shutdown_timeout_seconds": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "log_collection": {
+              "enum": [
+                "stdout",
+                "file",
+                "both"
+              ]
+            },
+            "artifact_collection": {
+              "type": "boolean"
+            }
           }
         }
       }
@@ -182,21 +523,57 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "image": {"type": ["string", "null"]},
-        "digest": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-fA-F]{64}$"},
-        "registry": {"type": ["string", "null"]},
+        "image": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z0-9](?:[a-z0-9.-]*\\.[a-z0-9.-]*[a-z0-9])(?::[0-9]{1,5})?/[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?(?:@sha256:[0-9a-fA-F]{64})?$"
+        },
+        "digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[0-9a-fA-F]{64}$"
+        },
+        "registry": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "build": {
-          "anyOf": [{"$ref": "#/$defs/container_service_build"}, {"type": "null"}]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/container_service_build"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "anyOf": [
         {
-          "required": ["image"],
-          "properties": {"image": {"type": "string"}}
+          "required": [
+            "image"
+          ],
+          "properties": {
+            "image": {
+              "type": "string"
+            }
+          }
         },
         {
-          "required": ["build"],
-          "properties": {"build": {"$ref": "#/$defs/container_service_build"}}
+          "required": [
+            "build"
+          ],
+          "properties": {
+            "build": {
+              "$ref": "#/$defs/container_service_build"
+            }
+          }
         }
       ]
     },
@@ -204,13 +581,35 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "source": {"enum": ["git", "local", "release"]},
-        "context": {"type": ["string", "null"]},
-        "dockerfile": {"type": "string"},
-        "ref": {"type": ["string", "null"]},
+        "source": {
+          "enum": [
+            "git",
+            "local",
+            "release"
+          ]
+        },
+        "context": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dockerfile": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*[\\\\?#@])(?!.*(?:^|/)\\.\\.(?:/|$))\\S+$"
+        },
+        "ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "args": {
           "type": "object",
-          "additionalProperties": {"type": "string"}
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
@@ -218,56 +617,714 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "url_env": {"type": ["string", "null"], "pattern": "^[A-Z_][A-Z0-9_]*$"},
-        "input_prefix": {"type": ["string", "null"]},
-        "output_prefix": {"type": ["string", "null"]}
+        "url_env": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z_][A-Z0-9_]*$"
+        },
+        "input_prefix": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "output_prefix": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "container_service_cache": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "policy": {"enum": ["none", "read_only", "read_write"]},
-        "scope": {"enum": ["request", "plugin", "global"]},
-        "path": {"type": ["string", "null"], "pattern": "^/[^\\s]*$"}
+        "policy": {
+          "enum": [
+            "none",
+            "read_only",
+            "read_write"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "request",
+            "plugin",
+            "global"
+          ]
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^/[^\\s]*$"
+        }
       }
     },
     "container_service_provenance": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "image_digest_required": {"type": "boolean"},
-        "sbom_url": {"type": ["string", "null"]},
-        "attestation_url": {"type": ["string", "null"]},
-        "source_revision": {"type": ["string", "null"]}
+        "image_digest_required": {
+          "type": "boolean"
+        },
+        "sbom_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attestation_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "container_service_mounts": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "input_path": {"type": "string", "pattern": "^/[^\\s]*$"},
-        "output_path": {"type": "string", "pattern": "^/[^\\s]*$"},
-        "work_path": {"type": "string", "pattern": "^/[^\\s]*$"},
-        "log_path": {"type": "string", "pattern": "^/[^\\s]*$"}
+        "input_path": {
+          "type": "string",
+          "pattern": "^/[^\\s]*$"
+        },
+        "output_path": {
+          "type": "string",
+          "pattern": "^/[^\\s]*$"
+        },
+        "work_path": {
+          "type": "string",
+          "pattern": "^/[^\\s]*$"
+        },
+        "log_path": {
+          "type": "string",
+          "pattern": "^/[^\\s]*$"
+        }
       }
     },
     "container_service_retry": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "max_attempts": {"type": "integer", "minimum": 1},
-        "backoff_seconds": {"type": "integer", "minimum": 0}
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "backoff_seconds": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "external_tool_runtime": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "executable_names": {"type": "array", "items": {"type": "string"}},
-        "env_vars": {"type": "array", "items": {"type": "string"}},
-        "version_args": {"type": "array", "items": {"type": "string"}}
+        "executable_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "env_vars": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "version_args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
+    },
+    "plugin_datatype": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type_id",
+        "title"
+      ],
+      "properties": {
+        "type_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "not": {
+            "enum": [
+              "camera",
+              "camera_collection",
+              "feature_set",
+              "image_sequence",
+              "match_graph",
+              "pair_set",
+              "projection",
+              "sparse_model"
+            ]
+          }
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "scene_input",
+            "artifact"
+          ]
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "plugin_port_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "datatype"
+      ],
+      "properties": {
+        "datatype": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "multiple": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "plugin_attribute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "enum"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "enum": {
+                "minItems": 1
+              }
+            },
+            "required": [
+              "enum"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "not": {
+                  "const": "enum"
+                }
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "enum": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "required": {
+                "const": true
+              }
+            },
+            "required": [
+              "required"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "default"
+              ]
+            }
+          }
+        },
+        {
+          "not": {
+            "properties": {
+              "default": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "default"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "bool"
+              }
+            },
+            "required": [
+              "type",
+              "default"
+            ]
+          },
+          "then": {
+            "properties": {
+              "default": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "int"
+              }
+            },
+            "required": [
+              "type",
+              "default"
+            ]
+          },
+          "then": {
+            "properties": {
+              "default": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "float"
+              }
+            },
+            "required": [
+              "type",
+              "default"
+            ]
+          },
+          "then": {
+            "properties": {
+              "default": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "str"
+              }
+            },
+            "required": [
+              "type",
+              "default"
+            ]
+          },
+          "then": {
+            "properties": {
+              "default": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "datatype-ref"
+              }
+            },
+            "required": [
+              "type",
+              "default"
+            ]
+          },
+          "then": {
+            "properties": {
+              "default": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "object"
+              }
+            },
+            "required": [
+              "type",
+              "default"
+            ]
+          },
+          "then": {
+            "properties": {
+              "default": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "not": {
+                  "enum": [
+                    "int",
+                    "float"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "min"
+                  ]
+                },
+                {
+                  "required": [
+                    "max"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]*(\\.[a-z][a-z0-9_-]*)*$"
+        },
+        "type": {
+          "enum": [
+            "int",
+            "float",
+            "bool",
+            "str",
+            "enum",
+            "datatype-ref",
+            "object"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "default": true,
+        "enum": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "min": {
+          "type": [
+            "integer",
+            "number",
+            "null"
+          ]
+        },
+        "max": {
+          "type": [
+            "integer",
+            "number",
+            "null"
+          ]
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "plugin_special_port_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "datatype"
+      ],
+      "properties": {
+        "datatype": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "required": {
+          "const": false
+        },
+        "multiple": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "plugin_processor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "processor_id",
+        "title",
+        "consumer",
+        "supplier",
+        "capabilities"
+      ],
+      "properties": {
+        "processor_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "not": {
+            "enum": [
+              "features",
+              "georegister",
+              "map",
+              "matches",
+              "merge",
+              "optimize_poses",
+              "pairs",
+              "project",
+              "refine",
+              "relocalize",
+              "triangulate",
+              "undistort",
+              "verify"
+            ]
+          }
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "consumer": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/plugin_port_spec"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        },
+        "supplier": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/plugin_port_spec"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/plugin_attribute"
+          }
+        },
+        "description": {
+          "type": "string"
+        },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/capability_id"
+          }
+        }
+      }
+    },
+    "plugin_processor_extension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "processor_id"
+      ],
+      "properties": {
+        "processor_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "special_inputs": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/plugin_special_port_spec"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_-]*(\\.[a-z][a-z0-9_-]*)+$"
+          }
+        },
+        "special_attributes": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/plugin_attribute"
+              },
+              {
+                "properties": {
+                  "name": {
+                    "pattern": "^[a-z][a-z0-9_-]*(\\.[a-z][a-z0-9_-]*)+$"
+                  },
+                  "required": {
+                    "const": false
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "plugin_pipeline_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "processor"
+      ],
+      "not": {
+        "properties": {
+          "ref": {
+            "const": "inputs"
+          }
+        },
+        "required": [
+          "ref"
+        ]
+      },
+      "properties": {
+        "ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "processor": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]*$"
+        },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "wires": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "plugin_pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pipeline_id",
+        "title",
+        "steps"
+      ],
+      "properties": {
+        "pipeline_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "not": {
+            "enum": [
+              "sfm"
+            ]
+          }
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "initial_inputs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.-]*$"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/plugin_pipeline_step"
+          }
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "capability_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*$"
     }
   }
 }

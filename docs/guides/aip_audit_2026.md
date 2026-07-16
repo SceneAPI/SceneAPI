@@ -420,8 +420,8 @@ schemas — AIP-203)
   pre-execution checkpoint state + post-execution result). Real fix
   is splitting `task_state_json` from `outputs_ref_json`, which is
   proposal P1 territory.
-- Custom-verb symmetry on `/localize`, `/mesh`, `/dense`,
-  `/georegister` — currently slash-suffixed sub-resource paths;
+- Custom-verb symmetry on `/localize` and `/georegister` — currently
+  slash-suffixed sub-resource paths;
   AIP-136 strict reading would prefer `:localize` etc. Coherent ask
   but too soon after L23 verb churn.
 - `Reconstruction.updated_at`, `Job.updated_at` — would require an

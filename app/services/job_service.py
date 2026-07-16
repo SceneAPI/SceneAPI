@@ -18,6 +18,7 @@ from app.core.ids import new_id
 from app.db.models import Job, Task
 from app.orchestrator.dag import TaskNode
 from app.services import artifact_service
+from app.orchestrator.lease import now_utc
 
 
 async def create_job(
@@ -145,6 +146,39 @@ async def materialize_dag(
         t.outputs_ref_json = outputs
         await artifact_service.record_task_artifacts(session, task=t, outputs=outputs)
     return out
+
+
+async def finalize_job_if_ready(session: AsyncSession, *, job_id: str) -> Job | None:
+    """Roll up a job once every task is terminal.
+
+    Used both by the worker and by submit-time cache hits. The function is
+    idempotent and does not commit; callers own transaction boundaries.
+    """
+    rows = (await session.execute(select(Task).where(Task.job_id == job_id))).scalars().all()
+    if not rows:
+        return None
+    statuses = {t.status for t in rows}
+    if statuses & {"pending", "running"}:
+        return None
+    if "failed" in statuses:
+        new_status = "failed"
+    elif statuses & {"cancelled", "cancelled_dirty"}:
+        new_status = "cancelled"
+    else:
+        new_status = "succeeded"
+    job = await session.get(Job, job_id)
+    if job is None:
+        return None
+    if job.status != new_status:
+        job.status = new_status
+        job.finished_at = now_utc()
+    if new_status == "failed":
+        for task in rows:
+            if task.status == "failed":
+                job.error_class = task.error_class
+                job.error_message = task.error_message
+                break
+    return job
 
 
 async def cancel_job(session: AsyncSession, *, tenant_id: str, job_id: str, force: bool) -> Job:

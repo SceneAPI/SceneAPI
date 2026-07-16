@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "plugin_id": "colmap_cli",
   "display_name": "COLMAP CLI",
   "description": "Backend plugin that drives an installed COLMAP executable through sfmapi.",

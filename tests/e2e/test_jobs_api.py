@@ -305,7 +305,8 @@ async def test_matches_can_select_feature_artifact_as_input(client) -> None:
         },
     )
     assert matches.status_code == 202, matches.text
-    assert captured["database_path"] == feature_artifact["uri"]
+    assert feature_artifact["uri"] == f"/v1/artifacts/{feature_artifact['artifact_id']}/content"
+    assert Path(captured["database_path"]).read_text(encoding="utf-8") == "feature-db"
     assert captured["mode"] == "exhaustive"
     selected = captured["input_artifacts"]
     assert isinstance(selected, dict)

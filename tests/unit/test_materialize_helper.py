@@ -28,20 +28,83 @@ def test_link_or_copy_creates_dst_and_is_idempotent(tmp_path: Path) -> None:
     assert dst.read_bytes() == b"payload"
 
 
-def test_materialize_local_returns_root_without_copying(tmp_path: Path) -> None:
+def test_link_or_copy_raises_when_copy_fallback_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.workers._materialize as mod
+
+    src = tmp_path / "src.bin"
+    dst = tmp_path / "dst.bin"
+    src.write_bytes(b"payload")
+
+    def fail_link(_src: Path, _dst: Path) -> None:
+        raise OSError("link failed")
+
+    def fail_copy(_src: Path, _dst: Path) -> None:
+        raise OSError("copy failed")
+
+    monkeypatch.setattr(mod.os, "link", fail_link)
+    monkeypatch.setattr(mod.shutil, "copy2", fail_copy)
+
+    with pytest.raises(OSError, match="copy failed"):
+        link_or_copy(src, dst)
+
+
+def test_materialize_local_links_declared_rel_paths_into_stage(tmp_path: Path) -> None:
+    src_root = tmp_path / "images"
+    nested = src_root / "nested"
+    nested.mkdir(parents=True)
+    (src_root / "a.jpg").write_bytes(b"a")
+    (nested / "b-source.jpg").write_bytes(b"b")
+    stage = tmp_path / "stage"
+    root, names = materialize_image_set(
+        {
+            "kind": "local",
+            "image_root": str(src_root),
+            "image_list": ["a.jpg", "b.jpg"],
+            "rel_paths": {"b.jpg": "nested/b-source.jpg"},
+        },
+        stage,
+    )
+    assert root == stage
+    assert names == ["a.jpg", "b.jpg"]
+    assert (stage / "a.jpg").read_bytes() == b"a"
+    assert (stage / "b.jpg").read_bytes() == b"b"
+
+
+def test_materialize_local_rejects_rel_path_escape(tmp_path: Path) -> None:
+    src_root = tmp_path / "images"
+    src_root.mkdir()
+    (tmp_path / "outside.jpg").write_bytes(b"outside")
+
+    with pytest.raises(ValidationError, match="rel_path must stay"):
+        materialize_image_set(
+            {
+                "kind": "local",
+                "image_root": str(src_root),
+                "image_list": ["a.jpg"],
+                "rel_paths": {"a.jpg": "../outside.jpg"},
+            },
+            tmp_path / "stage",
+        )
+
+
+def test_materialize_rejects_stage_name_escape(tmp_path: Path) -> None:
     src_root = tmp_path / "images"
     src_root.mkdir()
     (src_root / "a.jpg").write_bytes(b"a")
-    (src_root / "b.jpg").write_bytes(b"b")
-    stage = tmp_path / "stage"
-    root, names = materialize_image_set(
-        {"kind": "local", "image_root": str(src_root), "image_list": ["a.jpg", "b.jpg"]},
-        stage,
-    )
-    assert root == src_root
-    assert names == ["a.jpg", "b.jpg"]
-    # Stage must NOT have been populated for local sources.
-    assert not stage.exists()
+
+    with pytest.raises(ValidationError, match="image name must stay"):
+        materialize_image_set(
+            {
+                "kind": "local",
+                "image_root": str(src_root),
+                "image_list": ["../a.jpg"],
+                "rel_paths": {"../a.jpg": "a.jpg"},
+            },
+            tmp_path / "stage",
+        )
 
 
 def test_materialize_upload_links_blobs_into_stage(tmp_path: Path, monkeypatch) -> None:
@@ -87,6 +150,23 @@ def test_resolve_image_path_local_returns_existing(tmp_path: Path) -> None:
     (root / "x.jpg").write_bytes(b"x")
     p = resolve_image_path("x.jpg", {"kind": "local", "image_root": str(root)}, tmp_path / "stage")
     assert p == root / "x.jpg"
+
+
+def test_resolve_image_path_local_uses_rel_paths(tmp_path: Path) -> None:
+    root = tmp_path / "imgs"
+    nested = root / "nested"
+    nested.mkdir(parents=True)
+    (nested / "x-source.jpg").write_bytes(b"x")
+    p = resolve_image_path(
+        "x.jpg",
+        {
+            "kind": "local",
+            "image_root": str(root),
+            "rel_paths": {"x.jpg": "nested/x-source.jpg"},
+        },
+        tmp_path / "stage",
+    )
+    assert p == nested / "x-source.jpg"
 
 
 def test_resolve_image_path_returns_none_for_missing(tmp_path: Path) -> None:

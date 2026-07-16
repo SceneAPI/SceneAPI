@@ -31,9 +31,12 @@ def apply_provider_resolution(
         raise ValidationError(
             str(exc),
             candidates=exc.candidates,
-            suggested_fix="set provider on the request or configure a routing profile",
+            suggested_fix=(
+                "set a plugin-qualified provider selector (provider@plugin) on "
+                "the request or configure one in a routing profile"
+            ),
         ) from exc
     except KeyError as exc:
         raise ValidationError(str(exc)) from exc
-    if requested is None and provider:
+    if provider:
         spec["provider"] = provider

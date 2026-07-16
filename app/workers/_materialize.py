@@ -8,23 +8,23 @@ Conventions:
   - ``materialization`` is the dict the orchestrator hands a Task —
     keys vary by ``kind``:
       - ``upload``: ``image_list`` + ``blob_shas[name] -> sha``
-      - ``local``:  ``image_list`` + ``image_root``
+      - ``local``:  ``image_list`` + ``image_root`` + optional ``rel_paths[name]``
       - ``s3``:     ``image_list`` + ``bucket`` + ``prefix``
   - ``stage`` is a per-task scratch directory the caller owns. Local
-    sources may bypass staging entirely (their root is already a real
-    directory pycolmap can read).
+    sources are linked/copied into this stage so API image names stay stable
+    even when their backing ``rel_path`` points elsewhere under the source root.
   - Returns ``Path``s; never raises on a single-image lookup failure
     (returns None) — callers decide whether a missing image is fatal.
 """
 
 from __future__ import annotations
 
-import contextlib
 import os
 import shutil
 from pathlib import Path
 
 from app.core.errors import ValidationError
+from app.core.path_safety import resolve_under_root, validate_safe_relative_path
 from app.storage.blobs import get_blob_store
 
 
@@ -37,8 +37,7 @@ def link_or_copy(src: Path, dst: Path) -> None:
     try:
         os.link(src, dst)
     except OSError:
-        with contextlib.suppress(OSError):
-            shutil.copy2(src, dst)
+        shutil.copy2(src, dst)
 
 
 def _materialize_upload(materialization: dict, image_list: list[str], stage: Path) -> None:
@@ -50,7 +49,8 @@ def _materialize_upload(materialization: dict, image_list: list[str], stage: Pat
         if not sha:
             raise ValidationError(f"upload source missing blob sha for {name}")
         src = bs.local_path(sha)
-        link_or_copy(src, stage / name)
+        dst_name = validate_safe_relative_path(name, field="image name")
+        link_or_copy(src, stage / dst_name)
 
 
 def _materialize_s3(materialization: dict, image_list: list[str], stage: Path) -> None:
@@ -61,14 +61,34 @@ def _materialize_s3(materialization: dict, image_list: list[str], stage: Path) -
     mats = S3Source(bucket=bucket, prefix=prefix).materialize()
     stage.mkdir(parents=True, exist_ok=True)
     for m in mats:
-        link_or_copy(m.abs_path, stage / m.name)
+        dst_name = validate_safe_relative_path(m.name, field="image name")
+        link_or_copy(m.abs_path, stage / dst_name)
+
+
+def _materialize_local(materialization: dict, image_list: list[str], stage: Path) -> None:
+    root = materialization.get("image_root")
+    if not root:
+        raise ValidationError("local source missing image_root")
+    rel_paths = materialization.get("rel_paths") or {}
+    stage.mkdir(parents=True, exist_ok=True)
+    for name in image_list:
+        rel = rel_paths.get(name) or name
+        try:
+            src = resolve_under_root(root, rel, field="rel_path", require_file=True)
+        except ValidationError as e:
+            if "existing file" in str(e):
+                raise ValidationError(f"local source missing image file for {name}") from e
+            raise
+        dst_name = validate_safe_relative_path(name, field="image name")
+        if not src.is_file():
+            raise ValidationError(f"local source missing image file for {name}")
+        link_or_copy(src, stage / dst_name)
 
 
 def materialize_image_set(materialization: dict, stage: Path) -> tuple[Path, list[str]]:
     """Realize an entire dataset's images at a local path.
 
-    Returns ``(image_root, image_list)`` — for local sources this is
-    the source's own root (no copy); for upload/s3 it's ``stage`` after
+    Returns ``(image_root, image_list)``; ``image_root`` is ``stage`` after
     the bytes have been linked/copied into it.
     """
     kind = materialization.get("kind")
@@ -76,10 +96,8 @@ def materialize_image_set(materialization: dict, stage: Path) -> tuple[Path, lis
     if not image_list:
         raise ValidationError("dataset has no images")
     if kind == "local":
-        root = materialization.get("image_root")
-        if not root:
-            raise ValidationError("local source missing image_root")
-        return Path(root), image_list
+        _materialize_local(materialization, image_list, stage)
+        return stage, image_list
     if kind == "upload":
         _materialize_upload(materialization, image_list, stage)
         return stage, image_list
@@ -100,8 +118,13 @@ def resolve_image_path(name: str, materialization: dict, stage: Path) -> Path | 
         root = materialization.get("image_root")
         if not root:
             return None
-        src = Path(root) / name
-        return src if src.is_file() else None
+        rel_paths = materialization.get("rel_paths") or {}
+        try:
+            return resolve_under_root(
+                root, rel_paths.get(name) or name, field="rel_path", require_file=True
+            )
+        except ValidationError:
+            return None
     if kind == "upload":
         sha = (materialization.get("blob_shas") or {}).get(name)
         if not sha:
@@ -110,7 +133,8 @@ def resolve_image_path(name: str, materialization: dict, stage: Path) -> Path | 
             src = get_blob_store().local_path(sha)
         except Exception:
             return None
-        dst = stage / name
+        dst_name = validate_safe_relative_path(name, field="image name")
+        dst = stage / dst_name
         link_or_copy(src, dst)
         return dst if dst.is_file() else None
     if kind == "s3":

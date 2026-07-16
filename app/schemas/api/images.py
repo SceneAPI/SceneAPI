@@ -11,8 +11,15 @@ from app.schemas.api.scene import PosePrior
 
 
 class ImageCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     name: str = Field(..., min_length=1, max_length=512)
-    blob_sha: str | None = Field(None, min_length=64, max_length=64)
+    blob_sha: str | None = Field(
+        None,
+        min_length=64,
+        max_length=64,
+        pattern="^[0-9a-f]{64}$",
+    )
     rel_path: str | None = None
     width: int | None = None
     height: int | None = None
@@ -23,6 +30,8 @@ class BatchCreateImagesRequest(BaseModel):
     """AIP-231 batch-create request body. Each entry is a complete
     ``ImageCreate``; the server registers them all in a single
     transaction."""
+
+    model_config = ConfigDict(extra="ignore")
 
     requests: list[ImageCreate] = Field(default_factory=list, max_length=1000)
 

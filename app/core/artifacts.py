@@ -74,7 +74,7 @@ def _manifest_schema(
                         "name": {"type": "string", "minLength": 1},
                         "uri": {"type": "string", "minLength": 1},
                         "media_type": {"type": "string"},
-                        "sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+                        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
                         "byte_size": {"type": "integer", "minimum": 0},
                     },
                     "additionalProperties": True,
@@ -499,13 +499,11 @@ def datatype_for_kind(kind: str) -> str | None:
 
 
 def is_format_compatible_with_kind(kind: str, format_id: str) -> bool:
-    kind_def = CORE_ARTIFACT_KINDS.get(kind)
-    if kind_def is None:
+    kind_datatype = datatype_for_kind(kind)
+    format_datatype = datatype_for_format(format_id)
+    if kind_datatype is None or format_datatype is None:
         return True
-    format_def = CORE_ARTIFACT_FORMATS.get(format_id)
-    if format_def is None:
-        return True
-    return kind_def.datatype == format_def.datatype
+    return kind_datatype == format_datatype
 
 
 def is_artifact_allowed_for_role(role: str, kind: str) -> bool:

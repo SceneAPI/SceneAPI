@@ -84,7 +84,7 @@ def test_cli_install_redacts_provisioning_env(
 def test_cli_profiles_and_providers(capsys: pytest.CaptureFixture[str]) -> None:
     record_manual_install("colmap_cli", method="external_tool")
 
-    main(["profiles", "create", "hybrid", "--route", "features=colmap_cli"])
+    main(["profiles", "create", "hybrid", "--route", "features=colmap_cli@colmap_cli"])
     main(["profiles", "set-default", "hybrid"])
     main(["profiles", "assign-project", "project-1", "hybrid"])
     main(["plugins", "entry-points"])

@@ -78,6 +78,16 @@ class SpecResponse(BaseModel):
     server: SpecServerInfo
 
 
+class ProblemError(BaseModel):
+    """One structured validation/detail error inside a ProblemResponse."""
+
+    loc: list[str | int] | None = None
+    msg: str
+    type: str
+    input: Any | None = None
+    ctx: dict[str, Any] | None = None
+
+
 class ProblemResponse(BaseModel):
     """RFC 7807 ``application/problem+json`` envelope.
 
@@ -96,7 +106,7 @@ class ProblemResponse(BaseModel):
     status: int
     detail: str | None = None
     instance: str | None = None
-    errors: list[dict[str, Any]] | None = None
+    errors: list[ProblemError] | None = None
     capability: str | None = None
     retry_after: int | None = None
 
@@ -151,6 +161,7 @@ __all__ = [
     "LinkedModel",
     "ORMModel",
     "Page",
+    "ProblemError",
     "ProblemResponse",
     "ReadyzResponse",
     "SpecResponse",

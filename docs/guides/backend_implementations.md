@@ -245,15 +245,20 @@ Common categories:
 
 | Category | Capability strings |
 |---|---|
-| Feature extraction | `features.extract.{sift, superpoint, aliked, disk, r2d2, d2net}` |
+| Feature extraction | `features.extract.{sift, superpoint, aliked, disk, r2d2, d2net, sosnet}` |
 | Pair selection | `pairs.{exhaustive, sequential, spatial, vocabtree, retrieval, from_poses, explicit}` |
 | Matching | `matchers.{nn-mutual, nn-ratio, superglue, lightglue, loftr, mast3r}` |
 | Mapping | `map.{incremental, global, hierarchical, spherical}` |
-| Bundle adjustment | `ba.{standard, two_stage, featuremetric}` |
-| Dense | `dense.patch_match_stereo`, `dense.fusion`, `mesh.{poisson, delaunay}` |
-| Radiance / 3DGS | `radiance.{train, evaluate, render, export, resume, convert}`, `radiance.metrics.{psnr, ssim, lpips}` |
+| Bundle adjustment | `ba.{standard, two_stage, featuremetric, rig}` |
+| Radiance / 3DGS | `radiance.{train, evaluate}`, `radiance.metrics.{psnr, ssim, lpips}` |
 | Projection | `projection.{equirectangular_to_cubemap, cubemap_to_equirectangular, equirectangular_to_perspective, cubemap_rig}` |
-| Other | `relocalize.images`, `pgo.optimize`, `triangulate.retri`, `export.{ply, nvm, txt, bin}`, legacy `spherical.{to_cubemap, render_cubemap}` |
+| Other | `relocalize.images`, `pgo.optimize`, `triangulate.retri`, `geometry.two_view`, `image.undistort`, `index.vocab_tree`, `rigs.configure`, `export.{ply, nvm, colmap_text, colmap_bin}`, legacy `spherical.{to_cubemap, render_cubemap}` |
+
+Dense reconstruction, meshing, and vendor-specific tools are not
+portable capability strings in the current vocabulary. Expose those
+surfaces as backend actions, for example `colmap.patch_match_stereo`
+or `openmvg.compute_structure_from_known_poses`, with explicit
+schemas under `/v1/backend/actions`.
 
 If you advertise a capability, the corresponding portable stage method
 must succeed when called. If a backend does not implement that stage,
@@ -609,9 +614,13 @@ Descriptor rules:
   responses omit them unless the client passes `include_schemas=true`;
   `GET /v1/backend/actions/{action_id}` always includes them when
   available.
-- `required_capabilities` may contain only portable names from
-  `app.core.capabilities.ALL_KNOWN`. Backend-native prerequisites
-  belong in `metadata`.
+- Backend action `required_capabilities` may contain only portable
+  public names from `app.core.capabilities.ALL_KNOWN`. Backend-native
+  prerequisites belong in `metadata`. Plugin manifest/provider/
+  processor `capabilities` are a separate typed-extension vocabulary:
+  plugin-declared, provider-covered, contract-id-shaped ids that are
+  treated as opaque plugin requirements, not automatically as public
+  `/v1/capabilities` features.
 - `side_effects` is one of `none`, `read`, `write`, or `unknown`.
   `stability` is one of `stable`, `experimental`,
   `backend_extension`, or `deprecated`.

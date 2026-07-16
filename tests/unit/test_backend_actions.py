@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -277,6 +278,238 @@ async def test_backend_action_api_can_target_provider_alias(
         output = job["tasks"][0]["outputs_ref"]
         assert output["backend"] == "provider_echo"
         assert output["result"]["message"] == "from-provider"
+
+
+async def test_backend_action_validate_uses_project_routing_profile(
+    db_setup: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import backend_action_service
+    from sfm_hub.state import PluginState, RoutingProfile
+
+    class EmptyBackend(StubBackend):
+        name = "empty"
+
+        def list_backend_actions(self) -> list[dict[str, Any]]:
+            return []
+
+    monkeypatch.setenv("SFMAPI_BACKEND", "empty")
+    register_backend("empty", EmptyBackend, providers=["bad.provider"])
+    register_backend("echo", EchoBackend, providers=["good.provider"])
+    reset_settings_for_tests()
+    reset_capabilities_cache()
+
+    rows = [
+        SimpleNamespace(
+            plugin_id="bad",
+            provider=SimpleNamespace(
+                provider_id="bad.provider",
+                backend_actions=["echo.*"],
+            ),
+        ),
+        SimpleNamespace(
+            plugin_id="good",
+            provider=SimpleNamespace(
+                provider_id="good.provider",
+                backend_actions=["echo.*"],
+            ),
+        ),
+    ]
+    state = PluginState(
+        profiles={
+            "default": RoutingProfile(
+                name="default",
+                routes={"actions": ["bad.provider"]},
+            ),
+            "project": RoutingProfile(
+                name="project",
+                routes={"actions": ["good.provider"]},
+            ),
+        },
+        default_profile="default",
+        project_profiles={"project-1": "project"},
+    )
+    monkeypatch.setattr(backend_action_service, "provider_records", lambda state=None: rows)
+    monkeypatch.setattr(backend_action_service, "load_state", lambda: state)
+
+    from app.main import create_app
+
+    async with AsyncClient(
+        transport=ASGITransport(app=create_app()),
+        base_url="http://testserver",
+    ) as client:
+        project = (await client.post("/v1/projects", json={"name": "route-project"})).json()
+        state.project_profiles = {project["project_id"]: "project"}
+
+        routed = await client.post(
+            "/v1/backend/actions/echo.echo:validate",
+            json={"project_id": project["project_id"], "inputs": {"message": "hello"}},
+        )
+        assert routed.status_code == 200, routed.text
+
+        missing = await client.post(
+            "/v1/backend/actions/echo.echo:validate",
+            json={
+                "project_id": "01H00000000000000000000000",
+                "inputs": {"message": "hello"},
+            },
+        )
+        assert missing.status_code == 404, missing.text
+
+        default = await client.post(
+            "/v1/backend/actions/echo.echo:validate",
+            json={"inputs": {"message": "hello"}},
+        )
+        assert default.status_code == 404, default.text
+
+
+def test_backend_action_routing_uses_actions_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import backend_action_service as service
+    from sfm_hub.models import ProviderManifest
+    from sfm_hub.routing import ProviderRecord
+    from sfm_hub.state import RoutingProfile, load_state, save_state
+
+    rows = [
+        ProviderRecord(
+            plugin_id="alpha_plugin",
+            installed=True,
+            enabled=True,
+            runtime_modes=["uv"],
+            provider=ProviderManifest(
+                provider_id="alpha",
+                display_name="alpha",
+                backend_actions=["echo.*"],
+            ),
+        ),
+        ProviderRecord(
+            plugin_id="beta_plugin",
+            installed=True,
+            enabled=True,
+            runtime_modes=["uv"],
+            provider=ProviderManifest(
+                provider_id="beta",
+                display_name="beta",
+                backend_actions=["echo.*"],
+            ),
+        ),
+    ]
+    monkeypatch.setattr(service, "provider_records", lambda **kwargs: rows)
+    monkeypatch.setattr(
+        service,
+        "list_backend_providers",
+        lambda: ["alpha@alpha_plugin", "beta@beta_plugin"],
+    )
+    state = load_state()
+    state.profiles["prefer-beta"] = RoutingProfile(
+        name="prefer-beta",
+        routes={"actions": ["beta@beta_plugin"]},
+    )
+    state.default_profile = "prefer-beta"
+    save_state(state)
+
+    assert (
+        service._resolve_action_provider("echo.echo", None)
+        == "beta@beta_plugin"
+    )
+
+
+def test_backend_action_routing_uses_single_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import backend_action_service as service
+    from sfm_hub.models import ProviderManifest
+    from sfm_hub.routing import ProviderRecord
+
+    rows = [
+        ProviderRecord(
+            plugin_id="alpha_plugin",
+            installed=True,
+            enabled=True,
+            runtime_modes=["uv"],
+            provider=ProviderManifest(
+                provider_id="alpha",
+                display_name="alpha",
+                backend_actions=["echo.*"],
+            ),
+        )
+    ]
+    monkeypatch.setattr(service, "provider_records", lambda **kwargs: rows)
+    monkeypatch.setattr(service, "list_backend_providers", lambda: ["alpha"])
+
+    assert service._resolve_action_provider("echo.echo", None) == "alpha"
+
+
+def test_backend_action_routing_rejects_ambiguous_candidates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import backend_action_service as service
+    from sfm_hub.models import ProviderManifest
+    from sfm_hub.routing import ProviderAmbiguityError, ProviderRecord
+
+    rows = [
+        ProviderRecord(
+            plugin_id="alpha_plugin",
+            installed=True,
+            enabled=True,
+            runtime_modes=["uv"],
+            provider=ProviderManifest(
+                provider_id="alpha",
+                display_name="alpha",
+                backend_actions=["echo.*"],
+            ),
+        ),
+        ProviderRecord(
+            plugin_id="beta_plugin",
+            installed=True,
+            enabled=True,
+            runtime_modes=["uv"],
+            provider=ProviderManifest(
+                provider_id="beta",
+                display_name="beta",
+                backend_actions=["echo.*"],
+            ),
+        ),
+    ]
+    monkeypatch.setattr(service, "provider_records", lambda **kwargs: rows)
+    monkeypatch.setattr(
+        service,
+        "list_backend_providers",
+        lambda: ["alpha", "beta"],
+    )
+
+    with pytest.raises(ProviderAmbiguityError, match="alpha@alpha_plugin"):
+        service._resolve_action_provider("echo.echo", None)
+
+
+def test_backend_catalog_rejects_ambiguous_bare_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import backend_action_service as service
+    from sfm_hub.models import ProviderManifest
+    from sfm_hub.routing import ProviderAmbiguityError, ProviderRecord
+
+    rows = [
+        ProviderRecord(
+            plugin_id="alpha_plugin",
+            installed=True,
+            enabled=True,
+            runtime_modes=["uv"],
+            provider=ProviderManifest(provider_id="shared", display_name="alpha"),
+        ),
+        ProviderRecord(
+            plugin_id="beta_plugin",
+            installed=True,
+            enabled=True,
+            runtime_modes=["uv"],
+            provider=ProviderManifest(provider_id="shared", display_name="beta"),
+        ),
+    ]
+    monkeypatch.setattr(service, "provider_records", lambda **kwargs: rows)
+
+    with pytest.raises(ProviderAmbiguityError, match="shared@"):
+        service._reject_ambiguous_external_provider("shared")
 
 
 async def test_colmap_command_surface_is_adapted_as_backend_actions(

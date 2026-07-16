@@ -33,10 +33,17 @@ async def capabilities() -> CapabilitiesOut:
     - ``matchers.{type}`` — per-pair matcher implementations.
     - ``pairs.{strategy}`` — pair-selection strategies
       (``exhaustive`` | ``vocabtree`` | ``retrieval`` | ...).
-    - ``pipelines.{kind}`` — mapping recipes (``incremental`` |
+    - ``map.{kind}`` — mapping stages (``incremental`` |
       ``global`` | ``hierarchical`` | ``spherical``).
     - ``ba.{mode}`` — bundle-adjustment modes.
-    - ``mesh.{method}`` / ``sources.{kind}`` — etc.
+    - ``projection.{kind}``, ``georegister.{mode}``, the closed radiance
+      keys (``radiance.train``, ``radiance.evaluate``,
+      ``radiance.metrics.psnr``, ``radiance.metrics.ssim``,
+      ``radiance.metrics.lpips``), and other closed sfmapi namespaces.
+
+    Backend-native or out-of-scope commands such as dense MVS and mesh
+    generation are exposed through ``/v1/backend/actions``, not as
+    portable capability families.
 
     Absence rule
     ------------

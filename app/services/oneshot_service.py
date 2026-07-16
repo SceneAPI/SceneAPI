@@ -28,6 +28,7 @@ from app.schemas.api.oneshot import (
     OneShotRuntimeInfo,
 )
 from app.schemas.pipeline_spec import FeaturesSpec
+from app.workers.options import stage_options
 from sfm_hub.routing import ensure_provider_enabled
 
 # Marker the route handler can map to a 415 / 422 response. Real
@@ -79,6 +80,7 @@ def extract_features_oneshot(
 
     started = time.perf_counter()
     backend = _resolve_backend(spec.provider)
+    feature_capability = f"features.extract.{spec.type}"
 
     metadata = read_image_metadata(image_bytes, content_type=content_type)
 
@@ -106,15 +108,17 @@ def extract_features_oneshot(
             extract_features = require_backend_method(
                 backend,
                 "extract_features",
-                capability=f"features.extract.{spec.type}",
+                capability=feature_capability,
             )
             summary = extract_features(
                 database_path=db_path,
                 image_root=image_root,
                 image_list=[image_file.name],
-                options={"sift": _sift_options_from_spec(spec)},
+                options=_feature_options_from_spec(spec),
             )
-        except CapabilityUnavailableError:
+        except CapabilityUnavailableError as exc:
+            if exc.extras.get("capability") == "features.extract":
+                raise CapabilityUnavailableError(capability=feature_capability) from exc
             raise
         except PycolmapUnavailableError:
             raise
@@ -125,6 +129,7 @@ def extract_features_oneshot(
             db_path,
             image_file.name,
             backend=backend,
+            feature_capability=feature_capability,
         )
 
     runtime_ms = int((time.perf_counter() - started) * 1000)
@@ -176,18 +181,35 @@ def _sift_options_from_spec(spec: FeaturesSpec) -> dict[str, Any]:
     return out
 
 
+def _feature_options_from_spec(spec: FeaturesSpec) -> dict[str, Any]:
+    """Translate ``FeaturesSpec`` into the standard stage option envelope.
+
+    One-shot feature calls should see the same typed envelope as worker-backed
+    feature extraction while retaining the legacy ``options['sift']`` block for
+    backends that still read pycolmap-style SIFT knobs from that location.
+    """
+
+    payload = spec.model_dump(mode="json", exclude_none=True)
+    options = stage_options(payload)
+    if "sift" not in options:
+        options["sift"] = _sift_options_from_spec(spec)
+    return options
+
+
 def _read_back_keypoints(
     db_path: Path,
     image_name: str,
     *,
     backend: Any,
+    feature_capability: str,
 ) -> tuple[list[list[float]], str, int]:
     """Read keypoints + descriptors back via the supplied backend.
     Returns:
 
       - ``keypoints``: list of [x, y, scale, angle] rows.
       - ``descriptors_b64``: base64-encoded float32 row-major.
-      - ``descriptor_dim``: 128 for SIFT.
+      - ``descriptor_dim``: backend-reported descriptor width for the
+        selected extractor.
 
     The oneshot path writes one image into ``db_path``; image_id is 1.
     Heavy-import isolation: this routes through the
@@ -200,7 +222,7 @@ def _read_back_keypoints(
         read_keypoints = require_backend_method(
             backend,
             "read_keypoints",
-            capability="features.extract.sift",
+            capability=feature_capability,
         )
         keypoints, descriptors_bytes, descriptor_dim = read_keypoints(
             database_path=db_path,
@@ -273,7 +295,7 @@ def localize_oneshot(
             result_dict = localize_from_memory(
                 sparse_dir=sparse_dir,
                 query_image=query_path,
-                spec={"sift": _sift_options_from_spec(spec)},
+                spec=_feature_options_from_spec(spec),
             )
         except CapabilityUnavailableError:
             raise

@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "plugin_id": "instantsfm",
   "display_name": "InstantSfM",
   "description": "Wrapper + SDK material is Apache-2.0. Upstream InstantSfM (cre185/InstantSfM) is CC-BY-NC-4.0; that non-commercial term is upstream's and binds whoever runs InstantSfM, not added by sfmapi.",

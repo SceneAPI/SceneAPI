@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
+from app.core.path_safety import resolve_under_root
 from app.db.models import Dataset, Image, ImageSource
 from app.storage.blobs import get_blob_store
 
@@ -35,7 +36,7 @@ async def resolve_image_path(session: AsyncSession, *, tenant_id: str, image: Im
         if src is None or not src.uri_or_root:
             raise NotFoundError("local source has no root configured")
         rel = image.rel_path or image.name
-        return Path(src.uri_or_root) / rel
+        return resolve_under_root(src.uri_or_root, rel, field="rel_path")
     raise NotFoundError(f"image bytes not available for source_kind={image.source_kind}")
 
 

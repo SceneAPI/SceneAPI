@@ -35,6 +35,36 @@ router = APIRouter(prefix="/datasets/{dataset_id}/images", tags=["images"])
 read_router = APIRouter(prefix="/images", tags=["images"])
 dataset_router = APIRouter(prefix="/datasets/{dataset_id}", tags=["images"])
 
+_BINARY_SCHEMA = {"schema": {"type": "string", "format": "binary"}}
+_IMAGE_BYTE_MEDIA_TYPES = (
+    "application/octet-stream",
+    "image/bmp",
+    "image/heic",
+    "image/heif",
+    "image/jpeg",
+    "image/png",
+    "image/tiff",
+    "image/webp",
+)
+_BINARY_RESPONSE = {
+    200: {
+        "content": {media_type: _BINARY_SCHEMA for media_type in _IMAGE_BYTE_MEDIA_TYPES},
+        "description": "Binary image bytes.",
+    }
+}
+
+_JPEG_RESPONSE = {
+    200: {
+        "content": {
+            "application/octet-stream": {
+                "schema": {"type": "string", "format": "binary"}
+            },
+            "image/jpeg": {"schema": {"type": "string", "format": "binary"}}
+        },
+        "description": "JPEG image bytes.",
+    }
+}
+
 
 def _image_links(img: Image) -> dict[str, Link]:
     return {
@@ -51,9 +81,13 @@ def _to_out(img: Image) -> ImageOut:
 
 
 def _resolve_kind(body: ImageCreate) -> tuple[str, str]:
-    if body.blob_sha:
+    has_blob = body.blob_sha is not None
+    has_rel_path = body.rel_path is not None
+    if has_blob and has_rel_path:
+        raise ValidationError("Exactly one of blob_sha or rel_path is required")
+    if has_blob:
         return "upload", body.blob_sha
-    if body.rel_path is not None:
+    if has_rel_path:
         return "local", "0" * 64  # placeholder; computed on first read
     raise ValidationError("Either blob_sha or rel_path is required")
 
@@ -205,7 +239,11 @@ async def delete_image_by_id(
     await image_service.delete_image_by_id(session, tenant_id=tenant_id, image_id=image_id)
 
 
-@read_router.get("/{image_id}/bytes")
+@read_router.get(
+    "/{image_id}/bytes",
+    response_class=FileResponse,
+    responses=_BINARY_RESPONSE,
+)
 async def get_image_bytes(
     image_id: str,
     request: Request,
@@ -241,7 +279,11 @@ async def get_image_bytes(
     return FileResponse(path, media_type=media_type, headers=headers)
 
 
-@read_router.get("/{image_id}/thumbnail")
+@read_router.get(
+    "/{image_id}/thumbnail",
+    response_class=FileResponse,
+    responses=_JPEG_RESPONSE,
+)
 async def get_image_thumbnail(
     image_id: str,
     request: Request,

@@ -23,7 +23,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.api.scene import Sim3
 
-_PROVIDER_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+_PROVIDER_COMPONENT_MAX_LENGTH = 64
+_PROVIDER_PATTERN = (
+    r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}"
+    r"(?:@[A-Za-z0-9][A-Za-z0-9_.-]{0,63})?$"
+)
+_PROVIDER_MAX_LENGTH = _PROVIDER_COMPONENT_MAX_LENGTH * 2 + 1
 
 
 class _PortableStageSpec(BaseModel):
@@ -35,7 +40,7 @@ class _PortableStageSpec(BaseModel):
     provider: str | None = Field(
         default=None,
         min_length=1,
-        max_length=64,
+        max_length=_PROVIDER_MAX_LENGTH,
         pattern=_PROVIDER_PATTERN,
         description=(
             "Optional sfm_hub provider id to execute this stage. When unset, "

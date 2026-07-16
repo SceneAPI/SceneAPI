@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "plugin_id": "brush",
   "display_name": "Brush",
   "description": "3D Gaussian Splatting plugin for Brush training and PLY snapshot export through the sfmapi radiance-field contract.",
@@ -13,7 +14,6 @@
       "display_name": "Brush",
       "capabilities": [
         "radiance.train",
-        "radiance.export",
         "radiance.evaluate",
         "radiance.metrics.psnr",
         "radiance.metrics.ssim"
@@ -100,7 +100,6 @@
   },
   "capabilities": [
     "radiance.train",
-    "radiance.export",
     "radiance.evaluate",
     "radiance.metrics.psnr",
     "radiance.metrics.ssim"

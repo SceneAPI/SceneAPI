@@ -70,7 +70,7 @@ boundary.
 ## Adding a new SfM stage
 
 The most common contribution shape — a new pipeline stage like
-`pgo`, `triangulate`, or `mesh`. The post-extraction DX is designed
+`pgo`, `triangulate`, or `georegister`. The post-extraction DX is designed
 so the touchpoints are minimal and the drift modes are caught
 mechanically.
 
@@ -100,7 +100,7 @@ mechanically.
 
 2. **Add the capability string** to
    `app/core/capabilities.py::ALL_KNOWN`. Pick a canonical name
-   (`pgo.optimize`, `mesh.poisson`, `<family>.<variant>`).
+   (`pgo.optimize`, `geometry.two_view`, `<family>.<variant>`).
 
 3. **Add a Protocol method** to the smallest matching protocol in
    `app.adapters.backend` if the stage needs a new backend-side

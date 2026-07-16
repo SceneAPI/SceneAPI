@@ -12,7 +12,10 @@ from app.core.ids import new_id
 from app.db.models import (
     Dataset,
     ImageSource,
+    Job,
     Project,
+    RadianceEvaluation,
+    RadianceField,
     Reconstruction,
     StageArtifact,
     SubModel,
@@ -53,6 +56,48 @@ async def test_noop_task_runs_and_succeeds(session) -> None:
     assert t.outputs_ref_json["ok"] is True
 
 
+async def test_inline_dag_waits_for_dependencies(session) -> None:
+    p = Project(tenant_id="default", name="t-runner-dag")
+    session.add(p)
+    await session.flush()
+
+    first = TaskNode(
+        task_id=new_id(),
+        kind="noop",
+        inputs_hash="i-a",
+        params_hash="p-a",
+        depends_on=[],
+        gpu_required=False,
+    )
+    second = TaskNode(
+        task_id=new_id(),
+        kind="noop",
+        inputs_hash="i-b",
+        params_hash="p-b",
+        depends_on=[first.task_id],
+        gpu_required=False,
+    )
+    job_id, tasks = await submit_job_dag(
+        session,
+        tenant_id="default",
+        project_id=p.project_id,
+        recipe="noop-dag",
+        spec={},
+        nodes=[first, second],
+        inline=True,
+    )
+    await session.commit()
+    rows = [await session.get(Task, first.task_id), await session.get(Task, second.task_id)]
+    job = await session.get(Job, job_id)
+    for row in rows:
+        await session.refresh(row)
+    await session.refresh(job)
+    assert [t.task_id for t in tasks] == [first.task_id, second.task_id]
+    assert [row.status for row in rows] == ["succeeded", "succeeded"]
+    assert rows[1].depends_on_json == [first.task_id]
+    assert job.status == "succeeded"
+
+
 async def test_cache_short_circuit(session) -> None:
     p = Project(tenant_id="default", name="t-cache")
     session.add(p)
@@ -82,7 +127,7 @@ async def test_cache_short_circuit(session) -> None:
     await session.refresh(a)
     assert a.status == "succeeded"
 
-    _, tasks_b = await submit_job_dag(
+    job_b, tasks_b = await submit_job_dag(
         session,
         tenant_id="default",
         project_id=p.project_id,
@@ -98,6 +143,8 @@ async def test_cache_short_circuit(session) -> None:
     assert b.status == "succeeded"
     assert b.outputs_ref_json == a.outputs_ref_json
     assert b.cache_key == a.cache_key
+    jb = await session.get(Job, job_b)
+    assert jb.status == "succeeded"
 
 
 async def test_map_task_persists_submodels(session, monkeypatch) -> None:
@@ -233,4 +280,86 @@ async def test_map_task_persists_submodels(session, monkeypatch) -> None:
         "snapshot-3",
         "submodel-0",
         "submodel-1",
+    }
+
+
+async def test_failed_radiance_train_marks_evaluation_failed(session, monkeypatch) -> None:
+    from app.workers import dispatcher
+
+    p = Project(tenant_id="default", name="t-radiance-train-failure")
+    session.add(p)
+    await session.flush()
+
+    rf = RadianceField(
+        tenant_id="default",
+        project_id=p.project_id,
+        name="rf",
+        provider="test-provider",
+        method="test.train",
+        status="running",
+        spec_json={"method": "test.train"},
+    )
+    session.add(rf)
+    await session.flush()
+
+    ev = RadianceEvaluation(
+        tenant_id="default",
+        radiance_field_id=rf.radiance_field_id,
+        snapshot_seq=1,
+        provider="test-provider",
+        method="test.eval",
+        split="test",
+        status="running",
+        config_json={},
+    )
+    session.add(ev)
+    await session.flush()
+
+    def fake_train(_task: Task) -> dict:
+        raise RuntimeError("provider train failed")
+
+    monkeypatch.setattr(dispatcher, "_HANDLERS_CACHE", {"radiance_train": fake_train})
+    node = TaskNode(
+        task_id=new_id(),
+        kind="radiance_train",
+        inputs_hash="radiance-inputs",
+        params_hash="radiance-params",
+        depends_on=[],
+        gpu_required=False,
+        metadata={
+            "inputs": {
+                "project_id": p.project_id,
+                "radiance_field_id": rf.radiance_field_id,
+                "evaluation_id": ev.evaluation_id,
+            },
+            "spec": {"provider": "test-provider", "method": "test.train"},
+        },
+    )
+    job_id, tasks = await submit_job_dag(
+        session,
+        tenant_id="default",
+        project_id=p.project_id,
+        recipe="radiance.train",
+        spec={},
+        nodes=[node],
+        inline=True,
+    )
+    await session.commit()
+
+    task = await session.get(Task, tasks[0].task_id)
+    job = await session.get(Job, job_id)
+    await session.refresh(task)
+    await session.refresh(job)
+    await session.refresh(rf)
+    await session.refresh(ev)
+
+    assert task.status == "failed"
+    assert task.error_class == "RuntimeError"
+    assert task.error_message == "provider train failed"
+    assert job.status == "failed"
+    assert rf.status == "failed"
+    assert ev.status == "failed"
+    assert ev.error_json == {
+        "code": "RuntimeError",
+        "message": "provider train failed",
     }

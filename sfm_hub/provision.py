@@ -6,10 +6,40 @@ import argparse
 import importlib
 import inspect
 import json
+import re
 from collections.abc import Mapping
 from typing import Any
 
-SENSITIVE_KEY_PARTS = ("TOKEN", "SECRET", "KEY", "PASSWORD", "CREDENTIAL", "AUTH")
+try:
+    from app.core.public_outputs import (
+        sanitize_public_error_message,
+        sanitize_public_outputs,
+    )
+except Exception:  # pragma: no cover - standalone hub fallback
+    def sanitize_public_outputs(value: Any) -> Any:
+        return value
+
+    def sanitize_public_error_message(value: Any) -> str:
+        return str(value or "")
+
+SENSITIVE_KEY_PARTS = (
+    "TOKEN",
+    "SECRET",
+    "KEY",
+    "PASSWORD",
+    "CREDENTIAL",
+    "AUTH",
+    "SIGNATURE",
+    "X-AMZ",
+    "X-GOOG-SIGNATURE",
+    "AWSACCESSKEYID",
+    "GOOGLEACCESSID",
+    "SIGV4",
+)
+SIGNED_DROP_KEY_RE = re.compile(
+    r"(x-amz|x-goog-signature|awsaccesskeyid|googleaccessid|signature|sigv4|^sig$)",
+    re.IGNORECASE,
+)
 
 
 class ProvisioningError(RuntimeError):
@@ -91,11 +121,8 @@ def _normalize_result(value: object) -> dict[str, Any]:
         "steps": normalized_steps,
         "env_keys": env_keys,
         "redacted_env": redacted_env,
-        "outputs": {
-            str(key): "<redacted>" if _is_sensitive_key(str(key)) else str(item)
-            for key, item in outputs.items()
-        },
-        "warnings": [str(item) for item in warnings],
+        "outputs": _redact_object({str(key): item for key, item in outputs.items()}),
+        "warnings": [_redact_object(str(item)) for item in warnings],
         "metadata": _redact_object({str(key): item for key, item in metadata.items()}),
     }
 
@@ -117,7 +144,7 @@ def run_package_provisioner(
             return _empty_result(
                 warning=f"package {package_name!r} does not expose {provisioner_module}"
             )
-        raise ProvisioningError(str(exc)) from exc
+        raise ProvisioningError(sanitize_public_error_message(exc)) from exc
 
     provision = getattr(module, "provision", None)
     if not callable(provision):
@@ -168,7 +195,7 @@ def planned_package_provisioning(package_name: str) -> dict[str, Any]:
 
 def _is_sensitive_key(key: str) -> bool:
     upper = key.upper()
-    return any(part in upper for part in SENSITIVE_KEY_PARTS)
+    return upper == "SIG" or any(part in upper for part in SENSITIVE_KEY_PARTS)
 
 
 def _redact_object(value: object, *, key: str = "") -> Any:
@@ -178,9 +205,12 @@ def _redact_object(value: object, *, key: str = "") -> Any:
         return {
             str(item_key): _redact_object(item, key=str(item_key))
             for item_key, item in value.items()
+            if not SIGNED_DROP_KEY_RE.search(str(item_key))
         }
     if isinstance(value, list):
         return [_redact_object(item) for item in value]
+    if isinstance(value, str):
+        return sanitize_public_outputs(value)
     return value
 
 

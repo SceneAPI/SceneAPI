@@ -27,6 +27,7 @@ from app.core.config import get_settings
 from app.core.errors import ValidationError
 from app.core.hashing import canonical_json, content_address
 from app.core.ids import new_id
+from app.core.path_safety import validate_safe_relative_path
 from app.core.paths import Paths
 from app.core.projections import projection_capability
 from app.db.models import Blob, Dataset, Image, ImageSource, Reconstruction
@@ -159,6 +160,7 @@ async def derive_materialization(
           "image_list": [str],            # ordered image names
           "image_root": str | None,       # filesystem path (None for upload)
           "blob_shas": {name: sha},       # only for upload
+          "rel_paths": {name: rel_path},  # only for local
           "bucket": str, "prefix": str,   # only for s3
         }
     """
@@ -189,6 +191,12 @@ async def derive_materialization(
         if not src.uri_or_root:
             raise ValidationError("local source missing root path")
         out["image_root"] = src.uri_or_root
+        out["rel_paths"] = {
+            validate_safe_relative_path(name, field="image name"): validate_safe_relative_path(
+                rel_path or name, field="rel_path"
+            )
+            for name, _, rel_path in rows
+        }
     elif src.kind == "s3":
         if not src.uri_or_root or not src.uri_or_root.startswith("s3://"):
             raise ValidationError("s3 source missing s3://bucket/prefix uri")
@@ -1441,10 +1449,19 @@ def build_recipe_dag(
         inputs={
             **common_stage_inputs,
             "database_path": features_db_path or database_path,
-            "depends_on": extract.task_id,
             **({"input_artifacts": input_artifacts} if input_artifacts else {}),
         },
-        spec=matches_spec,
+        spec={
+            **matches_spec,
+            **(
+                {"provider": matches_spec["matcher"]["provider"]}
+                if (
+                    isinstance(matches_spec.get("matcher"), dict)
+                    and isinstance(matches_spec["matcher"].get("provider"), str)
+                )
+                else {}
+            ),
+        },
         depends_on=[extract.task_id],
     )
     verify = _stage_node(
@@ -1452,7 +1469,6 @@ def build_recipe_dag(
         inputs={
             **common_stage_inputs,
             "database_path": matches_db_path or database_path,
-            "depends_on": match.task_id,
             **({"input_artifacts": input_artifacts} if input_artifacts else {}),
         },
         spec=verify_spec,
@@ -1464,7 +1480,6 @@ def build_recipe_dag(
         "dataset_id": dataset_id,
         "database_path": verified_db_path or database_path,
         "materialization": materialization,
-        "depends_on": verify.task_id,
     }
     if pose_priors:
         map_inputs["pose_priors"] = pose_priors

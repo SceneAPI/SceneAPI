@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.api.artifacts import ArtifactConversionOut
 from app.schemas.api.common import Link, Page
+from app.schemas.pipeline_spec import PROVIDER_SELECTOR_MAX_LENGTH, PROVIDER_SELECTOR_PATTERN
 
 BackendActionStability = Literal[
     "stable",
@@ -130,11 +131,12 @@ class BackendActionValidateRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    project_id: str | None = Field(default=None, min_length=1)
     provider: str | None = Field(
         default=None,
         min_length=1,
-        max_length=64,
-        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
     )
     inputs: dict[str, Any] = Field(default_factory=dict)
 
@@ -160,7 +162,7 @@ class BackendActionRunRequest(BaseModel):
     provider: str | None = Field(
         default=None,
         min_length=1,
-        max_length=64,
-        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
     )
     inputs: dict[str, Any] = Field(default_factory=dict)

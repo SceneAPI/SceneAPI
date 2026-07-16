@@ -21,6 +21,7 @@ pytestmark = pytest.mark.unit
 
 class OneShotLocalizeProviderBackend(StubBackend):
     name = "oneshot_localize_provider"
+    last_spec: dict[str, Any] | None = None
 
     def localize_from_memory(
         self,
@@ -29,6 +30,7 @@ class OneShotLocalizeProviderBackend(StubBackend):
         query_image: Path,
         spec: dict[str, Any],
     ) -> dict[str, Any]:
+        OneShotLocalizeProviderBackend.last_spec = spec
         return {"ok": True, "query": query_image.name}
 
 
@@ -87,3 +89,34 @@ def test_localize_oneshot_resolves_provider_alias(tmp_path: Path) -> None:
     assert out.runtime.backend == "oneshot_localize_provider"
     assert out.result["ok"] is True
     assert out.spec["provider"] == "oneshot.localize"
+
+
+def test_localize_oneshot_passes_selected_feature_envelope(tmp_path: Path) -> None:
+    register_backend(
+        "oneshot_localize_provider",
+        OneShotLocalizeProviderBackend,
+        providers=["oneshot.localize"],
+    )
+    sparse_dir = tmp_path / "sparse"
+    sparse_dir.mkdir()
+
+    out = oneshot_service.localize_oneshot(
+        b"\xff\xd8\xff\xe0image-bytes",
+        recon_id="r1",
+        spec=FeaturesSpec(
+            type="sosnet",
+            provider="oneshot.localize",
+            max_num_features=512,
+            backend_options={"descriptor": "sosnet"},
+        ),
+        sparse_dir=sparse_dir,
+        content_type="image/jpeg",
+    )
+
+    assert out.spec["type"] == "sosnet"
+    assert OneShotLocalizeProviderBackend.last_spec is not None
+    assert OneShotLocalizeProviderBackend.last_spec["type"] == "sosnet"
+    assert OneShotLocalizeProviderBackend.last_spec["portable"]["type"] == "sosnet"
+    assert OneShotLocalizeProviderBackend.last_spec["backend_options"] == {
+        "descriptor": "sosnet"
+    }

@@ -60,15 +60,22 @@ Every endpoint in this spec belongs to exactly one conformance level:
   implements the endpoint. If unavailable, the endpoint **MUST**
   return `501 Not Implemented` with
   `application/problem+json` carrying `capability: <name>`.
+- **Standard extension (capability-composed)** -- Optional, but
+  standardized. Availability is derived from the underlying portable
+  capabilities named by the endpoint, such as `map.incremental`,
+  `features.extract.sift`, or `localize.from_memory`, rather than a
+  single umbrella capability.
 - **Reference-implementation-only** — Ships in the reference
   `sfmapi/sfmapi` repository for operator convenience but is **not**
   part of the standard. Other backends **MAY** omit these endpoints
   entirely. Examples: `/v1/admin/api-keys`, `/metrics`. Compliance
   test suites **MUST NOT** require them.
 
-Each subsection in §6 is tagged. `[Core]` items have no marker;
-`[Extension: <capability>]` items are explicitly marked, as are
-`[Reference-only]` items.
+Each subsection in Section 6 is tagged. `[Core]` marks required core surfaces.
+`[Standard extension: <capability>]` marks a single capability-flagged
+surface, `[Standard extension: capability-composed]` marks a surface
+gated by the capabilities named in that subsection, and
+`[Reference-only]` items are explicitly marked.
 
 ---
 
@@ -77,17 +84,24 @@ Each subsection in §6 is tagged. `[Core]` items have no marker;
 - The current version is **`v1`**, served under the `/v1/` URL prefix.
 - A `v1` server **MUST** accept `/v1/` requests.
 - A server **MAY** add new endpoints, new fields on existing
-  responses, new optional request fields, and new enum values without
+  responses, new optional request fields inside documented extension
+  envelopes or capability-gated revisions, and new enum values without
   bumping the major version, as long as well-behaved older clients
   continue to function.
 - A server **MUST NOT** remove existing fields, repurpose enum values,
   change a 2xx response shape, or change the meaning of an HTTP
   method on an existing path within `v1`.
-- A server **MUST** ignore unknown request body fields rather than
-  rejecting them (forward compatibility with future-revision
-  clients).
-- A server **MAY** add `x-`-prefixed extension fields anywhere; clients
-  **MUST** ignore unrecognised `x-`-prefixed fields.
+- Request body schemas for new capability-gated, plugin, typed-dataflow,
+  backend-action, and artifact-conversion surfaces are strict by default:
+  a server **MUST** reject unknown request fields with 422 unless the field
+  is inside a documented extension envelope such as `backend_options`,
+  `input_artifacts`, `special_inputs`, `special_attributes`, or a vendor
+  `x-` field accepted by that endpoint. Legacy stable resource bodies in
+  `v1` **MAY** ignore unknown fields for compatibility with deployed clients.
+- Request `x-` fields are valid only where an endpoint documents that
+  extension namespace. A server **MAY** add `x-`-prefixed fields to
+  responses and documented extension envelopes; clients **MUST** ignore
+  unrecognised response `x-` fields.
 - The shape of `_links` (§3.5) is part of the spec; the *contents* are
   advisory and may grow.
 
@@ -100,7 +114,9 @@ required to support every endpoint in this spec.
 
 - A small set of capabilities is **CORE** (project / dataset / image
   CRUD, uploads, jobs, events). Every conforming server **MUST**
-  expose these and they always succeed.
+  expose these routes; they are not capability-gated, but normal
+  validation, authentication, quota, not-found, storage, and server
+  errors still apply.
 - The remaining capabilities are **OPTIONAL** feature flags. A server
   advertises which OPTIONAL flags it supports via
   `GET /v1/capabilities` (see §3.11). Endpoints whose capability is
@@ -213,6 +229,11 @@ List endpoints **MUST** follow [AIP-158][aip158] and return:
   "total":           <int> | null
 }
 ```
+
+Documented snapshot/navigation-index endpoints, such as reconstruction snapshot
+indexes and the alpha radiance snapshot sequence index, **MAY** use a smaller
+custom envelope. They must be called out explicitly in their resource section
+instead of being implied to be a general list endpoint.
 
 Clients pass `?page_token=` and `?page_size=` to continue. `total`
 **MAY** be `null` when counting is expensive. Clients **MUST NOT**
@@ -337,8 +358,9 @@ content-type: application/json
 `backend` identifies the SfM engine powering this deployment;
 `features` is a flat dict from canonical capability name to bool.
 The CORE feature names are listed in §6.1; OPTIONAL feature names
-are owned by the spec — backends MAY add extra keys outside the
-canonical list but clients **MUST** treat unknown names as opaque.
+are owned by the spec. The public capability surface is closed until
+plugin-qualified capability ids are versioned and client-gated; unknown
+backend-local names are not advertised in `features`.
 
 When a request hits an OPTIONAL feature whose flag is `false`, the
 server **MUST** respond:
@@ -710,7 +732,7 @@ body field or query parameter.
 `GET /v1/jobs/{jid}/progress` complements `/events` for dashboards and
 CLIs that prefer polling over holding an SSE connection open.
 
-### 6.8 Pipelines (recipe sugar)
+### 6.8 Pipelines (recipe sugar) [Standard extension: capability-composed]
 
 | Method | Path                                                | Body                                                | Returns |
 |--------|-----------------------------------------------------|-----------------------------------------------------|---------|
@@ -720,7 +742,12 @@ CLIs that prefer polling over holding an SSE connection open.
 `spec.kind` **MUST** match `recipe` or the request **MUST** be rejected
 with 422.
 
-### 6.8.1 One-shot endpoints
+Recipe availability is composed from the selected stages and mapping
+kind. For example, an incremental recipe requires the provider-selected
+feature, pair, match, verify, and `map.incremental` capabilities; there
+is no separate recipe capability.
+
+### 6.8.1 One-shot endpoints [Standard extension: capability-composed]
 
 For "right now" use cases that don't need a Project / Dataset / Job
 row. Bytes are tempfile'd and deleted; no persistent state is
@@ -735,6 +762,116 @@ default).
 The optional `provider` selector routes execution to a specific
 backend installed through sfm_hub without changing the process-wide
 `SFMAPI_BACKEND`. Unknown providers fail with 422.
+
+One-shot feature extraction is gated by the requested
+`features.extract.<type>` capability. One-shot localization is gated by
+`localize.from_memory`. There is no umbrella `oneshot` capability.
+
+### 6.8.2 Typed dataflow discovery [Core]
+
+| Method | Path                                      | Returns                    |
+|--------|-------------------------------------------|----------------------------|
+| GET    | `/v1/datatypes`                           | `DataTypesContract`        |
+| GET    | `/v1/attributes`                          | `AttributesContract`       |
+| GET    | `/v1/operations`                          | legacy `OperationsContract`|
+| GET    | `/v1/processors`                          | `ProcessorsContract`       |
+| GET    | `/v1/pipelines`                           | `PipelinesContract`        |
+| POST   | `/v1/pipelines:validate`                  | `PipelineValidateResponse` |
+| POST   | `/v1/projects/{pid}/pipelines:run`        | Core route: legacy flat SfM chains return 202; native typed Processor DAGs preflight then return 501 until typed execution |
+
+The native composition law is:
+
+```
+A.supplier[out].datatype == B.consumer[in].datatype
+```
+
+The current `match_graph` core contract has one compatibility refinement:
+mapping still assumes verified matches. That hidden state is not part of the
+final typed-execution law; the P5b release must split raw and verified match
+graphs into nominal DataTypes or make the refinement explicit in `PortSpec`.
+
+`POST /v1/pipelines:validate` and
+`POST /v1/projects/{pid}/pipelines:run` accept two request grammars:
+
+- Legacy Operation grammar: each step is either an operation id string or
+  `{op, params?, provider?}`. This grammar is the compatibility projection of
+  `/v1/operations`; plugin processors **MUST NOT** rely on it unless they are
+  also projected as Operations by that implementation. The core executable SfM
+  chain is exactly `features -> pairs -> matches -> verify -> map`; its
+  `params` are validated by the corresponding stage schemas, including legacy
+  aliases such as SIFT option aliases. Provider selectors are allowed for that
+  executable chain and are routed by the recipe executor. Provider selectors on
+  other legacy custom chains remain validation errors.
+- Native Processor grammar: each step is `{ref?, processor, attributes?,
+  params?, provider?, wires?}`. `ref` defaults to `step_<index>` and the value
+  `inputs` is reserved for synthetic external suppliers. `params` is a legacy
+  alias for `attributes`; when both are present, `attributes` wins on key
+  overlap. `wires` maps named consumer ports to `producer_ref.supplier_port`
+  strings, or to ordered arrays for `multiple=true` ports. A syntactically and
+  type-valid native request may include provider selectors as preflight
+  metadata, but servers without `pipelines.custom_execution` **MUST** return
+  501 from `:run` instead of creating non-drainable jobs.
+
+The current request model exposes `initial_inputs: string[]` as a compatibility
+adapter for synthetic `inputs.<datatype>` suppliers. The durable Pipeline
+library shape is reference-keyed external inputs, so a future request can
+distinguish two external suppliers with the same Data Type. Implementations
+that advertise custom typed execution **MUST** support the reference-keyed form
+or document an equivalent non-ambiguous external-input grammar.
+
+Validation failures from `:validate` return 200 with
+`PipelineValidateResponse.valid=false`; failures from `:run` return the same
+reason/path discipline inside the 422 problem response. Common reasons include
+`unknown_processor`, `unknown_port`, `unknown_attribute`,
+`missing_required_port`, `missing_required_attribute`, `ambiguous_input`,
+`datatype_mismatch`, `invalid_attribute`, `invalid_fan_in`,
+`duplicate_step_ref`, `duplicate_initial_input`, `unknown_datatype`,
+`unverified_match_graph`, and `provider_unsupported`. These names match the generated
+`PipelinesContract.validation_reasons` contract.
+
+`/v1/processors` is the named-port registry for `consumer`, `supplier`, and
+typed `attributes`; `/v1/operations` remains the flat compatibility
+projection. Processor `capabilities` in this contract are current execution
+selectors used by the bridge-era scheduler. The P6 contract split will expose
+capability-family metadata separately from provider/runtime requirements.
+
+`/v1/datatypes`, `/v1/attributes`, `/v1/operations`, `/v1/processors`,
+`/v1/pipelines`, `/v1/pipelines:validate`, and
+`/v1/projects/{pid}/pipelines:run` are Core discovery, validation, and
+preflight endpoints. `/v1/projects/{pid}/pipelines:run` also preserves the
+legacy v1 flat SfM operation chain (`features -> pairs -> matches -> verify ->
+map`) as an executable 202 job-submission shape. Actual custom typed Processor
+DAG execution is optional and gated by `pipelines.custom_execution`; servers
+without that capability **MUST** return 501 after a native typed Processor DAG
+request is syntactically and type-valid.
+
+### 6.8.3 Radiance fields / 3D Gaussian Splatting [Standard extension: capability-composed]
+
+Radiance resources model plugin-owned NeRF / 3DGS style outputs without
+promoting dense MVS or mesh generation into the sfmapi core. Implementations
+that expose training or evaluation **MUST** advertise the matching portable
+capability (`radiance.train`, `radiance.evaluate`, or the narrower
+`radiance.metrics.*` capability when applicable).
+This extension is alpha until the radiance API guide, plugin authoring guide,
+deployment guide, migration notes, and bench suites are complete.
+
+| Method | Path                                                            | Body / Query            | Returns |
+|--------|-----------------------------------------------------------------|-------------------------|---------|
+| POST   | `/v1/projects/{pid}/radiance_fields:train`                      | `RadianceTrainRequest`  | 202 + `JobAccepted` |
+| GET    | `/v1/projects/{pid}/radiance_fields`                            | `?page_token=&page_size=` | `Page<RadianceField>` |
+| GET    | `/v1/radiance_fields/{rfid}`                                    | -                       | `RadianceField` |
+| POST   | `/v1/radiance_fields/{rfid}:evaluate`                           | `RadianceEvaluateRequest` | 202 + `JobAccepted` |
+| GET    | `/v1/radiance_fields/{rfid}/evaluations`                        | `?page_token=&page_size=` | `Page<RadianceEvaluation>` |
+| GET    | `/v1/radiance_evaluations/{eid}`                                | -                       | `RadianceEvaluation` |
+| GET    | `/v1/radiance_evaluations/{eid}/metrics`                        | -                       | `RadianceMetrics` |
+| GET    | `/v1/radiance_evaluations/{eid}/artifacts/metrics.json`         | -                       | JSON |
+| GET    | `/v1/radiance_fields/{rfid}/snapshots`                          | -                       | alpha sequence index: `RadianceSnapshotListResponse` |
+| GET    | `/v1/radiance_fields/{rfid}/snapshots/{seq}`                    | -                       | `RadianceSnapshot` |
+| GET    | `/v1/radiance_fields/{rfid}/snapshots/{seq}/{name}`             | `?download=true`        | file bytes |
+
+Portable snapshot file names are `metadata.json`, `summary.json`,
+`point_cloud.ply`, `metrics.json`, and `transforms.json` when present. A
+missing optional file **MUST** return 404.
 
 ### 6.9 Reconstructions, submodels, snapshots
 
@@ -960,14 +1097,14 @@ matter. See §7.2.2.
 #### 6.9.7 Pluggable feature extractors (optional)
 
 `FeaturesSpec` is **type-tagged** so a backend can offer multiple
-extractors (SIFT, SuperPoint, ALIKED, DISK, R2D2, D2-Net, ...). The
+extractors (SIFT, SuperPoint, ALIKED, DISK, R2D2, D2-Net, SOSNet, ...). The
 capability flag for each is `features.extract.{type}` — clients gate
 on `GET /v1/capabilities` to learn which the backend supports.
 
 ```json
 {
   "version": 1,
-  "type":    "sift" | "superpoint" | "aliked" | "disk" | "r2d2" | "d2net",
+  "type":    "sift" | "superpoint" | "aliked" | "disk" | "r2d2" | "d2net" | "sosnet",
   "provider": "colmap",
   "max_num_features": 8192,
   "use_gpu":          true,
@@ -976,9 +1113,13 @@ on `GET /v1/capabilities` to learn which the backend supports.
 }
 ```
 
-`POST /v1/datasets/{did}/features` accepts this shape. Servers
-**MUST** return 501 with `capability=features.extract.{type}` when
-the requested extractor isn't supported. The legacy
+`POST /v1/datasets/{did}/features` accepts this shape and returns a
+stage LRO once the request is syntactically valid and provider routing
+is accepted. If the selected backend later lacks
+`features.extract.{type}`, the task/job **MUST** fail with
+`capability_unavailable` and the same canonical capability name. Inline
+or one-shot feature routes that execute during the request **MUST**
+return 501 synchronously for unsupported extractors. The legacy
 `sift_max_num_features` / `sift_first_octave` fields are accepted as
 aliases when `type=="sift"`.
 
@@ -1296,7 +1437,7 @@ suites **MUST NOT** require it.
 | GET     | `/v1/admin/plugins/detect-tools` | —                       | external tool detection       |
 | GET     | `/v1/admin/plugins/entry-points` | `?load=false`              | installed Python entry points |
 | GET     | `/v1/admin/plugins/{plugin_id}` | —                         | manifest + local state        |
-| POST    | `/v1/admin/plugins/{plugin_id}:install` | `{method, github_url?, ref?, package_name?, dry_run?, allow_unsafe_execution?}` | install plan or result |
+| POST    | `/v1/admin/plugins/{plugin_id}:install` | `{method, github_url?, ref?, package_name?, dry_run?, allow_unsafe_execution?, request_id?, provision_runtime?, force?}` | install plan or result |
 | POST    | `/v1/admin/plugins/{plugin_id}:enable` | —                     | plugin state                  |
 | POST    | `/v1/admin/plugins/{plugin_id}:disable` | —                    | plugin state                  |
 | POST    | `/v1/admin/plugins/{plugin_id}:doctor` | —                     | diagnostics                   |
@@ -1304,6 +1445,7 @@ suites **MUST NOT** require it.
 | POST    | `/v1/admin/routing/default`   | `{profile}`                | routing state                 |
 | POST    | `/v1/admin/routing/projects/{project_id}` | `{profile}`      | routing state                 |
 | POST    | `/v1/admin/routing/workspaces` | `{profile}`               | routing state                 |
+| POST    | `/v1/admin/routing/provider-priority` | `{providers: [...]}` | routing state                 |
 
 Plugin installation is an explicit operator action. Public project,
 dataset, pipeline, and job endpoints MUST NOT install plugins
@@ -1336,19 +1478,35 @@ Artifact conversion is a long-running operation:
 
 | Method | Path | Body | Result |
 |--------|------|------|--------|
+| GET | `/v1/artifacts/kinds` | - | `Page<ArtifactKind>` |
+| GET | `/v1/artifacts/formats` | - | `Page<ArtifactFormat>` |
 | POST | `/v1/artifacts:import` | `ArtifactImportRequest` | `StageArtifact` |
+| GET | `/v1/artifacts/{artifact_id}` | - | `StageArtifact` |
+| GET | `/v1/artifacts/{artifact_id}/content` | `?download=true` | file bytes |
 | POST | `/v1/artifacts/{artifact_id}:conversionPlan` | `{provider?, to_format?, accepted_formats?, require_lossless?}` | `ArtifactConversionPlan` |
-| POST | `/v1/artifacts/{artifact_id}:convert` | `{provider?, to_format?, accepted_formats?, to_kind?, name?, options?}` | 202 + `JobAcceptedResponse` |
+| POST | `/v1/artifacts/{artifact_id}:convert` | `{provider?, to_format?, accepted_formats?, require_lossless?, to_kind?, name?, options?}` | 202 + `JobAcceptedResponse` |
 | POST | `/v1/artifacts/{artifact_id}:validate` | - | `ArtifactValidation` |
 
 `artifacts:import` registers an existing URI without copying bytes.
 The server **MUST** persist it as a normal stage artifact owned by a
 completed import job/task.
 
+`StageArtifact.uri` is descriptor metadata, not a serving guarantee.
+Servers **MUST** advertise `_links.content` only when
+`/v1/artifacts/{artifact_id}/content` can serve a local,
+sfmapi-managed regular file named by the top-level artifact `uri` or
+`path`. Remote URIs, absent top-level URIs, `files[]`-only local paths,
+missing local paths, unmanaged local paths, and local directory artifacts
+**MUST NOT** advertise `_links.content`. Directory artifact kinds such as
+`reconstruction.snapshot`, `reconstruction.sparse.v1`,
+`reconstruction.submodel`, and `radiance.snapshot` retain their
+server-internal content path for indexing, but their public
+`StageArtifact.uri` is `null` when the source is a local directory.
+
 `conversionPlan` accepts either an exact `to_format` or
 `accepted_formats` in preference order. `convert` uses the same
-selection rules and submits a normal job whose task kind is
-`convert_artifact`. A backend that advertises `conversions` in
+selection rules, including `require_lossless=true`, and submits a
+normal job whose task kind is `convert_artifact`. A backend that advertises `conversions` in
 `list_backend_artifact_contracts()` **MUST** implement
 `convert_artifact(input_artifact, output_dir, to_format, to_kind,
 options)`. Servers **MUST** reject conversion requests when no
@@ -1776,6 +1934,13 @@ A *conforming server* **MUST** implement at minimum:
 - §6.6 stages (features + matches + verify with at least one
   matching `pairs.strategy`).
 - §6.7 jobs + SSE events. WebSocket optional.
+- §6.8.2 typed dataflow discovery, validation, and the custom typed
+  execution preflight route. This includes
+  `POST /v1/projects/{pid}/pipelines:run` with the current split behavior:
+  the legacy flat SfM chain (`features -> pairs -> matches -> verify -> map`)
+  returns 202, while a server that does not advertise
+  `pipelines.custom_execution` returns 501 for type-valid native typed
+  Processor DAGs.
 - §6.9 reconstruction reads + sealed snapshot reads.
 - §7.1 binary points format.
 - §7.3 `ProgressEvent` v1 schema.
@@ -1784,7 +1949,13 @@ A *conforming server* **MUST** implement at minimum:
 
 A *conforming server* **MAY** additionally implement:
 
-- §6.8 pipeline recipes.
+- §6.8 named pipeline recipe routes
+  (`POST /v1/projects/{pid}/pipelines/{recipe}`); this optional item does not
+  weaken the Core legacy flat `/pipelines:run` 202 compatibility shape above.
+- §6.8.1 one-shot endpoints.
+- §6.8.2 actual typed dataflow job execution behind
+  `pipelines.custom_execution`.
+- §6.8.3 radiance fields / 3D Gaussian Splatting.
 - §6.10 backend actions and backend config schemas.
 - §6.11 admin / api-keys / plugin hub.
 - `local`/`s3` source kinds.
@@ -1797,7 +1968,11 @@ Dense MVS and mesh / texture generation are **out of scope** by design
 — see Appendix D — and a conforming server neither implements nor is
 expected to implement them.
 
-Clients **MUST** be prepared for *optional* features to return 404.
+Unsupported capability-gated extension endpoints **MUST** return 501
+with `capability_unavailable`. A 404 is reserved for missing addressed
+resources/artifacts, path variants intentionally omitted from a server,
+or reference-only examples that are not part of that deployment's route
+surface.
 
 ---
 
@@ -1807,7 +1982,7 @@ Clients **MUST** be prepared for *optional* features to return 404.
 
 Clients **MUST**:
 
-- Ignore unknown JSON fields.
+- Ignore unknown response JSON fields.
 - Ignore unknown `_links` keys.
 - Treat unknown `ProgressEvent.kind` values as "log_line"-equivalent
   (i.e., display message if present, otherwise drop silently).
@@ -1872,6 +2047,7 @@ as future work; they're now standardized as §6.9 extensions.)
 | 304    | `If-None-Match` hit; body is empty.                          |
 | 416    | Out-of-range chunk in chunked upload.                        |
 | 422    | Schema validation failed (request well-formed but invalid).  |
+| 501    | Capability-gated standard extension or typed executor absent.|
 | 503    | Underlying engine (e.g. pycolmap) unavailable.               |
 | 507    | Storage error (disk full, blob missing).                     |
 

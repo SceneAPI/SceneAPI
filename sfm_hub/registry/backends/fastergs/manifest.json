@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "plugin_id": "fastergs",
   "display_name": "Faster-GS",
   "description": "3D Gaussian Splatting plugin for NeRFICG Faster-GS training, inference, and PLY export through the sfmapi radiance-field contract.",
@@ -13,8 +14,6 @@
       "display_name": "Faster-GS",
       "capabilities": [
         "radiance.train",
-        "radiance.render",
-        "radiance.export",
         "radiance.evaluate",
         "radiance.metrics.psnr",
         "radiance.metrics.ssim",
@@ -107,8 +106,6 @@
   },
   "capabilities": [
     "radiance.train",
-    "radiance.render",
-    "radiance.export",
     "radiance.evaluate",
     "radiance.metrics.psnr",
     "radiance.metrics.ssim",

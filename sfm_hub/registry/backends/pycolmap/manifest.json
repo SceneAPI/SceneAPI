@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "plugin_id": "pycolmap",
   "display_name": "pycolmap",
   "description": "Python backend plugin using pycolmap bindings for in-process COLMAP workflows.",

@@ -10,7 +10,12 @@ from app.core.errors import ValidationError
 from app.core.ids import new_id
 from app.db.models import Dataset, Image, ImageSource, StageArtifact, Task
 from app.services import artifact_service, job_service, project_service
-from app.workers.dispatcher import _apply_derived_dataset_outputs, get_handlers
+from app.workers.dispatcher import (
+    _apply_derived_dataset_outputs,
+    _dependency_state_from_statuses,
+    execute_task,
+    get_handlers,
+)
 from app.workers.runner import WORKER_ID, run_task
 
 pytestmark = pytest.mark.unit
@@ -71,6 +76,13 @@ def test_runner_run_task_delegates_to_dispatcher(monkeypatch: pytest.MonkeyPatch
 def test_worker_id_is_set() -> None:
     assert WORKER_ID
     assert isinstance(WORKER_ID, str)
+
+
+def test_skipped_dependency_counts_as_ready() -> None:
+    assert _dependency_state_from_statuses(
+        ["a", "b"],
+        {"a": "succeeded", "b": "skipped"},
+    ) == "ready"
 
 
 def test_worker_output_contract_rejects_malformed_artifacts() -> None:
@@ -166,8 +178,9 @@ async def test_input_artifact_refs_validate_role_and_kind(session) -> None:
         recipe="test",
         spec={},
     )
+    task_id = new_id()
     task = Task(
-        task_id=new_id(),
+        task_id=task_id,
         tenant_id="default",
         job_id=job.job_id,
         kind="extract",
@@ -203,6 +216,52 @@ async def test_input_artifact_refs_validate_role_and_kind(session) -> None:
             dataset_id=None,
             input_artifacts={"verified_matches": {"artifact_id": artifact.artifact_id}},
         )
+
+
+async def test_execute_task_does_not_rerun_terminal_task(session, monkeypatch) -> None:
+    project = await project_service.create_project(
+        session,
+        tenant_id="default",
+        name="terminal-task",
+    )
+    job = await job_service.create_job(
+        session,
+        tenant_id="default",
+        project_id=project.project_id,
+        recipe="noop",
+        spec={},
+    )
+    task_id = new_id()
+    task = Task(
+        task_id=task_id,
+        tenant_id="default",
+        job_id=job.job_id,
+        kind="noop",
+        status="succeeded",
+        inputs_hash="i" * 64,
+        params_hash="p" * 64,
+        runtime_version_id="rv",
+        cache_key="c" * 64,
+        outputs_ref_json={"ok": True},
+    )
+    session.add(task)
+    await session.commit()
+
+    calls = 0
+
+    def fail_if_called(_task: Task) -> dict:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("terminal task should not be executed again")
+
+    import app.workers.dispatcher as dispatcher
+
+    monkeypatch.setattr(dispatcher, "_HANDLERS_CACHE", {"noop": fail_if_called})
+
+    result = await execute_task(task_id)
+
+    assert result == {"status": "succeeded"}
+    assert calls == 0
 
 
 def test_database_path_routing_only_uses_backend_database_artifacts() -> None:

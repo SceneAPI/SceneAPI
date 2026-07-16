@@ -20,11 +20,13 @@ from app.core.tenancy import current_tenant
 from app.db.session import get_db
 from app.schemas.api.jobs import JobAcceptedResponse
 from app.schemas.api.stages import GeoregisterRequest
+from app.schemas.pipeline_spec import (
+    PROVIDER_SELECTOR_MAX_LENGTH,
+    PROVIDER_SELECTOR_PATTERN,
+)
 from app.services import sfm_stage_service
 
 router = APIRouter(prefix="/reconstructions/{recon_id}", tags=["localize"])
-
-_PROVIDER_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.-]*$"
 
 
 class LocalizationRequest(BaseModel):
@@ -37,8 +39,8 @@ class LocalizationRequest(BaseModel):
     provider: str | None = Field(
         default=None,
         min_length=1,
-        max_length=64,
-        pattern=_PROVIDER_PATTERN,
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
         description="Optional provider id to execute this localize job.",
     )
 
@@ -120,8 +122,8 @@ async def to_cubemap(
     provider: str | None = Query(
         default=None,
         min_length=1,
-        max_length=64,
-        pattern=_PROVIDER_PATTERN,
+        max_length=PROVIDER_SELECTOR_MAX_LENGTH,
+        pattern=PROVIDER_SELECTOR_PATTERN,
         description="Optional provider id to execute this conversion.",
     ),
     tenant_id: str = Depends(current_tenant),

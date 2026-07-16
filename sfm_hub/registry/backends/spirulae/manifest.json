@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "plugin_id": "spirulae",
   "display_name": "spirulae-splat",
   "description": "3D Gaussian Splatting plugin for spirulae-splat training, dataset rendering, and PLY export through the sfmapi radiance-field contract.",
@@ -13,8 +14,6 @@
       "display_name": "spirulae-splat",
       "capabilities": [
         "radiance.train",
-        "radiance.render",
-        "radiance.export",
         "radiance.evaluate",
         "radiance.metrics.psnr",
         "radiance.metrics.ssim",
@@ -107,8 +106,6 @@
   },
   "capabilities": [
     "radiance.train",
-    "radiance.render",
-    "radiance.export",
     "radiance.evaluate",
     "radiance.metrics.psnr",
     "radiance.metrics.ssim",

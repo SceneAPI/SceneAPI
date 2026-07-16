@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.artifacts import artifact_links
+from app.api.v1.artifacts import artifact_out
 from app.core.tenancy import current_tenant
 from app.db.models import JobEvent, Task
 from app.db.session import get_db
@@ -21,6 +21,17 @@ from app.schemas.api.jobs import JobDetail, JobOut, JobProgressOut, JobStatus, T
 from app.services import artifact_service, job_progress_service, job_service
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+_SSE_RESPONSE = {
+    200: {
+        "content": {
+            "text/event-stream": {
+                "schema": {"type": "string"}
+            }
+        },
+        "description": "Server-sent progress events.",
+    }
+}
 
 
 @router.get("", response_model=Page[JobOut])
@@ -115,7 +126,7 @@ async def list_artifacts(
         name=name,
     )
     return Page(
-        items=[to_out(StageArtifactOut, row, links=artifact_links(row)) for row in rows],
+        items=[artifact_out(row) for row in rows],
         next_page_token=next_page_token,
     )
 
@@ -149,8 +160,9 @@ async def cancel(
     session: AsyncSession = Depends(get_db),
 ) -> JobOut:
     """Cooperatively cancel a long-running job (AIP-151, AIP-136
-    ``:cancel``). ``force=true`` SIGKILLs subprocesses immediately;
-    default is the cooperative phase-boundary stop.
+    ``:cancel``). ``force=true`` marks in-flight work as dirty at the
+    next cooperative check; immediate subprocess termination is
+    backend-specific.
 
     Returns the up-to-date ``JobOut`` row. The terminal state lands
     asynchronously — clients should follow up with ``GET
@@ -161,7 +173,12 @@ async def cancel(
     return to_out(JobOut, j)
 
 
-@router.get("/{job_id}/events", status_code=status.HTTP_200_OK)
+@router.get(
+    "/{job_id}/events",
+    status_code=status.HTTP_200_OK,
+    response_class=StreamingResponse,
+    responses=_SSE_RESPONSE,
+)
 async def events(
     job_id: str,
     last_event_id: int | None = Header(default=None, alias="Last-Event-ID"),

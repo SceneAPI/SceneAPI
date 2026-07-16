@@ -39,6 +39,10 @@ _REGISTRY: dict[str, Callable[[], Backend]] = {}
 _PROVIDER_REGISTRY: dict[str, Callable[[], Backend]] = {}
 
 
+def _bare_provider_selector(provider: str) -> str:
+    return provider.partition("@")[0]
+
+
 def register_backend(
     name: str,
     factory: Callable[[], Backend],
@@ -60,27 +64,16 @@ def register_backend(
 def register_backend_provider(provider_id: str, factory: Callable[[], Backend]) -> None:
     """Register one sfm_hub provider id to a backend factory.
 
-    If two plugins declare the same ``provider_id`` (e.g. the umbrella
-    ``colmap_native`` plugin and the granular ``sfmapi_colmap_cli``
-    both claim ``colmap_cli``) the last registration wins — but emit a
-    warning so the operator knows the resolution is install-order
-    dependent. Pin the explicit plugin you want and uninstall the other,
-    or use a routing profile, to make the choice deterministic.
+    Duplicate provider ids are rejected for different factories. Provider ids
+    are execution selectors; silently letting a later registration win can
+    route a job to the wrong backend.
     """
     existing = _PROVIDER_REGISTRY.get(provider_id)
     if existing is not None and existing is not factory:
-        from app.core.logging import get_logger
-
-        get_logger("adapters.registry").warning(
-            "backend.provider_collision",
-            provider_id=provider_id,
-            previous=getattr(existing, "__qualname__", str(existing)),
-            replacement=getattr(factory, "__qualname__", str(factory)),
-            hint=(
-                "two plugins declare the same sfm_hub provider id; the second "
-                "registration wins. Uninstall one plugin or set a routing "
-                "profile to make the choice deterministic."
-            ),
+        raise ValueError(
+            f"provider id {provider_id!r} is already registered to "
+            f"{getattr(existing, '__qualname__', str(existing))}; refusing to "
+            f"replace it with {getattr(factory, '__qualname__', str(factory))}"
         )
     _PROVIDER_REGISTRY[provider_id] = factory
 
@@ -103,8 +96,15 @@ def get_backend(name: str | None = None, *, provider: str | None = None) -> Back
     if provider:
         if provider in _PROVIDER_REGISTRY:
             return _PROVIDER_REGISTRY[provider]()
-        if provider in _REGISTRY:
-            return _REGISTRY[provider]()
+        if "@" in provider:
+            raise KeyError(
+                f"unknown sfmapi provider {provider!r}; registered providers: "
+                f"{list_backend_providers()}; registered backends: {list_backends()}. "
+                "Install, enable, and load a backend plugin that declares this provider."
+            )
+        bare_provider = _bare_provider_selector(provider)
+        if bare_provider in _PROVIDER_REGISTRY:
+            return _PROVIDER_REGISTRY[bare_provider]()
         raise KeyError(
             f"unknown sfmapi provider {provider!r}; registered providers: "
             f"{list_backend_providers()}; registered backends: {list_backends()}. "

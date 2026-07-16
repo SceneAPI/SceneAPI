@@ -45,6 +45,20 @@ async def test_recipe_kind_must_match_path(client) -> None:
     assert resp.status_code == 422
 
 
+async def test_recipe_rejects_dataset_from_other_project(client) -> None:
+    _pid, did = await _setup(client)
+    other = await client.post("/v1/projects", json={"name": "p-pipe-other"})
+    other_pid = other.json()["project_id"]
+
+    resp = await client.post(
+        f"/v1/projects/{other_pid}/pipelines/incremental",
+        json={"dataset_id": did, "spec": {"kind": "incremental"}},
+    )
+
+    assert resp.status_code == 422
+    assert "Dataset does not belong to project" in resp.text
+
+
 async def test_incremental_recipe_creates_4_node_dag(client) -> None:
     pid, did = await _setup(client)
     resp = await client.post(

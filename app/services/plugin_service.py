@@ -7,7 +7,10 @@ from contextlib import suppress
 from typing import Any
 from uuid import UUID
 
+from pydantic import ValidationError as PydanticValidationError
+
 from app.core.errors import NotFoundError, ValidationError
+from app.core.public_outputs import sanitize_public_error_message
 from sfm_hub.discovery import discover_plugins, discovered_plugin_ids
 from sfm_hub.doctor import detect_external_tools, doctor_manifest
 from sfm_hub.install import (
@@ -37,9 +40,22 @@ from sfm_hub.state import (
     set_project_profile,
     set_provider_priority,
     set_workspace_profile,
+    set_enabled as set_plugin_enabled,
     upsert_profile,
 )
-from sfm_hub.state import set_enabled as set_plugin_enabled
+
+
+def _public_provisioning_error(value: object) -> str | None:
+    if value is None:
+        return None
+    return sanitize_public_error_message(value)
+
+
+IMAGE_BACKED_CONTAINER_SERVICE_ATTACH_WARNING = (
+    "container_service mode attaches to an already-running plugin service; "
+    "provision image-backed services with the Python hub provisioner, "
+    "Compose/Kubernetes, or a deployment job before registering state"
+)
 
 
 def _manifest_summary(manifest: PluginManifest) -> dict[str, Any]:
@@ -193,7 +209,7 @@ def install_plugin(
             ):
                 if existing.provisioning_status == "failed":
                     raise ValidationError(
-                        existing.provisioning_error
+                        _public_provisioning_error(existing.provisioning_error)
                         or "plugin install/provisioning failed"
                     )
                 return {
@@ -208,7 +224,9 @@ def install_plugin(
                     "provision_runtime": existing.provision_runtime,
                     "provisioned": existing.provisioned,
                     "provisioning_status": existing.provisioning_status,
-                    "provisioning_error": existing.provisioning_error,
+                    "provisioning_error": _public_provisioning_error(
+                        existing.provisioning_error
+                    ),
                     "request_id": request_id,
                     "provisioning": None,
                 }
@@ -226,6 +244,7 @@ def install_plugin(
                 )
             if method == "container_service":
                 def fail_install(message: str) -> None:
+                    public_message = sanitize_public_error_message(message)
                     record_manual_install(
                         plugin_id,
                         method=method,
@@ -233,10 +252,10 @@ def install_plugin(
                         ref=source.ref,
                         enabled=True,
                         provisioning_status="failed",
-                        provisioning_error=message,
+                        provisioning_error=public_message,
                         request_id=request_id,
                     )
-                    raise ValidationError(message)
+                    raise ValidationError(public_message)
 
                 pre_report = doctor_manifest(manifest)
                 pre_check = next(
@@ -284,14 +303,27 @@ def install_plugin(
                 ),
                 request_id=request_id,
             )
+        response_command = plan.command
+        response_warnings = plan.warnings + compat_warnings
+        if (
+            dry_run
+            and method == "container_service"
+            and manifest.runtime_modes.container_service is not None
+            and manifest.runtime_modes.container_service.image is not None
+        ):
+            response_command = []
+            response_warnings = [
+                IMAGE_BACKED_CONTAINER_SERVICE_ATTACH_WARNING,
+                *compat_warnings,
+            ]
         return {
             "plugin_id": plugin_id,
             "method": method,
             "dry_run": dry_run,
             "installed": not dry_run,
-            "command": plan.command,
+            "command": response_command,
             "direct_reference": plan.direct_reference,
-            "warnings": plan.warnings + compat_warnings,
+            "warnings": response_warnings,
             "resolved_commit": plan.resolved_commit,
             "provision_runtime": bool(
                 method == "container_service"
@@ -340,9 +372,12 @@ def install_plugin(
         existing = load_state().installed.get(plugin_id)
         if request_id and existing is not None and existing.request_id == request_id:
             if existing.provisioning_status == "failed":
+                public_error = (
+                    _public_provisioning_error(existing.provisioning_error)
+                    or "previous attempt failed"
+                )
                 raise ValidationError(
-                    "plugin runtime provisioning failed: "
-                    + (existing.provisioning_error or "previous attempt failed")
+                    "plugin runtime provisioning failed: " + public_error
                 )
             return {
                 "plugin_id": plugin_id,
@@ -356,7 +391,9 @@ def install_plugin(
                 "provision_runtime": existing.provision_runtime,
                 "provisioned": existing.provisioned,
                 "provisioning_status": existing.provisioning_status,
-                "provisioning_error": existing.provisioning_error,
+                "provisioning_error": _public_provisioning_error(
+                    existing.provisioning_error
+                ),
                 "request_id": request_id,
                 "provisioning": None,
             }
@@ -378,7 +415,7 @@ def install_plugin(
                 )
                 provisioning = normalize_provisioning_result(provisioning)
             except ProvisioningError as exc:
-                provisioning_error = str(exc)
+                provisioning_error = sanitize_public_error_message(exc)
                 record_install(
                     plugin_id,
                     plan,
@@ -388,7 +425,9 @@ def install_plugin(
                     provisioning_error=provisioning_error,
                     request_id=request_id,
                 )
-                raise ValidationError(f"plugin runtime provisioning failed: {exc}") from exc
+                raise ValidationError(
+                    f"plugin runtime provisioning failed: {provisioning_error}"
+                ) from exc
             provisioned = bool(provisioning["provisioned"])
             provisioning_status = "succeeded" if provisioned else "skipped"
             record_install(
@@ -485,7 +524,9 @@ def list_entry_points(*, load: bool = False) -> list[dict[str, Any]]:
             "distribution": item.distribution,
             "version": item.version,
             "manifest": item.manifest,
-            "load_error": item.load_error,
+            "load_error": (
+                sanitize_public_error_message(item.load_error) if item.load_error else None
+            ),
         }
         for item in discover_plugins(load=load)
     ]
@@ -521,12 +562,18 @@ def routing_state() -> dict[str, Any]:
 
 
 def create_profile(name: str, routes: dict[str, list[str]]) -> dict[str, Any]:
-    upsert_profile(RoutingProfile(name=name, routes=routes))
+    try:
+        upsert_profile(RoutingProfile(name=name, routes=routes))
+    except (KeyError, PydanticValidationError) as exc:
+        raise ValidationError(str(exc)) from exc
     return routing_state()
 
 
 def use_default_profile(name: str) -> dict[str, Any]:
-    set_default_profile(name)
+    try:
+        set_default_profile(name)
+    except KeyError as exc:
+        raise ValidationError(str(exc)) from exc
     return routing_state()
 
 
@@ -539,10 +586,16 @@ def use_provider_priority(providers: list[str]) -> dict[str, Any]:
 
 
 def assign_project_profile(project_id: str, profile: str) -> dict[str, Any]:
-    set_project_profile(project_id, profile)
+    try:
+        set_project_profile(project_id, profile)
+    except KeyError as exc:
+        raise ValidationError(str(exc)) from exc
     return routing_state()
 
 
 def assign_workspace_profile(workspace: str, profile: str) -> dict[str, Any]:
-    set_workspace_profile(workspace, profile)
+    try:
+        set_workspace_profile(workspace, profile)
+    except KeyError as exc:
+        raise ValidationError(str(exc)) from exc
     return routing_state()

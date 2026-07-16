@@ -5,8 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.core.public_outputs import sanitize_public_outputs
 from app.schemas.api.common import Link, LinkedModel
 from app.schemas.pipeline_spec import PipelineSpec
 
@@ -48,6 +49,13 @@ class ReconstructionOut(LinkedModel):
     created_at: datetime
     links: dict[str, Link | None] | None = Field(default=None, alias="_links")
 
+    @model_validator(mode="after")
+    def _sanitize_public_spec(self) -> ReconstructionOut:
+        backend_options = getattr(self.spec, "backend_options", None)
+        if isinstance(backend_options, dict):
+            self.spec.backend_options = sanitize_public_outputs(backend_options) or {}
+        return self
+
 
 class SubModelOut(LinkedModel):
     """Wire shape of a SubModel row.
@@ -58,9 +66,9 @@ class SubModelOut(LinkedModel):
     the model came out of a hierarchical merge / split. ``summary``
     carries per-component stats (image count, point count, mean
     reprojection error) so collection endpoints don't need to crack
-    the snapshot. ``snapshot_seq`` / ``sealed_path`` point at the
-    on-disk sealed snapshot; clients read points / cameras / images
-    from there.
+    the snapshot. ``snapshot_seq`` identifies the sealed snapshot;
+    clients read points / cameras / images through the links rather
+    than receiving server filesystem paths.
     """
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
@@ -75,6 +83,11 @@ class SubModelOut(LinkedModel):
     sealed_path: str | None = None
     created_at: datetime
     links: dict[str, Link | None] | None = Field(default=None, alias="_links")
+
+    @model_validator(mode="after")
+    def _hide_internal_path(self) -> SubModelOut:
+        self.sealed_path = None
+        return self
 
 
 class SnapshotListResponse(BaseModel):

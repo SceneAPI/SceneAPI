@@ -28,6 +28,7 @@ import asyncio
 import contextlib
 import os
 from collections.abc import Callable
+from datetime import UTC
 from pathlib import Path
 from typing import Any, cast
 
@@ -40,13 +41,16 @@ from app.core.ids import new_id
 from app.core.image_metadata import MAX_HEADER_SCAN_BYTES, read_image_metadata
 from app.core.logging import get_logger
 from app.core.paths import Paths
+from app.core.public_outputs import sanitize_public_error_message
 from app.db.models import Dataset, Image, ImageSource, Job, Task
 from app.db.session import get_session_factory
 from app.orchestrator.lease import now_utc, refresh_lease, try_acquire_lease
+from app.orchestrator.queue import get_queue
 from app.services import (
     artifact_service,
     dataset_service,
     image_service,
+    job_service,
     radiance_service,
     reconstruction_service,
 )
@@ -57,6 +61,18 @@ from app.workers.progress import (
 )
 
 WORKER_ID: str = os.environ.get("SFMAPI_WORKER_ID") or new_id()
+
+
+def _owns_live_running_lease(task: Task) -> bool:
+    lease_expires_at = task.lease_expires_at
+    if lease_expires_at is not None and lease_expires_at.tzinfo is None:
+        lease_expires_at = lease_expires_at.replace(tzinfo=UTC)
+    return (
+        task.status == "running"
+        and task.worker_id == WORKER_ID
+        and lease_expires_at is not None
+        and lease_expires_at > now_utc()
+    )
 
 
 def _build_handlers() -> dict[str, Callable[..., Any]]:
@@ -151,6 +167,18 @@ async def _mark_task_radiance_status(session: Any, task: Task, status: str) -> N
         radiance_field_id=radiance_field_id,
         status=status,
     )
+    evaluation_id = _task_radiance_evaluation_id(task)
+    if evaluation_id is not None and status == "failed":
+        await radiance_service.mark_radiance_evaluation_status(
+            session,
+            tenant_id=task.tenant_id,
+            evaluation_id=evaluation_id,
+            status="failed",
+            error={
+                "code": task.error_class or "TaskFailed",
+                "message": task.error_message or "radiance_train failed",
+            },
+        )
 
 
 async def _apply_task_success_side_effects(
@@ -182,6 +210,7 @@ async def _apply_task_success_side_effects(
             tenant_id=task.tenant_id,
             radiance_field_id=radiance_field_id,
             outputs=result,
+            expected_evaluation_id=_task_radiance_evaluation_id(task),
         )
     elif task.kind == "radiance_eval":
         evaluation_id = _task_radiance_evaluation_id(task)
@@ -462,6 +491,103 @@ async def _dataset_name_exists(session: Any, *, tenant_id: str, project_id: str,
     return existing is not None
 
 
+FAILED_DEPENDENCY_STATUSES = {"failed"}
+CANCELLED_DEPENDENCY_STATUSES = {"cancelled", "cancelled_dirty"}
+READY_DEPENDENCY_STATUSES = {"succeeded", "skipped"}
+
+
+def _dependency_state_from_statuses(
+    deps: list[str],
+    status_by_id: dict[str, str],
+) -> str:
+    if any(dep not in status_by_id for dep in deps):
+        return "failed"
+    if any(status_by_id.get(dep) in FAILED_DEPENDENCY_STATUSES for dep in deps):
+        return "failed"
+    if any(status_by_id.get(dep) == "cancelled_dirty" for dep in deps):
+        return "cancelled_dirty"
+    if any(status_by_id.get(dep) == "cancelled" for dep in deps):
+        return "cancelled"
+    if any(status_by_id.get(dep) not in READY_DEPENDENCY_STATUSES for dep in deps):
+        return "blocked"
+    return "ready"
+
+
+async def _task_dependency_state(session: Any, task: Task) -> str:
+    deps = [str(dep) for dep in (task.depends_on_json or [])]
+    if not deps:
+        return "ready"
+    rows = (
+        (await session.execute(select(Task).where(Task.task_id.in_(deps))))
+        .scalars()
+        .all()
+    )
+    status_by_id = {row.task_id: row.status for row in rows}
+    return _dependency_state_from_statuses(deps, status_by_id)
+
+
+async def _mark_dependency_failures_and_ready(session: Any, job_id: str) -> list[str]:
+    rows = (
+        (await session.execute(select(Task).where(Task.job_id == job_id)))
+        .scalars()
+        .all()
+    )
+    status_by_id = {task.task_id: task.status for task in rows}
+    changed = True
+    while changed:
+        changed = False
+        for task in rows:
+            if task.status != "pending":
+                continue
+            deps = [str(dep) for dep in (task.depends_on_json or [])]
+            if not deps:
+                continue
+            dep_state = _dependency_state_from_statuses(deps, status_by_id)
+            if dep_state == "failed":
+                task.status = "failed"
+                task.error_class = "DependencyFailed"
+                task.error_message = "upstream dependency failed"
+                task.finished_at = now_utc()
+                status_by_id[task.task_id] = task.status
+                changed = True
+            elif dep_state in CANCELLED_DEPENDENCY_STATUSES:
+                task.status = dep_state
+                task.error_class = "DependencyCancelled"
+                task.error_message = "upstream dependency cancelled"
+                task.finished_at = now_utc()
+                status_by_id[task.task_id] = task.status
+                changed = True
+    ready: list[str] = []
+    for task in rows:
+        if task.status != "pending":
+            continue
+        deps = [str(dep) for dep in (task.depends_on_json or [])]
+        if deps and all(status_by_id.get(dep) in READY_DEPENDENCY_STATUSES for dep in deps):
+            ready.append(task.task_id)
+    return ready
+
+
+async def _enqueue_task_ids(task_ids: list[str]) -> None:
+    if not task_ids:
+        return
+    queue = get_queue()
+    try:
+        for task_id in task_ids:
+            with contextlib.suppress(Exception):
+                await queue.enqueue(task_id)
+    finally:
+        await queue.close()
+
+
+async def _advance_job_after_terminal(job_id: str) -> None:
+    factory = get_session_factory()
+    async with factory() as session:
+        ready = await _mark_dependency_failures_and_ready(session, job_id)
+        await job_service.finalize_job_if_ready(session, job_id=job_id)
+        await session.commit()
+    await _enqueue_task_ids(ready)
+
+
 async def execute_task(task_id: str) -> dict[str, Any]:
     """Run one Task end-to-end. Queue-agnostic: any backend that can
     deliver a ``task_id`` can call this.
@@ -473,11 +599,14 @@ async def execute_task(task_id: str) -> dict[str, Any]:
       ``{"status": "succeeded", "outputs": ...}``
       ``{"status": "failed", "error": ...}``
 
-    Cancellation is cooperative and checked at task pickup: if the parent
+    Cancellation is cooperative and checked at task pickup and before task
+    success is committed: if the parent
     ``Job.cancel_requested`` flag is set before this worker acquires the
     lease, the task short-circuits to ``cancelled`` (or ``cancelled_dirty``
-    when ``cancel_force`` is set) and never runs the handler. Mid-handler
-    cancellation is a per-handler concern and not yet wired. A job whose
+    when ``cancel_force`` is set) and never runs the handler. If the flag is
+    set while the handler is running, outputs are not committed and the task
+    lands as ``cancelled_dirty`` because external side effects may already
+    exist. Immediate subprocess termination is a per-handler concern. A job whose
     every task already hit the cache (``succeeded`` in ``materialize_dag``)
     cannot be cancelled — there is nothing left to short-circuit.
     """
@@ -489,8 +618,35 @@ async def execute_task(task_id: str) -> dict[str, Any]:
         task = result.scalar_one_or_none()
         if task is None:
             return {"status": "missing"}
+        if task.status != "pending":
+            await session.commit()
+            log.info("task.not_pending", status=task.status)
+            return {"status": task.status}
         job = await session.get(Job, task.job_id)
         project_id = job.project_id if job is not None else None
+        dep_state = await _task_dependency_state(session, task)
+        if dep_state == "blocked":
+            await session.commit()
+            log.info("task.dependencies_blocked")
+            return {"status": "blocked"}
+        if dep_state == "failed":
+            task.status = "failed"
+            task.error_class = "DependencyFailed"
+            task.error_message = "upstream dependency failed"
+            task.finished_at = now_utc()
+            await session.commit()
+            await _advance_job_after_terminal(task.job_id)
+            log.info("task.dependency_failed")
+            return {"status": "failed", "error": "dependency_failed"}
+        if dep_state in CANCELLED_DEPENDENCY_STATUSES:
+            task.status = dep_state
+            task.error_class = "DependencyCancelled"
+            task.error_message = "upstream dependency cancelled"
+            task.finished_at = now_utc()
+            await session.commit()
+            await _advance_job_after_terminal(task.job_id)
+            log.info("task.dependency_cancelled")
+            return {"status": dep_state}
         acquired = await try_acquire_lease(
             session,
             table=Task.__table__,
@@ -500,11 +656,14 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             pk_value=task_id,
             worker_id=WORKER_ID,
             ttl_seconds=settings.lease_ttl_seconds,
+            extra_where=(Task.status == "pending",),
         )
         if not acquired:
             await session.commit()
             log.info("task.lease_busy")
             return {"status": "busy"}
+        await session.refresh(task)
+        job = await session.get(Job, task.job_id, populate_existing=True)
         # Cooperative cancellation: the lease gate above guarantees a single
         # owner, so finalizing here can't race another worker. ``cancel_force``
         # maps to ``cancelled_dirty`` (the task may have left partial state
@@ -516,6 +675,7 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             await _mark_task_radiance_status(session, task, "failed")
             await session.commit()
             await _maybe_finalize_job(session, task.job_id)
+            await _advance_job_after_terminal(task.job_id)
             log.info("task.cancelled", force=job.cancel_force)
             return {"status": "cancelled"}
         task.status = "running"
@@ -530,6 +690,9 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             t = await session.get(Task, task_id)
             if t is None:
                 return {"status": "missing"}
+            if not _owns_live_running_lease(t):
+                log.info("task.lost_lease_before_unknown_handler", status=t.status)
+                return {"status": "lost_lease"}
             t.status = "failed"
             t.error_class = "UnknownTask"
             t.error_message = f"No handler for kind={task.kind}"
@@ -538,6 +701,7 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             await _mark_task_radiance_status(session, t, "failed")
             await session.commit()
             await _maybe_finalize_job(session, t.job_id)
+            await _advance_job_after_terminal(t.job_id)
         return {"status": "failed"}
 
     event_path = None
@@ -563,6 +727,22 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             t = await session.get(Task, task_id)
             if t is None:
                 return {"status": "missing"}
+            if not _owns_live_running_lease(t):
+                log.info("task.lost_lease_before_success_commit", status=t.status)
+                return {"status": "lost_lease"}
+            j = await session.get(Job, t.job_id)
+            if j is not None and j.cancel_requested:
+                t.status = "cancelled_dirty"
+                t.error_class = "Cancelled"
+                t.error_message = "job cancellation requested before task commit"
+                t.finished_at = now_utc()
+                await _mark_task_reconstruction_status(session, t, "failed")
+                await _mark_task_radiance_status(session, t, "failed")
+                await session.commit()
+                await _maybe_finalize_job(session, t.job_id)
+                await _advance_job_after_terminal(t.job_id)
+                log.info("task.cancelled_after_handler", force=j.cancel_force)
+                return {"status": "cancelled_dirty"}
             await _apply_derived_dataset_outputs(session, t, outputs or {})
             t.status = "succeeded"
             t.outputs_ref_json = outputs or {}
@@ -571,36 +751,47 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             await _apply_task_success_side_effects(session, t, outputs or {})
             await session.commit()
             await _maybe_finalize_job(session, t.job_id)
+            await _advance_job_after_terminal(t.job_id)
         return {"status": "succeeded", "outputs": outputs}
     except PycolmapUnavailableError as e:
         async with factory() as session:
             t = await session.get(Task, task_id)
             if t is None:
                 return {"status": "missing"}
+            if not _owns_live_running_lease(t):
+                log.info("task.lost_lease_before_pycolmap_failure", status=t.status)
+                return {"status": "lost_lease"}
             t.status = "failed"
             t.error_class = "PycolmapUnavailable"
-            t.error_message = str(e)
+            t.error_message = sanitize_public_error_message(e)
             t.finished_at = now_utc()
             await _mark_task_reconstruction_status(session, t, "failed")
             await _mark_task_radiance_status(session, t, "failed")
             await session.commit()
             await _maybe_finalize_job(session, t.job_id)
+            await _advance_job_after_terminal(t.job_id)
         return {"status": "failed", "error": "pycolmap_unavailable"}
     except Exception as e:
-        log.exception("task.failed", err=str(e))
+        public_error = sanitize_public_error_message(e)
+        log.error("task.failed", err=public_error, error_class=type(e).__name__)
+        log.debug("task.failed.traceback", exc_info=True)
         async with factory() as session:
             t = await session.get(Task, task_id)
             if t is None:
                 return {"status": "missing"}
+            if not _owns_live_running_lease(t):
+                log.info("task.lost_lease_before_failure_commit", status=t.status)
+                return {"status": "lost_lease"}
             t.status = "failed"
             t.error_class = type(e).__name__
-            t.error_message = str(e)[:2000]
+            t.error_message = public_error
             t.finished_at = now_utc()
             await _mark_task_reconstruction_status(session, t, "failed")
             await _mark_task_radiance_status(session, t, "failed")
             await session.commit()
             await _maybe_finalize_job(session, t.job_id)
-        return {"status": "failed", "error": str(e)}
+            await _advance_job_after_terminal(t.job_id)
+        return {"status": "failed", "error": public_error}
     finally:
         heartbeat_task.cancel()
         with contextlib.suppress(asyncio.CancelledError, Exception):
@@ -654,7 +845,7 @@ async def _heartbeat(task_id: str) -> None:
     while True:
         await asyncio.sleep(max(1, settings.lease_ttl_seconds // 3))
         async with factory() as session:
-            await refresh_lease(
+            refreshed = await refresh_lease(
                 session,
                 table=Task.__table__,
                 pk_col=Task.task_id,
@@ -665,3 +856,5 @@ async def _heartbeat(task_id: str) -> None:
                 ttl_seconds=settings.lease_ttl_seconds,
             )
             await session.commit()
+            if not refreshed:
+                return

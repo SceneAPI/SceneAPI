@@ -97,7 +97,7 @@ class PluginProvisioningOut(BaseModel):
     steps: list[PluginProvisionStepOut] = Field(default_factory=list)
     env_keys: list[str] = Field(default_factory=list)
     redacted_env: dict[str, str] = Field(default_factory=dict)
-    outputs: dict[str, str] = Field(default_factory=dict)
+    outputs: dict[str, Any] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -166,14 +166,14 @@ class RoutingOut(BaseModel):
 class RoutingProfileRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: str
+    name: str = Field(min_length=1)
     routes: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class RoutingProfileAssignmentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    profile: str
+    profile: str = Field(min_length=1)
 
 
 class ProviderPriorityRequest(BaseModel):

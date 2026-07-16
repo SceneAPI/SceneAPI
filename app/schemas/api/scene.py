@@ -34,7 +34,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class Rotation(BaseModel):
     """Hamilton quaternion stored ``(w, x, y, z)``."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     w: float
     x: float
@@ -45,7 +45,7 @@ class Rotation(BaseModel):
 class Rigid3(BaseModel):
     """Rigid SE(3) transform: ``y = R @ x + t``."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     rotation: Rotation
     translation: tuple[float, float, float]
@@ -54,7 +54,7 @@ class Rigid3(BaseModel):
 class Sim3(BaseModel):
     """Similarity Sim(3) transform: ``y = s * R @ x + t``."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     rotation: Rotation
     translation: tuple[float, float, float]
@@ -64,7 +64,7 @@ class Sim3(BaseModel):
 class GpsCoord(BaseModel):
     """WGS84 geographic coordinate (lat/lng in degrees, alt in meters)."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     lat: float
     lng: float
@@ -83,7 +83,7 @@ class ImuMeasurement(BaseModel):
     body frame.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     timestamp_ns: int
     gyro: tuple[float, float, float]
@@ -102,7 +102,7 @@ class PosePrior(BaseModel):
     sample colocated with the pose prior.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     cam_from_world: Rigid3
     covariance: list[float] | None = Field(default=None, min_length=36, max_length=36)

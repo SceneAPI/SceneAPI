@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +17,17 @@ from app.storage.blobs import TempUploadStore, get_blob_store
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+def _upload_expired(upload: Upload, *, now: datetime | None = None) -> bool:
+    if upload.state == "finalized":
+        return False
+    expires_at = upload.expires_at
+    if expires_at is None:
+        return True
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+    return expires_at < (now or _now())
 
 
 async def init_upload(
@@ -36,6 +47,7 @@ async def init_upload(
     # before bytes start landing on disk. No-op when auth_mode=none
     # (single-user deployments) — see app.services.quota_service.
     await check_storage_quota(session, tenant_id=tenant_id, additional=expected_size)
+    await gc_expired_uploads(session)
     if idempotency_key:
         result = await session.execute(
             select(Upload).where(
@@ -45,6 +57,8 @@ async def init_upload(
         )
         existing = result.scalar_one_or_none()
         if existing is not None:
+            if _upload_expired(existing):
+                raise NotFoundError(f"Upload {existing.upload_id} not found")
             return existing
     expires = _now() + timedelta(hours=s.upload_expiry_hours)
     u = Upload(
@@ -71,6 +85,8 @@ async def get_upload(session: AsyncSession, *, tenant_id: str, upload_id: str) -
     )
     u = result.scalar_one_or_none()
     if u is None:
+        raise NotFoundError(f"Upload {upload_id} not found")
+    if _upload_expired(u):
         raise NotFoundError(f"Upload {upload_id} not found")
     return u
 
@@ -134,7 +150,10 @@ async def finalize_upload(
 async def gc_expired_uploads(session: AsyncSession, *, now: datetime | None = None) -> int:
     n = now or _now()
     result = await session.execute(
-        select(Upload).where(Upload.expires_at < n, Upload.state != "finalized")
+        select(Upload).where(
+            Upload.state != "finalized",
+            or_(Upload.expires_at.is_(None), Upload.expires_at < n),
+        )
     )
     rows = list(result.scalars().all())
     temp = TempUploadStore()

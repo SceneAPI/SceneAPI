@@ -228,6 +228,21 @@ def backend_artifact_contract_violations(backend: Any) -> list[str]:
         rows = list_backend_artifact_contracts(backend)
     except Exception as exc:
         return [f"list_backend_artifact_contracts() failed: {exc}"]
+    format_datatypes = {
+        format_id: definition.datatype
+        for format_id, definition in artifact_vocab.CORE_ARTIFACT_FORMATS.items()
+    }
+    for definition in backend_io_formats(backend):
+        if not definition.datatype:
+            errors.append(f"{definition.format_id}: artifact format datatype is required")
+            continue
+        if definition.datatype not in artifact_vocab.CORE_ARTIFACT_TYPES:
+            errors.append(
+                f"{definition.format_id}: artifact format datatype "
+                f"{definition.datatype!r} is not a known artifact Data Type"
+            )
+            continue
+        format_datatypes[definition.format_id] = definition.datatype
 
     ids: list[str] = []
     saw_conversion = False
@@ -268,6 +283,27 @@ def backend_artifact_contract_violations(backend: Any) -> list[str]:
             for value in values:
                 if not artifact_vocab.is_valid_artifact_key(str(value)):
                     errors.append(f"{label}: {field} contains invalid format id {value!r}")
+                    continue
+                raw_kinds = row.get("accepts" if field == "accepts_formats" else "emits")
+                kinds = raw_kinds if isinstance(raw_kinds, list) else []
+                incompatible = [
+                    str(kind)
+                    for kind in kinds
+                    if (kind_datatype := artifact_vocab.datatype_for_kind(str(kind))) is not None
+                    and format_datatypes.get(str(value)) is not None
+                    and kind_datatype != format_datatypes[str(value)]
+                ]
+                if str(value) not in format_datatypes:
+                    errors.append(
+                        f"{label}: {field} format {value!r} has no declared Data Type"
+                    )
+                    continue
+                if incompatible:
+                    errors.append(
+                        f"{label}: {field} format {value!r} is not compatible with "
+                        f"{'accepts' if field == 'accepts_formats' else 'emits'} "
+                        f"artifact kind(s) {incompatible}"
+                    )
         preferred_format = row.get("preferred_format")
         if preferred_format is not None and preferred_format not in set(
             row.get("emits_formats") or []
@@ -362,21 +398,22 @@ def backend_io_formats(
     except Exception:
         rows = []
     for row in rows:
-        datatype: str | None = None
-        for kind in (str(row.get("preferred") or ""), *row.get("emits", []),
-                     *row.get("accepts", [])):
-            if kind:
-                datatype = artifact_vocab.datatype_for_kind(str(kind))
-            if datatype:
-                break
-        if datatype not in artifact_vocab.CORE_ARTIFACT_TYPES:
-            continue
         # Each format serves only the kinds of THIS DataType on its OWN side of
         # the contract (emits_formats <- emits kinds, accepts_formats <- accepts
-        # kinds) -- so a row that both emits and accepts sibling kinds of one
-        # type doesn't tag an emit-only format as serving the accept-side kind.
+        # kinds) -- so a row that accepts feature formats and emits match
+        # formats derives one DataType per side instead of smearing the first
+        # row-level DataType across both.
         for field, kind_field in (("emits_formats", "emits"),
                                   ("accepts_formats", "accepts")):
+            side_datatypes = {
+                datatype
+                for kind in row.get(kind_field, [])
+                if (datatype := artifact_vocab.datatype_for_kind(str(kind)))
+                in artifact_vocab.CORE_ARTIFACT_TYPES
+            }
+            if len(side_datatypes) != 1:
+                continue
+            datatype = next(iter(side_datatypes))
             serves_kinds = tuple(
                 str(k)
                 for k in row.get(kind_field, [])

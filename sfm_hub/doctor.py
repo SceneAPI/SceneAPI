@@ -11,9 +11,10 @@ from typing import Literal
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError as PydanticValidationError
 
-from sfm_hub.models import PluginManifest
+from app.core.public_outputs import sanitize_public_error_message
+from sfm_hub.models import PluginManifest, _public_url_issue
 from sfm_hub.state import PluginState, load_state
 
 
@@ -54,11 +55,15 @@ def _version_for(path: str, args: list[str]) -> tuple[str | None, str | None]:
             timeout=5,
         )
     except Exception as exc:  # pragma: no cover - defensive around local tools
-        return None, f"{type(exc).__name__}: {exc}"
-    text = (result.stdout or result.stderr).strip()
+        return None, sanitize_public_error_message(f"{type(exc).__name__}: {exc}")
+    text = sanitize_public_error_message((result.stdout or result.stderr).strip()[:500])
     if result.returncode != 0:
-        return text[:500] or None, f"exit {result.returncode}"
-    return text[:500] or None, None
+        return text or None, f"exit {result.returncode}"
+    return text or None, None
+
+
+def _public_tool_path(path: str) -> str:
+    return os.path.basename(path) or "tool"
 
 
 def detect_external_tools(manifests: list[PluginManifest]) -> dict[str, list[ToolDetection]]:
@@ -80,7 +85,7 @@ def detect_external_tools(manifests: list[PluginManifest]) -> dict[str, list[Too
                 ToolDetection(
                     name=env_var,
                     source="env",
-                    path=value,
+                    path=_public_tool_path(value),
                     version=version,
                     error=error,
                 )
@@ -97,7 +102,7 @@ def detect_external_tools(manifests: list[PluginManifest]) -> dict[str, list[Too
                 ToolDetection(
                     name=executable,
                     source="path",
-                    path=path,
+                    path=_public_tool_path(path),
                     version=version,
                     error=error,
                 )
@@ -162,15 +167,28 @@ def _probe_docker_plugin(manifest: PluginManifest) -> DoctorCheck:
     )
 
 
-def _resolve_container_service_url(manifest: PluginManifest) -> tuple[str | None, str | None]:
+def _resolve_container_service_url(
+    manifest: PluginManifest,
+) -> tuple[str | None, str | None, str | None]:
     runtime = manifest.runtime_modes.container_service
     if runtime is None:
-        return None, None
+        return None, None, None
     if runtime.service.url_env:
         value = os.environ.get(runtime.service.url_env)
         if value:
-            return value, runtime.service.url_env
-    return runtime.service.default_url, runtime.service.url_env
+            return value, runtime.service.url_env, runtime.service.url_env
+    return runtime.service.default_url, None, runtime.service.url_env
+
+
+def _container_service_url_issue(base_url: str) -> str | None:
+    issue = _public_url_issue(base_url, allowed_schemes={"http"})
+    if issue is None:
+        return None
+    if "credentials" in issue:
+        return "credentialed_endpoint"
+    if "query" in issue or "fragment" in issue or "signed" in issue:
+        return "signed_endpoint"
+    return "invalid_endpoint"
 
 
 def _probe_container_service_plugin(manifest: PluginManifest) -> DoctorCheck:
@@ -184,20 +202,22 @@ def _probe_container_service_plugin(manifest: PluginManifest) -> DoctorCheck:
             detail="manifest does not declare a container_service runtime",
         )
 
-    base_url, env_var = _resolve_container_service_url(manifest)
+    base_url, source_env_var, configured_env_var = _resolve_container_service_url(manifest)
     if not base_url:
-        suffix = f"; set {env_var}" if env_var else ""
+        suffix = f"; set {configured_env_var}" if configured_env_var else ""
         return DoctorCheck(
             name="container_service",
             status="warn",
             detail=f"container service endpoint is not configured{suffix}",
         )
-    if not (base_url.startswith("http://") or base_url.startswith("https://")):
+    url_issue = _container_service_url_issue(base_url)
+    if url_issue is not None:
+        source = f" from {source_env_var}" if source_env_var else ""
         return DoctorCheck(
             name="container_service",
             status="fail",
-            detail="container service endpoint must be http:// or https://",
-            metadata={"reason": "invalid_endpoint"},
+            detail=f"container service endpoint{source} is invalid",
+            metadata={"reason": url_issue},
         )
 
     health_path = runtime.healthcheck.path
@@ -214,7 +234,7 @@ def _probe_container_service_plugin(manifest: PluginManifest) -> DoctorCheck:
         return DoctorCheck(
             name="container_service",
             status="fail",
-            detail=f"container service health check returned HTTP {status}: {health_url}",
+            detail=f"container service health check returned HTTP {status}",
             metadata={"reason": "bad_health_status", "status_code": str(status)},
         )
 
@@ -225,7 +245,7 @@ def _probe_container_service_plugin(manifest: PluginManifest) -> DoctorCheck:
         return DoctorCheck(
             name="container_service",
             status="fail",
-            detail=f"container service version response must be a JSON object: {version_url}",
+            detail="container service version response must be a JSON object",
             metadata={"reason": "bad_version_shape"},
         )
 
@@ -260,21 +280,185 @@ def _probe_container_service_plugin(manifest: PluginManifest) -> DoctorCheck:
             },
         )
 
+    catalog_metadata, catalog_error = _probe_container_catalog(
+        manifest,
+        base_url=base_url,
+        timeout=runtime.healthcheck.timeout_seconds,
+        actual_protocol_version=actual_version,
+    )
+    if catalog_error is not None:
+        return catalog_error
+
     version_detail = (
         f" for {actual_protocol} {actual_version}"
         if actual_protocol and actual_version
         else ""
     )
+    metadata = {
+        "protocol": actual_protocol,
+        "protocol_version": actual_version,
+        "version_path": "/version",
+    }
+    if catalog_metadata:
+        metadata.update(catalog_metadata)
+    catalog_detail = (
+        "legacy extension catalog is absent"
+        if metadata.get("catalog") == "absent"
+        else "extension catalog is valid"
+    )
     return DoctorCheck(
         name="container_service",
         status="pass",
-        detail=f"{manifest.plugin_id} service is healthy at {health_url}{version_detail}",
-        metadata={
-            "protocol": actual_protocol,
-            "protocol_version": actual_version,
-            "version_url": version_url,
-        },
+        detail=(
+            f"{manifest.plugin_id} service is healthy at configured endpoint{version_detail}; "
+            f"{catalog_detail}"
+        ),
+        metadata=metadata,
     )
+
+
+def _catalog_capabilities(manifest: PluginManifest) -> list[str]:
+    capabilities = set(manifest.capabilities)
+    for provider in manifest.providers:
+        capabilities.update(provider.capabilities)
+    return sorted(capabilities)
+
+
+def _catalog_endpoint_error(
+    *,
+    endpoint: str,
+    detail: str,
+    reason: str,
+    **metadata: str,
+) -> DoctorCheck:
+    return DoctorCheck(
+        name="container_service",
+        status="fail",
+        detail=f"container service {endpoint} catalog check failed: {detail}",
+        metadata={"reason": reason, "endpoint": endpoint, **metadata},
+    )
+
+
+def _probe_container_catalog(
+    manifest: PluginManifest,
+    *,
+    base_url: str,
+    timeout: int,
+    actual_protocol_version: str,
+) -> tuple[dict[str, str] | None, DoctorCheck | None]:
+    endpoint_arrays = {
+        "datatypes": ("datatypes",),
+        "processors": ("processors", "processor_extensions"),
+        "pipelines": ("pipelines",),
+    }
+    payloads: dict[str, Mapping[str, object]] = {}
+    missing_endpoints: list[str] = []
+    for endpoint in ("datatypes", "processors", "pipelines"):
+        url = f"{base_url.rstrip('/')}/{endpoint}"
+        body, error = _http_json(url, timeout=timeout)
+        if error is not None:
+            status_code = error.metadata.get("status_code")
+            if status_code == "404":
+                missing_endpoints.append(endpoint)
+                continue
+            return None, _catalog_endpoint_error(
+                endpoint=endpoint,
+                detail=error.detail,
+                reason=error.metadata.get("reason", "catalog_http_error"),
+            )
+        if not isinstance(body, Mapping):
+            return None, _catalog_endpoint_error(
+                endpoint=endpoint,
+                detail=f"{endpoint} catalog endpoint returned a non-object JSON value",
+                reason="bad_catalog_shape",
+            )
+        if body.get("schema_version") != 1:
+            return None, _catalog_endpoint_error(
+                endpoint=endpoint,
+                detail="schema_version must be 1",
+                reason="bad_catalog_schema_version",
+                schema_version=str(body.get("schema_version")),
+            )
+        if body.get("plugin_id") != manifest.plugin_id:
+            return None, _catalog_endpoint_error(
+                endpoint=endpoint,
+                detail=(
+                    f"plugin_id must be {manifest.plugin_id!r}, "
+                    f"got {body.get('plugin_id')!r}"
+                ),
+                reason="catalog_plugin_id_mismatch",
+            )
+        expected_keys = {"schema_version", "plugin_id", *endpoint_arrays[endpoint]}
+        missing = sorted(expected_keys - set(body))
+        if missing:
+            return None, _catalog_endpoint_error(
+                endpoint=endpoint,
+                detail="missing required field(s): " + ", ".join(missing),
+                reason="bad_catalog_shape",
+            )
+        unexpected = sorted(set(body) - expected_keys)
+        if unexpected:
+            return None, _catalog_endpoint_error(
+                endpoint=endpoint,
+                detail="unexpected field(s): " + ", ".join(unexpected),
+                reason="bad_catalog_shape",
+            )
+        for array_name in endpoint_arrays[endpoint]:
+            if not isinstance(body.get(array_name), list):
+                return None, _catalog_endpoint_error(
+                    endpoint=endpoint,
+                    detail=f"{array_name} must be a list",
+                    reason="bad_catalog_shape",
+                )
+        payloads[endpoint] = body
+    if missing_endpoints:
+        if len(missing_endpoints) == len(endpoint_arrays):
+            try:
+                version_parts = tuple(
+                    int(part) for part in actual_protocol_version.split(".")[:2]
+                )
+            except ValueError:
+                version_parts = (0, 0)
+            if version_parts < (1, 1):
+                return {
+                    "catalog": "absent",
+                    "catalog_reason": "legacy protocol 1.x service",
+                }, None
+        return None, _catalog_endpoint_error(
+            endpoint="combined",
+            detail="missing catalog endpoint(s): " + ", ".join(missing_endpoints),
+            reason="missing_catalog_endpoint",
+        )
+    try:
+        from sfm_hub.models import PluginBackendCatalog
+
+        catalog = PluginBackendCatalog.model_validate(
+            {
+                "schema_version": 1,
+                "plugin_id": manifest.plugin_id,
+                "capabilities": _catalog_capabilities(manifest),
+                "datatypes": payloads["datatypes"].get("datatypes", []),
+                "processors": payloads["processors"].get("processors", []),
+                "processor_extensions": payloads["processors"].get(
+                    "processor_extensions",
+                    [],
+                ),
+                "pipelines": payloads["pipelines"].get("pipelines", []),
+            }
+        )
+    except PydanticValidationError as exc:
+        return None, _catalog_endpoint_error(
+            endpoint="combined",
+            detail=str(exc.errors()[0].get("msg", exc))[:500],
+            reason="catalog_validation_error",
+        )
+    return {
+        "catalog_schema_version": str(catalog.schema_version),
+        "catalog_datatypes": str(len(catalog.datatypes)),
+        "catalog_processors": str(len(catalog.processors)),
+        "catalog_processor_extensions": str(len(catalog.processor_extensions)),
+        "catalog_pipelines": str(len(catalog.pipelines)),
+    }, None
 
 
 def _inactive_runtime_check(name: str, *, installed_method: str) -> DoctorCheck:
@@ -306,21 +490,21 @@ def _http_status(url: str, *, timeout: int) -> tuple[int | None, DoctorCheck | N
         return None, DoctorCheck(
             name="container_service",
             status="fail",
-            detail=f"container service health check returned HTTP {exc.code}: {url}",
+            detail=f"container service health check returned HTTP {exc.code}",
             metadata={"reason": "http_error", "status_code": str(exc.code)},
         )
     except URLError as exc:
         return None, DoctorCheck(
             name="container_service",
             status="fail",
-            detail=f"container service health check failed for {url}: {exc}",
+            detail=f"container service health check failed for configured endpoint: {exc}",
             metadata={"reason": "connection_error"},
         )
     except OSError as exc:
         return None, DoctorCheck(
             name="container_service",
             status="fail",
-            detail=f"container service health check failed for {url}: {exc}",
+            detail=f"container service health check failed for configured endpoint: {exc}",
             metadata={"reason": "connection_error"},
         )
 
@@ -335,28 +519,28 @@ def _http_json(url: str, *, timeout: int) -> tuple[object | None, DoctorCheck | 
         return None, DoctorCheck(
             name="container_service",
             status="fail",
-            detail=f"container service version check returned HTTP {exc.code}: {url}",
+            detail=f"container service version check returned HTTP {exc.code}",
             metadata={"reason": "version_http_error", "status_code": str(exc.code)},
         )
     except URLError as exc:
         return None, DoctorCheck(
             name="container_service",
             status="fail",
-            detail=f"container service version check failed for {url}: {exc}",
+            detail=f"container service version check failed for configured endpoint: {exc}",
             metadata={"reason": "version_connection_error"},
         )
     except OSError as exc:
         return None, DoctorCheck(
             name="container_service",
             status="fail",
-            detail=f"container service version check failed for {url}: {exc}",
+            detail=f"container service version check failed for configured endpoint: {exc}",
             metadata={"reason": "version_connection_error"},
         )
     if not 200 <= status < 300:
         return None, DoctorCheck(
             name="container_service",
             status="fail",
-            detail=f"container service version check returned HTTP {status}: {url}",
+            detail=f"container service version check returned HTTP {status}",
             metadata={"reason": "bad_version_status", "status_code": str(status)},
         )
     try:
@@ -365,7 +549,7 @@ def _http_json(url: str, *, timeout: int) -> tuple[object | None, DoctorCheck | 
         return None, DoctorCheck(
             name="container_service",
             status="fail",
-            detail=f"container service version response is not valid JSON: {url}",
+            detail="container service version response is not valid JSON",
             metadata={"reason": "bad_version_json"},
         )
 
@@ -416,7 +600,7 @@ def doctor_manifest(manifest: PluginManifest, *, state: PluginState | None = Non
                 DoctorCheck(
                     name="provisioning",
                     status="fail",
-                    detail=installed.provisioning_error
+                    detail=sanitize_public_error_message(installed.provisioning_error)
                     or "plugin install/provisioning failed",
                     metadata=metadata,
                 )

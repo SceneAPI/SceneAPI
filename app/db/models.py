@@ -402,7 +402,7 @@ class RadianceField(Base):
         nullable=True,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider: Mapped[str] = mapped_column(String(129), nullable=False)
     method: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="running")
     spec_json: Mapped[dict] = mapped_column(JSON, nullable=False)
@@ -458,7 +458,7 @@ class RadianceEvaluation(Base):
     )
     snapshot_seq: Mapped[int] = mapped_column(Integer, nullable=False)
     dataset_id: Mapped[str | None] = mapped_column(String(ID_LEN), nullable=True)
-    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider: Mapped[str] = mapped_column(String(129), nullable=False)
     method: Mapped[str] = mapped_column(String(64), nullable=False)
     split: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="running")

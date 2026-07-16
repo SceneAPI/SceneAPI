@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import FileResponse, JSONResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1._helpers import accepted_response
 from app.core.errors import NotFoundError
 from app.core.http import file_etag, if_none_match_hit, not_modified
+from app.core.public_outputs import sanitize_public_outputs
 from app.core.tenancy import current_tenant
 from app.db.session import get_db
 from app.schemas.api.common import Link, Page, to_out
@@ -34,6 +33,20 @@ SNAPSHOT_FILE_MEDIA_TYPES = {
     "metadata.json": "application/json",
     "metrics.json": "application/json",
     "transforms.json": "application/json",
+}
+
+_SNAPSHOT_FILE_RESPONSE = {
+    200: {
+        "content": {
+            "application/octet-stream": {
+                "schema": {"type": "string", "format": "binary"}
+            },
+            "application/json": {
+                "schema": {"type": "object", "additionalProperties": True}
+            }
+        },
+        "description": "Radiance snapshot file bytes or JSON sidecar content.",
+    }
 }
 
 
@@ -182,13 +195,17 @@ async def get_radiance_field(
 )
 async def list_radiance_evaluations(
     radiance_field_id: str,
+    page_token: str | None = Query(default=None),
+    page_size: int = Query(default=50, ge=1, le=500),
     tenant_id: str = Depends(current_tenant),
     session: AsyncSession = Depends(get_db),
 ) -> Page[RadianceEvaluationOut]:
-    rows = await radiance_service.list_radiance_evaluations(
+    rows, next_page_token = await radiance_service.list_radiance_evaluations(
         session,
         tenant_id=tenant_id,
         radiance_field_id=radiance_field_id,
+        page_size=page_size,
+        page_token=page_token,
     )
     return Page(
         items=[
@@ -199,7 +216,7 @@ async def list_radiance_evaluations(
             )
             for row in rows
         ],
-        next_page_token=None,
+        next_page_token=next_page_token,
     )
 
 
@@ -232,7 +249,35 @@ async def get_radiance_evaluation_metrics(
         tenant_id=tenant_id,
         evaluation_id=evaluation_id,
     )
-    return RadianceMetrics.model_validate(row.metrics_json or {})
+    sanitized = sanitize_public_outputs(row.metrics_json or {})
+    return RadianceMetrics.model_validate(sanitized if isinstance(sanitized, dict) else {})
+
+
+async def _read_radiance_evaluation_metrics_artifact(
+    evaluation_id: str,
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    row = await radiance_service.get_radiance_evaluation(
+        session,
+        tenant_id=tenant_id,
+        evaluation_id=evaluation_id,
+    )
+    sanitized = sanitize_public_outputs(row.metrics_json or {})
+    return JSONResponse(sanitized if isinstance(sanitized, dict) else {})
+
+
+@router.get("/radiance_evaluations/{evaluation_id}/artifacts/metrics.json")
+async def read_radiance_evaluation_metrics_artifact(
+    evaluation_id: str,
+    tenant_id: str = Depends(current_tenant),
+    session: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    return await _read_radiance_evaluation_metrics_artifact(
+        evaluation_id=evaluation_id,
+        tenant_id=tenant_id,
+        session=session,
+    )
 
 
 @router.get("/radiance_evaluations/{evaluation_id}/artifacts/{name}")
@@ -242,14 +287,13 @@ async def read_radiance_evaluation_artifact(
     tenant_id: str = Depends(current_tenant),
     session: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
-    row = await radiance_service.get_radiance_evaluation(
-        session,
-        tenant_id=tenant_id,
+    if name != "metrics.json":
+        raise NotFoundError(f"Radiance evaluation artifact {name} not found")
+    return await _read_radiance_evaluation_metrics_artifact(
         evaluation_id=evaluation_id,
+        tenant_id=tenant_id,
+        session=session,
     )
-    if name == "metrics.json":
-        return JSONResponse(row.metrics_json or {})
-    raise NotFoundError(f"RadianceEvaluation artifact {name!r} not found")
 
 
 @router.get(
@@ -301,7 +345,11 @@ async def get_radiance_snapshot(
     raise NotFoundError(f"RadianceSnapshot {radiance_field_id}/{seq} not found")
 
 
-@router.get("/radiance_fields/{radiance_field_id}/snapshots/{seq}/{name}")
+@router.get(
+    "/radiance_fields/{radiance_field_id}/snapshots/{seq}/{name}",
+    response_class=FileResponse,
+    responses=_SNAPSHOT_FILE_RESPONSE,
+)
 async def read_radiance_snapshot_file(
     radiance_field_id: str,
     seq: int,
@@ -313,6 +361,11 @@ async def read_radiance_snapshot_file(
 ) -> Response:
     if name not in SNAPSHOT_FILE_MEDIA_TYPES:
         raise NotFoundError(f"Snapshot file {name!r} not found")
+    field = await radiance_service.get_radiance_field(
+        session,
+        tenant_id=tenant_id,
+        radiance_field_id=radiance_field_id,
+    )
     rows = await radiance_service.list_radiance_snapshots(
         session,
         tenant_id=tenant_id,
@@ -321,14 +374,12 @@ async def read_radiance_snapshot_file(
     snapshot = next((row for row in rows if row.seq == seq), None)
     if snapshot is None:
         raise NotFoundError(f"RadianceSnapshot {radiance_field_id}/{seq} not found")
-    target = (Path(snapshot.sealed_path) / name).resolve()
-    root = Path(snapshot.sealed_path).resolve()
-    try:
-        target.relative_to(root)
-    except ValueError as exc:
-        raise NotFoundError(f"Snapshot file {name!r} not found") from exc
-    if not target.is_file():
-        raise NotFoundError(f"Snapshot file {name!r} not found")
+    target = radiance_service.resolve_radiance_snapshot_file(
+        tenant_id=tenant_id,
+        field=field,
+        snapshot=snapshot,
+        name=name,
+    )
 
     etag = file_etag(target)
     if if_none_match_hit(request, etag):
@@ -339,6 +390,6 @@ async def read_radiance_snapshot_file(
     return FileResponse(
         target,
         media_type=SNAPSHOT_FILE_MEDIA_TYPES[name],
-        filename=name,
+        filename=name if download else None,
         headers=headers,
     )

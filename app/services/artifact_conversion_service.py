@@ -35,6 +35,24 @@ from app.services import artifact_service, provider_routing_service
 from sfm_hub.routing import ensure_provider_enabled
 
 
+def _path_from_file_uri_or_local(uri: str) -> Path | None:
+    if len(uri) >= 3 and uri[0].isalpha() and uri[1] == ":" and uri[2] in ("\\", "/"):
+        return Path(uri)
+    if uri.startswith("\\\\"):
+        return Path(uri)
+    parsed = urlparse(uri)
+    if parsed.scheme == "file":
+        raw_path = unquote(parsed.path)
+        if parsed.netloc:
+            raw_path = f"//{parsed.netloc}{raw_path}"
+        if len(raw_path) >= 3 and raw_path[0] == "/" and raw_path[1].isalpha() and raw_path[2] == ":":
+            raw_path = raw_path[1:]
+        return Path(raw_path)
+    if parsed.scheme:
+        return None
+    return Path(uri)
+
+
 def _metadata(artifact: StageArtifact) -> dict[str, Any]:
     return artifact.metadata_json if isinstance(artifact.metadata_json, dict) else {}
 
@@ -54,6 +72,29 @@ def _datatype(artifact: StageArtifact) -> str | None:
         if inferred is not None:
             return inferred
     return artifact_vocab.datatype_for_kind(artifact.kind)
+
+
+def _datatype_conflict_message(
+    *,
+    kind: str,
+    artifact_format: str | None,
+    datatype: str | None,
+) -> str | None:
+    if datatype is None:
+        return None
+    if not artifact_vocab.is_valid_artifact_key(datatype):
+        return "datatype is malformed"
+    if artifact_format is not None:
+        format_datatype = artifact_vocab.datatype_for_format(artifact_format)
+        if format_datatype is not None and datatype != format_datatype:
+            return (
+                f"datatype {datatype!r} is not compatible with "
+                f"artifact_format {artifact_format!r}"
+            )
+    kind_datatype = artifact_vocab.datatype_for_kind(kind)
+    if kind_datatype is not None and datatype != kind_datatype:
+        return f"datatype {datatype!r} is not compatible with kind {kind!r}"
+    return None
 
 
 def _artifact_ref(artifact: StageArtifact) -> dict[str, Any]:
@@ -416,20 +457,6 @@ async def import_artifact(
         exclude={"project_id"},
         exclude_none=True,
     )
-    metadata = dict(request.metadata or {})
-    for key in (
-        "artifact_format",
-        "datatype",
-        "schema_version",
-        "files",
-        "sha256",
-        "byte_size",
-        "coordinate_frame",
-        "producer",
-    ):
-        if key in descriptor and key not in metadata:
-            metadata[key] = descriptor[key]
-    descriptor["metadata"] = metadata
     outputs = artifact_service.normalize_task_outputs(task, {"artifacts": [descriptor]})
     task.outputs_ref_json = outputs
     await artifact_service.record_task_artifacts(session, task=task, outputs=outputs)
@@ -449,16 +476,9 @@ async def import_artifact(
 def _managed_path(uri: str | None) -> tuple[Path | None, str | None]:
     if not uri:
         return None, "artifact has no content URI"
-    parsed = urlparse(uri)
-    if parsed.scheme == "file":
-        raw_path = unquote(parsed.path)
-        if parsed.netloc:
-            raw_path = f"//{parsed.netloc}{raw_path}"
-        candidate = Path(raw_path)
-    elif "://" in uri:
+    candidate = _path_from_file_uri_or_local(uri)
+    if candidate is None:
         return None, "remote artifact URI was not dereferenced"
-    else:
-        candidate = Path(uri)
     target = candidate.resolve(strict=False)
     settings = get_settings()
     allowed_roots = [
@@ -630,27 +650,19 @@ def _compare_file_integrity(
                 )
     if expected_sha256 is not None:
         if not isinstance(expected_sha256, str) or not re.fullmatch(
-            r"[a-fA-F0-9]{64}", expected_sha256
+            r"[0-9a-f]{64}", expected_sha256
         ):
-            issues.append(_issue("error", "sha256 must be 64 hex characters", field))
+            issues.append(_issue("error", "sha256 must be a lowercase hex SHA-256 digest", field))
         else:
             with path.open("rb") as fp:
                 actual_sha, _ = stream_sha256(fp)
-            if actual_sha.lower() != expected_sha256.lower():
+            if actual_sha != expected_sha256:
                 issues.append(_issue("error", "sha256 does not match file content", field))
     return issues
 
 
 def _file_uri_to_path(uri: str) -> Path | None:
-    parsed = urlparse(uri)
-    if parsed.scheme == "file":
-        raw_path = unquote(parsed.path)
-        if parsed.netloc:
-            raw_path = f"//{parsed.netloc}{raw_path}"
-        return Path(raw_path)
-    if parsed.scheme:
-        return None
-    return Path(uri)
+    return _path_from_file_uri_or_local(uri)
 
 
 def _resolve_manifest_file(base_dir: Path, item: dict[str, Any]) -> tuple[Path | None, str | None]:
@@ -702,6 +714,13 @@ async def validate_artifact(
                 "artifact_format",
             )
         )
+    datatype_issue = _datatype_conflict_message(
+        kind=artifact.kind,
+        artifact_format=artifact_format,
+        datatype=datatype,
+    )
+    if datatype_issue is not None:
+        issues.append(_issue("error", datatype_issue, "datatype"))
 
     metadata = _metadata(artifact)
     if artifact_format in artifact_vocab.CORE_ARTIFACT_FORMATS:

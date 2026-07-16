@@ -23,6 +23,7 @@ workspaces/
 # Not committed because it lags the running server and produces noisy
 # diffs on every schema change.
 openapi.json
+!docs/_static/openapi.json
 
 # Env / secrets
 .env

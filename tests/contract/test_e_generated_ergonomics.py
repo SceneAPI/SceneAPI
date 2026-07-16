@@ -140,6 +140,14 @@ def test_buildhttp_error_translates_problem_json() -> None:
     assert err.status_code == 404
     assert "not found" in err.detail.lower()
 
+    unavailable = erg.buildhttp_error(
+        httpx.Response(
+            503,
+            json={"detail": "backend unavailable", "title": "Backend unavailable"},
+        )
+    )
+    assert isinstance(unavailable, erg.BackendUnavailableError)
+
 
 def test_parse_sse_buffer_handles_canonical_stream() -> None:
     erg, _ = _import_generated()

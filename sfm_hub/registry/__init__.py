@@ -30,7 +30,7 @@ def list_manifests(*, include_entry_points: bool = True) -> list[PluginManifest]
     if include_entry_points:
         by_id = {manifest.plugin_id: manifest for manifest in manifests}
         for manifest in discovered_manifests():
-            by_id.setdefault(manifest.plugin_id, manifest)
+            by_id[manifest.plugin_id] = manifest
         manifests = list(by_id.values())
     return sorted(manifests, key=lambda item: item.plugin_id)
 
