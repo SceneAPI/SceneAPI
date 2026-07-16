@@ -47,12 +47,31 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{/*
+Key inside postgresql.auth.existingSecret that holds the app-user
+password. Mirrors the Bitnami subchart's auth.secretKeys.userPasswordKey
+so one secret serves both the subchart and the sfmapi pods.
+*/}}
+{{- define "sfmapi.dbPasswordKey" -}}
+{{- default "password" (((.Values.postgresql.auth).secretKeys).userPasswordKey) -}}
+{{- end -}}
+
+{{/*
 Compute the SFMAPI_DB_URL value. Prefer the bundled Postgres subchart
-when enabled; otherwise the operator must set `env.extraEnv.SFMAPI_DB_URL`.
+when enabled; otherwise the operator must set `env.extraEnv.SFMAPI_DB_URL`
+(or ship it via `env.existingSecret`). When postgresql.auth.existingSecret
+is set, the password segment is the Kubernetes dependent-env reference
+$(SFMAPI_DB_PASSWORD) — expanded by the kubelet from the secretKeyRef env
+var emitted just before SFMAPI_DB_URL in "sfmapi.commonEnv" — so no
+plaintext password lands in the pod spec. Without an existingSecret, a
+plaintext postgresql.auth.password is required (render fails otherwise).
 */}}
 {{- define "sfmapi.dbUrl" -}}
 {{- if .Values.postgresql.enabled -}}
-postgresql+psycopg://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Release.Name }}-postgresql:5432/{{ .Values.postgresql.auth.database }}
+{{- if .Values.postgresql.auth.existingSecret -}}
+postgresql+psycopg://{{ .Values.postgresql.auth.username }}:$(SFMAPI_DB_PASSWORD)@{{ .Release.Name }}-postgresql:5432/{{ .Values.postgresql.auth.database }}
+{{- else -}}
+postgresql+psycopg://{{ .Values.postgresql.auth.username }}:{{ required "postgresql.enabled=true needs a database password: set postgresql.auth.existingSecret (recommended) or postgresql.auth.password" .Values.postgresql.auth.password }}@{{ .Release.Name }}-postgresql:5432/{{ .Values.postgresql.auth.database }}
+{{- end -}}
 {{- else -}}
 {{ default "" (index .Values.env.extraEnv "SFMAPI_DB_URL") }}
 {{- end -}}
@@ -90,12 +109,28 @@ redis://{{ .Release.Name }}-redis-master:6379/0
 
 {{/*
 Common environment block injected into both web and worker pods.
+SFMAPI_DB_PASSWORD must precede SFMAPI_DB_URL: Kubernetes expands the
+$(SFMAPI_DB_PASSWORD) reference only from env vars defined earlier in
+the list. SFMAPI_DB_URL / SFMAPI_REDIS_URL are omitted (not emitted
+empty) when unset here, so values supplied via env.existingSecret
+(envFrom) are not shadowed by explicit empty entries.
 */}}
 {{- define "sfmapi.commonEnv" -}}
+{{- if and .Values.postgresql.enabled .Values.postgresql.auth.existingSecret }}
+- name: SFMAPI_DB_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.postgresql.auth.existingSecret | quote }}
+      key: {{ include "sfmapi.dbPasswordKey" . | quote }}
+{{- end }}
+{{- with include "sfmapi.dbUrl" . }}
 - name: SFMAPI_DB_URL
-  value: {{ include "sfmapi.dbUrl" . | quote }}
+  value: {{ . | quote }}
+{{- end }}
+{{- with include "sfmapi.redisUrl" . }}
 - name: SFMAPI_REDIS_URL
-  value: {{ include "sfmapi.redisUrl" . | quote }}
+  value: {{ . | quote }}
+{{- end }}
 - name: SFMAPI_AUTH_MODE
   value: {{ .Values.env.authMode | quote }}
 - name: SFMAPI_LOG_LEVEL

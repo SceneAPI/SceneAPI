@@ -47,6 +47,11 @@ spec:
             {{- include "sfmapi.commonEnv" . | nindent 12 }}
             - name: SFMAPI_PYCOLMAP_AVAILABLE
               value: "false"
+          {{- if .Values.env.existingSecret }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.env.existingSecret | quote }}
+          {{- end }}
           {{- with .Values.web.livenessProbe }}
           livenessProbe: {{- toYaml . | nindent 12 }}
           {{- end }}

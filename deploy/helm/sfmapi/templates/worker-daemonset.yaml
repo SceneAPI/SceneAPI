@@ -51,6 +51,11 @@ spec:
             - name: {{ $k }}
               value: {{ $v | quote }}
             {{- end }}
+          {{- if .Values.env.existingSecret }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.env.existingSecret | quote }}
+          {{- end }}
           resources: {{- toYaml .Values.worker.resources | nindent 12 }}
           volumeMounts:
             - name: workspaces

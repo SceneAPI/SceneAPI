@@ -17,7 +17,16 @@ env:
   authMode: api_key              # "none" | "api_key"
   logLevel: INFO
   inlineTasks: false
-  extraEnv: {}                   # arbitrary additional SFMAPI_* env vars
+  extraEnv: {}                   # arbitrary additional SFMAPI_* env vars (plaintext)
+  # Name of a pre-created Secret whose keys are injected as env vars
+  # (envFrom.secretRef) into both the web and worker pods. Use it for
+  # sensitive SFMAPI_* settings instead of extraEnv — e.g. an external
+  # SFMAPI_DB_URL / SFMAPI_REDIS_URL with credentials, S3 keys, etc.
+  # Explicit env entries rendered by the chart take precedence over
+  # keys from this secret only when the chart actually renders them
+  # (the chart omits SFMAPI_DB_URL / SFMAPI_REDIS_URL when the
+  # bundled subcharts are disabled and no extraEnv override is set).
+  existingSecret: ""
 
 # --- Web tier --------------------------------------------------------------
 
@@ -119,12 +128,26 @@ workspace:
   hostPath: ""                   # alternative: bind a host dir (single node)
 
 # --- Postgres subchart -----------------------------------------------------
+#
+# No default password ships with the chart. When postgresql.enabled=true
+# you must provide ONE of:
+#   - postgresql.auth.existingSecret: name of a pre-created Secret. The
+#     Bitnami subchart reads the app-user password from the key named by
+#     postgresql.auth.secretKeys.userPasswordKey (default "password";
+#     the subchart also expects a "postgres-password" key for the
+#     superuser). The web/worker pods reference the same key via
+#     valueFrom.secretKeyRef — no plaintext password in the release.
+#   - postgresql.auth.password: a plaintext password (dev installs only).
+# Template rendering fails if neither is set.
 
 postgresql:
   enabled: true
   auth:
     username: sfm
-    password: changeme
+    password: ""                 # dev only; prefer existingSecret
+    existingSecret: ""           # name of a Secret holding the DB passwords
+    secretKeys:
+      userPasswordKey: password  # key inside existingSecret with the app-user password
     database: sfmapi
   primary:
     persistence:

@@ -80,7 +80,6 @@ markers = [
     "e2e: full app, may hit redis",
     "conformance: tests/conformance — verifies SFMAPI-SPEC.md against any server",
     "contract: tests/contract — replays recorded fixtures through the SDK types",
-    "needs_backend: requires a concrete SfmBackend implementation registered (sfmapi ships only a stub)",
     "needs_postgres: requires SFMAPI_DB_URL pointing at postgres",
 ]
 

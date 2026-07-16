@@ -10,10 +10,44 @@ Postgres/Redis subcharts.
 # Resolve subcharts
 helm dependency update deploy/helm/sfmapi
 
-# Install with defaults (web + bundled postgres + redis, no GPU worker)
+# Install (web + bundled postgres + redis, no GPU worker).
+# The chart ships NO default database password — rendering fails
+# until you provide one (dev) or an existing Secret (production).
 helm install sfmapi ./deploy/helm/sfmapi \
-    --namespace sfmapi --create-namespace
+    --namespace sfmapi --create-namespace \
+    --set postgresql.auth.password=dev-only-password
 ```
+
+## Secrets
+
+The chart never templates credentials with defaults. Two hooks:
+
+- **Database password** — create a Secret and point the chart at it.
+  The Bitnami postgresql subchart provisions the DB user from the same
+  secret, and the web/worker pods build `SFMAPI_DB_URL` around a
+  `valueFrom.secretKeyRef` env var (`SFMAPI_DB_PASSWORD`, expanded by
+  the kubelet via `$(SFMAPI_DB_PASSWORD)`), so the password never
+  appears in the rendered manifests:
+
+  ```bash
+  kubectl -n sfmapi create secret generic sfmapi-db \
+      --from-literal=password='<app-user-password>' \
+      --from-literal=postgres-password='<superuser-password>'
+  helm install sfmapi ./deploy/helm/sfmapi -n sfmapi \
+      --set postgresql.auth.existingSecret=sfmapi-db
+  ```
+
+  The app-user key defaults to `password`; override with
+  `postgresql.auth.secretKeys.userPasswordKey`. (`postgres-password`
+  is required by the Bitnami subchart for the superuser.)
+
+- **Other `SFMAPI_*` secrets** (external DB/Redis URLs with
+  credentials, S3 keys, ...) — put them in a Secret whose keys are
+  env-var names and set `env.existingSecret=<name>`; it is injected
+  via `envFrom.secretRef` into both web and worker pods. When the
+  bundled subcharts are disabled the chart omits `SFMAPI_DB_URL` /
+  `SFMAPI_REDIS_URL` rather than rendering them empty, so
+  secret-provided values take effect.
 
 ## Production values
 
@@ -47,8 +81,9 @@ worker:
 postgresql:
   enabled: false           # use a managed Postgres
 env:
-  extraEnv:
-    SFMAPI_DB_URL: postgresql+psycopg://sfm:secret@db.svc.local:5432/sfmapi
+  # Secret with key SFMAPI_DB_URL=postgresql+psycopg://sfm:...@db.svc.local:5432/sfmapi
+  # (plaintext alternative: env.extraEnv.SFMAPI_DB_URL)
+  existingSecret: sfmapi-env
 ```
 
 ```bash
@@ -81,9 +116,14 @@ Dockerfile template.
 
 ## Linting
 
+A database password (or existingSecret) is mandatory, so lint/template
+with one set — rendering with bare defaults fails by design:
+
 ```bash
-helm lint deploy/helm/sfmapi
-helm template release-name deploy/helm/sfmapi --debug | kubectl apply --dry-run=client -f -
+helm lint deploy/helm/sfmapi --set postgresql.auth.password=x
+helm template release-name deploy/helm/sfmapi \
+    --set postgresql.auth.existingSecret=sfmapi-db --debug \
+  | kubectl apply --dry-run=client -f -
 ```
 
 ## Workspace storage
