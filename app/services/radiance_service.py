@@ -24,6 +24,7 @@ from app.db.models import (
     RadianceVariant,
     Reconstruction,
 )
+from app.db.pagination import paginate_keyset
 from app.orchestrator.dag import TaskNode, hash_inputs, hash_params
 from app.orchestrator.scheduler import submit_job_dag
 from app.schemas.api.radiance import RadianceEvaluateRequest, RadianceTrainRequest
@@ -57,20 +58,16 @@ async def list_radiance_fields(
     page_size: int,
     page_token: str | None,
 ) -> tuple[list[RadianceField], str | None]:
-    stmt = (
-        select(RadianceField)
-        .where(RadianceField.tenant_id == tenant_id, RadianceField.project_id == project_id)
-        .order_by(RadianceField.radiance_field_id)
+    stmt = select(RadianceField).where(
+        RadianceField.tenant_id == tenant_id, RadianceField.project_id == project_id
     )
-    if page_token:
-        stmt = stmt.where(RadianceField.radiance_field_id > page_token)
-    stmt = stmt.limit(page_size + 1)
-    rows = list((await session.execute(stmt)).scalars().all())
-    next_page_token: str | None = None
-    if len(rows) > page_size:
-        next_page_token = rows[page_size - 1].radiance_field_id
-        rows = rows[:page_size]
-    return rows, next_page_token
+    return await paginate_keyset(
+        session,
+        stmt,
+        pk=RadianceField.radiance_field_id,
+        page_size=page_size,
+        page_token=page_token,
+    )
 
 
 async def list_radiance_snapshots(
@@ -132,23 +129,17 @@ async def list_radiance_evaluations(
         tenant_id=tenant_id,
         radiance_field_id=radiance_field_id,
     )
-    stmt = (
-        select(RadianceEvaluation)
-        .where(
-            RadianceEvaluation.tenant_id == tenant_id,
-            RadianceEvaluation.radiance_field_id == radiance_field_id,
-        )
-        .order_by(RadianceEvaluation.evaluation_id)
+    stmt = select(RadianceEvaluation).where(
+        RadianceEvaluation.tenant_id == tenant_id,
+        RadianceEvaluation.radiance_field_id == radiance_field_id,
     )
-    if page_token:
-        stmt = stmt.where(RadianceEvaluation.evaluation_id > page_token)
-    stmt = stmt.limit(page_size + 1)
-    rows = list((await session.execute(stmt)).scalars().all())
-    next_page_token: str | None = None
-    if len(rows) > page_size:
-        next_page_token = rows[page_size - 1].evaluation_id
-        rows = rows[:page_size]
-    return rows, next_page_token
+    return await paginate_keyset(
+        session,
+        stmt,
+        pk=RadianceEvaluation.evaluation_id,
+        page_size=page_size,
+        page_token=page_token,
+    )
 
 
 async def _require_project(session: AsyncSession, *, tenant_id: str, project_id: str) -> Project:
@@ -232,9 +223,9 @@ def _check_radiance_canonical_typos(backend_options: dict[str, Any]) -> None:
         return
     import difflib
 
-    from app.adapters.backend_config import _radiance_train_option_schema
+    from app.adapters.backend_config import radiance_train_option_schema
 
-    canonical = list((_radiance_train_option_schema().get("properties") or {}).keys())
+    canonical = list((radiance_train_option_schema().get("properties") or {}).keys())
     if not canonical:
         return
     suspicious: list[tuple[str, str]] = []

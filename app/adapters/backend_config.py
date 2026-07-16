@@ -243,7 +243,7 @@ def _colmap_config_descriptors(backend: Any, *, include_schema: bool) -> list[di
 _RADIANCE_TRAIN_CONFIG_ID = "radiance.train"
 
 
-def _radiance_train_option_schema() -> dict[str, Any]:
+def radiance_train_option_schema() -> dict[str, Any]:
     """Canonical cross-engine radiance/3DGS training knobs.
 
     ``max_steps`` and ``eval`` are first-class typed fields on
@@ -290,6 +290,10 @@ def _radiance_train_option_schema() -> dict[str, Any]:
     }
 
 
+# Legacy private alias (pre-2026-07 name). New code imports the public name.
+_radiance_train_option_schema = radiance_train_option_schema
+
+
 def _radiance_config_descriptors(backend: Any, *, include_schema: bool) -> list[dict[str, Any]]:
     """Framework-owned canonical ``radiance.train`` schema for any backend that
     advertises the ``radiance.train`` capability (single source of truth; the
@@ -318,7 +322,7 @@ def _radiance_config_descriptors(backend: Any, *, include_schema: bool) -> list[
                     "`backend_options`. `max_steps` and `eval` are first-class "
                     "RadianceTrainRequest fields."
                 ),
-                "option_schema": _radiance_train_option_schema() if include_schema else None,
+                "option_schema": radiance_train_option_schema() if include_schema else None,
                 # Defaults are also inlined in option_schema.properties[*].default
                 # (e.g. test_every=8, init="colmap"); duplicate at the descriptor
                 # level so the dedicated `defaults` field stops being empty.

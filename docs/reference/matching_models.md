@@ -22,7 +22,7 @@ A matching model touches two contracts:
    `backend_options`** envelope (e.g. a free-form `model` string), which
    is how vismatch exposes any of its models.
 
-2. **COLMAP scene-database layer** (`app/core/colmap_db.py`). When matches
+2. **COLMAP scene-database layer** (`sfmapi/contracts/colmap_db.py`). When matches
    are persisted in a COLMAP SQLite database, the `descriptors.type`
    column records which extractor produced each descriptor set. This is
    an **open registry**, not a closed enum:
@@ -84,7 +84,7 @@ Regardless of family, the cross-extractor invariant is the same and is
 the part the contract actually enforces: **a match may only join two
 descriptor sets produced by the same extractor type.** A backend must not
 match SuperPoint descriptors against SIFT descriptors. The contract
-helper `app.core.colmap_db.matches_are_type_compatible(a, b)` expresses
+helper `sfmapi.contracts.colmap_db.matches_are_type_compatible(a, b)` expresses
 this, and it holds for arbitrary extractor ids — not just the
 `colmap_mod` seed.
 

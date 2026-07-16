@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFoundError
 from app.core.paths import Paths
 from app.db.models import Reconstruction, SubModel
+from app.db.pagination import paginate_keyset
 from app.storage.snapshots import SnapshotStore
 
 
@@ -39,20 +40,14 @@ async def list_submodels(
     """AIP-158 keyset pagination on ``submodel_id`` ascending; ``idx``
     determines display order but ``submodel_id`` is the cursor key (stable
     even when components are added / removed mid-iteration)."""
-    stmt = (
-        select(SubModel)
-        .where(SubModel.tenant_id == tenant_id, SubModel.recon_id == recon_id)
-        .order_by(SubModel.submodel_id)
+    stmt = select(SubModel).where(SubModel.tenant_id == tenant_id, SubModel.recon_id == recon_id)
+    rows, next_page_token = await paginate_keyset(
+        session,
+        stmt,
+        pk=SubModel.submodel_id,
+        page_size=page_size,
+        page_token=page_token,
     )
-    if page_token:
-        stmt = stmt.where(SubModel.submodel_id > page_token)
-    stmt = stmt.limit(page_size + 1)
-    result = await session.execute(stmt)
-    rows = list(result.scalars().all())
-    next_page_token: str | None = None
-    if len(rows) > page_size:
-        next_page_token = rows[page_size - 1].submodel_id
-        rows = rows[:page_size]
     # Surface in idx order (UI/SDK expectation) regardless of cursor key.
     rows.sort(key=lambda r: r.idx)
     return rows, next_page_token

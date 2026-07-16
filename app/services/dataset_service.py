@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.hashing import canonical_json, content_address
 from app.db.models import Dataset, Image, ImageSource
+from app.db.pagination import paginate_keyset
 from app.schemas.api.datasets import (
     LocalSourceSpec,
     S3SourceSpec,
@@ -125,21 +126,14 @@ async def list_datasets(
     page_token: str | None = None,
 ) -> tuple[list[Dataset], str | None]:
     """AIP-158 keyset pagination on ``dataset_id`` ascending."""
-    stmt = (
-        select(Dataset)
-        .where(Dataset.tenant_id == tenant_id, Dataset.project_id == project_id)
-        .order_by(Dataset.dataset_id)
+    stmt = select(Dataset).where(Dataset.tenant_id == tenant_id, Dataset.project_id == project_id)
+    return await paginate_keyset(
+        session,
+        stmt,
+        pk=Dataset.dataset_id,
+        page_size=page_size,
+        page_token=page_token,
     )
-    if page_token:
-        stmt = stmt.where(Dataset.dataset_id > page_token)
-    stmt = stmt.limit(page_size + 1)
-    result = await session.execute(stmt)
-    rows = list(result.scalars().all())
-    next_page_token: str | None = None
-    if len(rows) > page_size:
-        next_page_token = rows[page_size - 1].dataset_id
-        rows = rows[:page_size]
-    return rows, next_page_token
 
 
 async def delete_dataset(session: AsyncSession, *, tenant_id: str, dataset_id: str) -> None:

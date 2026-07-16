@@ -17,6 +17,7 @@ from app.core.public_outputs import (
     sanitize_public_artifact_name,
 )
 from app.db.models import StageArtifact, Task
+from app.db.pagination import paginate_keyset
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -408,10 +409,8 @@ async def list_job_artifacts(
     name: str | None = None,
 ) -> tuple[list[StageArtifact], str | None]:
     _validate_list_filters(kind=kind, name=name)
-    stmt = (
-        select(StageArtifact)
-        .where(StageArtifact.tenant_id == tenant_id, StageArtifact.job_id == job_id)
-        .order_by(StageArtifact.artifact_id)
+    stmt = select(StageArtifact).where(
+        StageArtifact.tenant_id == tenant_id, StageArtifact.job_id == job_id
     )
     if kind:
         stmt = stmt.where(StageArtifact.kind == kind)
@@ -419,15 +418,13 @@ async def list_job_artifacts(
         stmt = stmt.where(StageArtifact.task_id == task_id)
     if name:
         stmt = stmt.where(StageArtifact.name == name)
-    if page_token:
-        stmt = stmt.where(StageArtifact.artifact_id > page_token)
-    stmt = stmt.limit(page_size + 1)
-    rows = list((await session.execute(stmt)).scalars().all())
-    next_page_token: str | None = None
-    if len(rows) > page_size:
-        next_page_token = rows[page_size - 1].artifact_id
-        rows = rows[:page_size]
-    return rows, next_page_token
+    return await paginate_keyset(
+        session,
+        stmt,
+        pk=StageArtifact.artifact_id,
+        page_size=page_size,
+        page_token=page_token,
+    )
 
 
 async def list_reconstruction_artifacts(
@@ -442,10 +439,8 @@ async def list_reconstruction_artifacts(
     name: str | None = None,
 ) -> tuple[list[StageArtifact], str | None]:
     _validate_list_filters(kind=kind, name=name)
-    stmt = (
-        select(StageArtifact)
-        .where(StageArtifact.tenant_id == tenant_id, StageArtifact.recon_id == recon_id)
-        .order_by(StageArtifact.artifact_id)
+    stmt = select(StageArtifact).where(
+        StageArtifact.tenant_id == tenant_id, StageArtifact.recon_id == recon_id
     )
     if kind:
         stmt = stmt.where(StageArtifact.kind == kind)
@@ -453,15 +448,13 @@ async def list_reconstruction_artifacts(
         stmt = stmt.where(StageArtifact.task_id == task_id)
     if name:
         stmt = stmt.where(StageArtifact.name == name)
-    if page_token:
-        stmt = stmt.where(StageArtifact.artifact_id > page_token)
-    stmt = stmt.limit(page_size + 1)
-    rows = list((await session.execute(stmt)).scalars().all())
-    next_page_token: str | None = None
-    if len(rows) > page_size:
-        next_page_token = rows[page_size - 1].artifact_id
-        rows = rows[:page_size]
-    return rows, next_page_token
+    return await paginate_keyset(
+        session,
+        stmt,
+        pk=StageArtifact.artifact_id,
+        page_size=page_size,
+        page_token=page_token,
+    )
 
 
 def _validate_list_filters(*, kind: str | None, name: str | None) -> None:

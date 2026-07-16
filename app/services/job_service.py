@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFoundError
 from app.core.ids import new_id
 from app.db.models import Job, Task
+from app.db.pagination import paginate_keyset
 from app.orchestrator.dag import TaskNode
 from app.orchestrator.lease import now_utc
 from app.services import artifact_service
@@ -63,19 +64,17 @@ async def list_jobs(
     submissions first). ``status`` filters to a single lifecycle state
     when set — the canonical cheap-filter exposed in lieu of a full
     AIP-160 grammar."""
-    stmt = select(Job).where(Job.tenant_id == tenant_id).order_by(Job.job_id.desc())
+    stmt = select(Job).where(Job.tenant_id == tenant_id)
     if status is not None:
         stmt = stmt.where(Job.status == status)
-    if page_token:
-        stmt = stmt.where(Job.job_id < page_token)
-    stmt = stmt.limit(page_size + 1)
-    result = await session.execute(stmt)
-    rows = list(result.scalars().all())
-    next_page_token: str | None = None
-    if len(rows) > page_size:
-        next_page_token = rows[page_size - 1].job_id
-        rows = rows[:page_size]
-    return rows, next_page_token
+    return await paginate_keyset(
+        session,
+        stmt,
+        pk=Job.job_id,
+        page_size=page_size,
+        page_token=page_token,
+        descending=True,
+    )
 
 
 async def lookup_cached_task(

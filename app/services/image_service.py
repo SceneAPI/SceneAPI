@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.path_safety import validate_safe_relative_path
 from app.db.models import Blob, Dataset, Image, ImageSource
+from app.db.pagination import paginate_keyset
 from app.services.dataset_service import recompute_manifest_hash
 
 
@@ -76,21 +77,14 @@ async def list_images(
     page_size: int = 100,
     page_token: str | None = None,
 ) -> tuple[list[Image], str | None]:
-    stmt = (
-        select(Image)
-        .where(Image.tenant_id == tenant_id, Image.dataset_id == dataset_id)
-        .order_by(Image.image_id)
+    stmt = select(Image).where(Image.tenant_id == tenant_id, Image.dataset_id == dataset_id)
+    return await paginate_keyset(
+        session,
+        stmt,
+        pk=Image.image_id,
+        page_size=page_size,
+        page_token=page_token,
     )
-    if page_token:
-        stmt = stmt.where(Image.image_id > page_token)
-    stmt = stmt.limit(page_size + 1)
-    result = await session.execute(stmt)
-    rows = list(result.scalars().all())
-    next_page_token: str | None = None
-    if len(rows) > page_size:
-        next_page_token = rows[page_size - 1].image_id
-        rows = rows[:page_size]
-    return rows, next_page_token
 
 
 async def get_image(session: AsyncSession, *, tenant_id: str, image_id: str) -> Image:

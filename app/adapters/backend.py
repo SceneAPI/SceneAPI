@@ -320,8 +320,23 @@ class LocalizationBackend(Backend, Protocol):
 class BatchLocalizationBackend(Backend, Protocol):
     """Batch or sequence localization helpers."""
 
-    def localize_batch(self, **kwargs: Any) -> list[Any]:
-        """Localize multiple query images."""
+    def localize_batch(
+        self,
+        *,
+        sparse_dir: Path,
+        queries_path: Path,
+        spec: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Localize every query listed in ``queries_path`` against a sparse model.
+
+        The batch analog of :meth:`LocalizationBackend.localize_from_memory`:
+        ``sparse_dir`` is the reference model, ``queries_path`` the file
+        naming the query images, and ``spec`` carries engine-specific
+        inputs (e.g. hloc's ``retrieval_path`` / ``feature_path`` /
+        ``matches_path`` and solver knobs). Returns one result row per
+        localization pass, each a JSON-serializable dict of output paths
+        + engine metadata.
+        """
 
 
 @runtime_checkable

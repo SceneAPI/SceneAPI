@@ -314,8 +314,9 @@ def scaffold_plugin(
 
 # ----- off-wire contract scaffolding ----------------------------------------
 #
-# Mirrors scaffold_plugin but for an app.core off-wire contract (a data
-# standard with cross-tier parity, e.g. colmap_db). Generates the two
+# Mirrors scaffold_plugin but for an off-wire contract module (a data
+# standard with cross-tier parity, e.g. sfmapi.contracts.colmap_db —
+# the caller picks the target package via core_dir). Generates the two
 # repo-side files; the single cross-repo step (registering in
 # sfmapi-cpp/tools/gen_contracts.py) is printed for the author, since that
 # file lives in the C++ port repo.

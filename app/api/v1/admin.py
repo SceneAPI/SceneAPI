@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
 from app.db.models import ApiKey
+from app.db.pagination import paginate_sequence
 from app.db.session import get_db
 from app.schemas.api.plugins import (
     PluginDetailOut,
@@ -153,11 +154,11 @@ async def list_plugins(
     rows = plugin_service.list_plugins(query)
     if page_token:
         rows = [row for row in rows if str(row["plugin_id"]) > page_token]
-    page = rows[: page_size + 1]
-    next_page_token = None
-    if len(page) > page_size:
-        next_page_token = str(page[page_size - 1]["plugin_id"])
-        page = page[:page_size]
+    page, next_page_token = paginate_sequence(
+        rows,
+        page_size=page_size,
+        token_for=lambda row: str(row["plugin_id"]),
+    )
     return PluginRegistryPage(
         items=[PluginRegistryItemOut.model_validate(row) for row in page],
         next_page_token=next_page_token,

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError
 from app.db.models import Project
+from app.db.pagination import paginate_keyset
 
 
 async def create_project(
@@ -39,17 +40,14 @@ async def list_projects(
     page_size: int = 50,
     page_token: str | None = None,
 ) -> tuple[list[Project], str | None]:
-    stmt = select(Project).where(Project.tenant_id == tenant_id).order_by(Project.project_id)
-    if page_token:
-        stmt = stmt.where(Project.project_id > page_token)
-    stmt = stmt.limit(page_size + 1)
-    result = await session.execute(stmt)
-    rows = list(result.scalars().all())
-    next_page_token = None
-    if len(rows) > page_size:
-        next_page_token = rows[page_size - 1].project_id
-        rows = rows[:page_size]
-    return rows, next_page_token
+    stmt = select(Project).where(Project.tenant_id == tenant_id)
+    return await paginate_keyset(
+        session,
+        stmt,
+        pk=Project.project_id,
+        page_size=page_size,
+        page_token=page_token,
+    )
 
 
 async def patch_project(

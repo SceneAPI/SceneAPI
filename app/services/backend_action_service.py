@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.config_stages import CONFIG_STAGE_ORDER
 from app.core.errors import ValidationError
 from app.core.ids import new_id
+from app.db.pagination import paginate_sequence
 from app.orchestrator.dag import TaskNode, hash_inputs, hash_params
 from app.orchestrator.scheduler import submit_job_dag
 from app.services import project_service
@@ -210,12 +211,11 @@ def list_actions(
     actions = backend_actions.list_backend_actions(backend, include_schemas=include_schemas)
     if page_token:
         actions = [action for action in actions if str(action["action_id"]) > page_token]
-    rows = actions[: page_size + 1]
-    next_page_token = None
-    if len(rows) > page_size:
-        next_page_token = str(rows[page_size - 1]["action_id"])
-        rows = rows[:page_size]
-    return rows, next_page_token
+    return paginate_sequence(
+        actions,
+        page_size=page_size,
+        token_for=lambda action: str(action["action_id"]),
+    )
 
 
 def get_action(action_id: str, *, provider: str | None = None) -> dict[str, Any]:
@@ -238,12 +238,11 @@ def list_config_schemas(
     if page_token:
         after = _descriptor_page_token_key(rows, page_token, "config_id")
         rows = [row for row in rows if _descriptor_page_key(row, "config_id") > after]
-    page = rows[: page_size + 1]
-    next_page_token = None
-    if len(page) > page_size:
-        next_page_token = _encode_descriptor_page_token(page[page_size - 1], "config_id")
-        page = page[:page_size]
-    return page, next_page_token
+    return paginate_sequence(
+        rows,
+        page_size=page_size,
+        token_for=lambda row: _encode_descriptor_page_token(row, "config_id"),
+    )
 
 
 def get_config_schema(config_id: str, *, provider: str | None = None) -> dict[str, Any]:
@@ -289,12 +288,11 @@ def list_artifact_contracts(
     if page_token:
         after = _descriptor_page_token_key(rows, page_token, "contract_id")
         rows = [row for row in rows if _descriptor_page_key(row, "contract_id") > after]
-    page = rows[: page_size + 1]
-    next_page_token = None
-    if len(page) > page_size:
-        next_page_token = _encode_descriptor_page_token(page[page_size - 1], "contract_id")
-        page = page[:page_size]
-    return page, next_page_token
+    return paginate_sequence(
+        rows,
+        page_size=page_size,
+        token_for=lambda row: _encode_descriptor_page_token(row, "contract_id"),
+    )
 
 
 def get_artifact_contract(contract_id: str, *, provider: str | None = None) -> dict[str, Any]:

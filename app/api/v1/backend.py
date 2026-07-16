@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1._helpers import accepted_response
 from app.core.tenancy import current_tenant
+from app.db.pagination import paginate_sequence
 from app.db.session import get_db
 from app.schemas.api.backend_actions import (
     BackendActionListPage,
@@ -240,11 +241,11 @@ async def list_providers(
     if page_token:
         after = _decode_provider_page_token(page_token)
         rows = [row for row in rows if _provider_page_key(row) > after]
-    page = rows[: page_size + 1]
-    next_page_token = None
-    if len(page) > page_size:
-        next_page_token = _encode_provider_page_token(page[page_size - 1])
-        page = page[:page_size]
+    page, next_page_token = paginate_sequence(
+        rows,
+        page_size=page_size,
+        token_for=_encode_provider_page_token,
+    )
     return ProviderPage(
         items=[ProviderOut.model_validate(row) for row in page],
         next_page_token=next_page_token,
