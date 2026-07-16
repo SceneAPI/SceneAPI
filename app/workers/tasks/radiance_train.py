@@ -18,7 +18,7 @@ from urllib.request import Request, urlopen
 from app.core.errors import CapabilityUnavailableError, ValidationError
 from app.core.paths import Paths
 from app.db.models import Task
-from app.services import artifact_service
+from app.services import artifact_service, radiance_service
 from app.storage.snapshots import SnapshotStore
 from app.workers._task_io import read_state
 from app.workers.tasks._registry import task_handler
@@ -29,7 +29,62 @@ from sfm_hub.routing import ProviderRecord, provider_records
 _ARTIFACT_KEY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$")
 
 
-@task_handler("radiance_train")
+def _task_radiance_field_id(task: Task) -> str | None:
+    state = task.task_state_json or {}
+    inputs = state.get("inputs") or {}
+    radiance_field_id = inputs.get("radiance_field_id")
+    return str(radiance_field_id) if radiance_field_id else None
+
+
+def _task_radiance_evaluation_id(task: Task) -> str | None:
+    state = task.task_state_json or {}
+    inputs = state.get("inputs") or {}
+    evaluation_id = inputs.get("evaluation_id")
+    return str(evaluation_id) if evaluation_id else None
+
+
+async def _on_status(session: Any, task: Task, status: str) -> None:
+    """Roll the RadianceField's status up with the task's; a failed
+    train also fails its co-submitted evaluation (if any)."""
+    radiance_field_id = _task_radiance_field_id(task)
+    if radiance_field_id is None:
+        return
+    await radiance_service.mark_radiance_field_status(
+        session,
+        tenant_id=task.tenant_id,
+        radiance_field_id=radiance_field_id,
+        status=status,
+    )
+    evaluation_id = _task_radiance_evaluation_id(task)
+    if evaluation_id is not None and status == "failed":
+        await radiance_service.mark_radiance_evaluation_status(
+            session,
+            tenant_id=task.tenant_id,
+            evaluation_id=evaluation_id,
+            status="failed",
+            error={
+                "code": task.error_class or "TaskFailed",
+                "message": task.error_message or "radiance_train failed",
+            },
+        )
+
+
+async def _on_success(session: Any, task: Task, outputs: dict[str, Any]) -> None:
+    """Persist train outputs (snapshots, variants, embedded evals)."""
+    result = outputs or {}
+    radiance_field_id = _task_radiance_field_id(task)
+    if radiance_field_id is None:
+        return
+    await radiance_service.record_radiance_train_result(
+        session,
+        tenant_id=task.tenant_id,
+        radiance_field_id=radiance_field_id,
+        outputs=result,
+        expected_evaluation_id=_task_radiance_evaluation_id(task),
+    )
+
+
+@task_handler("radiance_train", on_status=_on_status, on_success=_on_success)
 def run(task: Task) -> dict:
     inputs, spec = read_state(task)
     provider = str(spec.get("provider") or "stub")

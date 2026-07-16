@@ -13,10 +13,11 @@ directory (``ZipInfo.file_size``) and checked against
 Zip-slip defense: every extracted path is resolved and asserted to land
 inside the per-task output dir.
 
-The task emits the generic ``derived_dataset`` block; the dispatcher's
-``_apply_derived_dataset_outputs`` turns it into ImageSource + Dataset +
-Image rows (dimensions read from disk there), so this task owns only the
-unpack — not the DB bookkeeping.
+The task emits the generic ``derived_dataset`` block; on task success
+the dispatcher hands it to ``dataset_service.register_derived_dataset``,
+which turns it into ImageSource + Dataset + Image rows (dimensions read
+from disk there), so this task owns only the unpack — not the DB
+bookkeeping.
 """
 
 from __future__ import annotations

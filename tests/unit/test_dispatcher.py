@@ -10,8 +10,8 @@ from app.core.errors import BackendUnavailableError, PycolmapUnavailableError, V
 from app.core.ids import new_id
 from app.db.models import Dataset, Image, ImageSource, Job, StageArtifact, Task
 from app.services import artifact_service, job_service, project_service
+from app.services.dataset_service import register_derived_dataset
 from app.workers.dispatcher import (
-    _apply_derived_dataset_outputs,
     _dependency_state_from_statuses,
     execute_task,
     get_handlers,
@@ -221,24 +221,30 @@ async def test_input_artifact_refs_validate_role_and_kind(session) -> None:
         )
 
 
-async def _seed_pending_noop_task(session) -> tuple[str, str]:
+async def _seed_pending_noop_task(
+    session, *, kind: str = "noop", cancel_requested: bool = False
+) -> tuple[str, str]:
     project = await project_service.create_project(
         session,
         tenant_id="default",
-        name=f"backend-unavailable-{new_id()[:6]}",
+        # ULID tail = random bits; the head is a timestamp and collides
+        # for tests seeding several projects in the same millisecond.
+        name=f"backend-unavailable-{new_id()[-6:]}",
     )
     job = await job_service.create_job(
         session,
         tenant_id="default",
         project_id=project.project_id,
-        recipe="noop",
+        recipe=kind,
         spec={},
     )
+    if cancel_requested:
+        job.cancel_requested = True
     task = Task(
         task_id=new_id(),
         tenant_id="default",
         job_id=job.job_id,
-        kind="noop",
+        kind=kind,
         inputs_hash="i" * 64,
         params_hash="p" * 64,
         runtime_version_id="rv",
@@ -305,6 +311,59 @@ def test_backend_unavailable_error_exported_from_public_facade() -> None:
 
     assert public_errors.BackendUnavailableError is BackendUnavailableError
     assert "BackendUnavailableError" in public_errors.__all__
+
+
+async def test_lifecycle_hooks_fire_only_for_registered_kind(session, monkeypatch) -> None:
+    """``on_status`` / ``on_success`` hooks registered via
+    ``@task_handler`` fire for their kind — ``running`` at pickup,
+    ``on_success`` before the success commit, and ``failed`` on a
+    cancel-before-pickup (which never resolves a handler) — and never
+    fire for kinds that registered no hooks."""
+    import app.workers.dispatcher as dispatcher
+    from app.workers.tasks import _registry
+
+    # Import the real task modules *before* patching the registry so
+    # their registrations don't land inside the patched window.
+    dispatcher.get_handlers()
+
+    calls: list[tuple[str, str, object]] = []
+
+    async def on_status(_session, task: Task, status: str) -> None:
+        calls.append(("status", task.kind, status))
+
+    async def on_success(_session, task: Task, outputs: dict) -> None:
+        calls.append(("success", task.kind, outputs.get("ok")))
+
+    monkeypatch.setitem(_registry._STATUS_HOOKS, "hooked", on_status)
+    monkeypatch.setitem(_registry._SUCCESS_HOOKS, "hooked", on_success)
+
+    def ok_handler(_task: Task) -> dict:
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        dispatcher, "_HANDLERS_CACHE", {"hooked": ok_handler, "unhooked": ok_handler}
+    )
+
+    unhooked_id, _ = await _seed_pending_noop_task(session, kind="unhooked")
+    result = await execute_task(unhooked_id)
+    assert result["status"] == "succeeded"
+    assert calls == []  # no hooks registered for this kind
+
+    hooked_id, _ = await _seed_pending_noop_task(session, kind="hooked")
+    result = await execute_task(hooked_id)
+    assert result["status"] == "succeeded"
+    assert calls == [
+        ("status", "hooked", "running"),
+        ("success", "hooked", True),
+    ]
+
+    calls.clear()
+    cancelled_id, _ = await _seed_pending_noop_task(session, kind="hooked", cancel_requested=True)
+    result = await execute_task(cancelled_id)
+    assert result["status"] == "cancelled"
+    # Cancelled tasks map to a "failed" resource status, exactly like
+    # the previously hardwired reconstruction/radiance roll-ups.
+    assert calls == [("status", "hooked", "failed")]
 
 
 async def test_execute_task_does_not_rerun_terminal_task(session, monkeypatch) -> None:
@@ -447,11 +506,11 @@ async def test_derived_dataset_registration_is_collision_safe_and_idempotent(ses
         }
     }
 
-    await _apply_derived_dataset_outputs(session, task, outputs)
+    await register_derived_dataset(session, task=task, outputs=outputs)
     first_dataset_id = outputs["derived_dataset"]["dataset_id"]
     assert outputs["derived_dataset"]["name"].startswith("cube-")
 
-    await _apply_derived_dataset_outputs(session, task, outputs)
+    await register_derived_dataset(session, task=task, outputs=outputs)
 
     datasets = (
         (

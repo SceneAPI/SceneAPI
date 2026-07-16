@@ -6,12 +6,44 @@ from typing import Any
 
 from app.core.errors import ValidationError
 from app.db.models import Task
+from app.services import radiance_service
 from app.workers._task_io import read_state
 from app.workers.tasks._registry import task_handler
-from app.workers.tasks.radiance_train import _run_container_service_provider, _stub_metrics
+from app.workers.tasks.radiance_train import (
+    _run_container_service_provider,
+    _stub_metrics,
+    _task_radiance_evaluation_id,
+)
 
 
-@task_handler("radiance_eval")
+async def _on_status(session: Any, task: Task, status: str) -> None:
+    """Roll the RadianceEvaluation's status up with the task's."""
+    evaluation_id = _task_radiance_evaluation_id(task)
+    if evaluation_id is None:
+        return
+    await radiance_service.mark_radiance_evaluation_status(
+        session,
+        tenant_id=task.tenant_id,
+        evaluation_id=evaluation_id,
+        status=status,
+    )
+
+
+async def _on_success(session: Any, task: Task, outputs: dict[str, Any]) -> None:
+    """Persist evaluation metrics + artifacts."""
+    result = outputs or {}
+    evaluation_id = _task_radiance_evaluation_id(task)
+    if evaluation_id is None:
+        return
+    await radiance_service.record_radiance_evaluation_result(
+        session,
+        tenant_id=task.tenant_id,
+        evaluation_id=evaluation_id,
+        outputs=result,
+    )
+
+
+@task_handler("radiance_eval", on_status=_on_status, on_success=_on_success)
 def run(task: Task) -> dict[str, Any]:
     inputs, spec = read_state(task)
     provider = str(spec.get("provider") or "stub")

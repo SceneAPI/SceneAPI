@@ -18,8 +18,11 @@ Backend wrappers stay thin:
   - The ``InlineQueue`` plugin invokes ``run_task`` directly inside
     the orchestrator's event loop.
 
-The handler registry lives here too so the dispatcher is the single
-place that knows how to map a Task.kind to a handler.
+The dispatcher knows no task kinds. Handlers auto-register via the
+``@task_handler`` decorator, and kind-specific resource roll-ups
+(reconstruction / radiance status, success side effects, ...) register
+alongside them as ``on_status`` / ``on_success`` lifecycle hooks — the
+dispatcher only fires whatever the registry holds for ``task.kind``.
 """
 
 from __future__ import annotations
@@ -29,20 +32,17 @@ import contextlib
 import os
 from collections.abc import Callable
 from datetime import UTC
-from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.core.errors import BackendUnavailableError
-from app.core.hashing import stream_sha256
 from app.core.ids import new_id
-from app.core.image_metadata import MAX_HEADER_SCAN_BYTES, read_image_metadata
 from app.core.logging import get_logger
 from app.core.paths import Paths
 from app.core.public_outputs import sanitize_public_error_message
-from app.db.models import Dataset, Image, ImageSource, Job, Task
+from app.db.models import Job, Task
 from app.db.session import get_session_factory
 from app.orchestrator.lease import now_utc, refresh_lease, try_acquire_lease
 from app.orchestrator.queue import get_shared_queue
@@ -53,19 +53,13 @@ from app.orchestrator.readiness import (
 from app.orchestrator.readiness import (
     dependency_state as _dependency_state_from_statuses,
 )
-from app.services import (
-    artifact_service,
-    dataset_service,
-    image_service,
-    job_service,
-    radiance_service,
-    reconstruction_service,
-)
+from app.services import artifact_service, dataset_service, job_service
 from app.workers.progress import (
     WorkerProgressReporter,
     reset_progress_reporter,
     set_progress_reporter,
 )
+from app.workers.tasks._registry import get_registered, get_status_hook, get_success_hook
 
 WORKER_ID: str = os.environ.get("SFMAPI_WORKER_ID") or new_id()
 
@@ -82,28 +76,35 @@ def _owns_live_running_lease(task: Task) -> bool:
     )
 
 
-def _build_handlers() -> dict[str, Callable[..., Any]]:
-    """Imported lazily so callers that never invoke a handler (lifespan,
-    health checks) don't pay the per-task module load.
+_TASK_MODULES_IMPORTED = False
 
-    Auto-discovers handlers via the ``@task_handler`` decorator —
-    every public submodule under ``app.workers.tasks`` is imported
-    once, which fires its decorator and registers its ``run``
-    function. Adding a new task is now: (1) write the module with a
-    decorated ``run``, (2) optionally add a capability + spec entry.
-    No dispatcher edit, no chance of an "imported but forgot the
-    dict entry" drift mode.
+
+def _import_task_modules() -> None:
+    """Import every public submodule under ``app.workers.tasks`` once.
+
+    Importing a task module fires its ``@task_handler`` decorator,
+    which registers the handler *and* its lifecycle hooks (see
+    ``_registry``). Kept lazy so callers that never invoke a handler
+    (lifespan, health checks) don't pay the per-task module load, and
+    flag-guarded so handler dispatch and hook lookup share one pass.
     """
+    global _TASK_MODULES_IMPORTED
+    if _TASK_MODULES_IMPORTED:
+        return
     import importlib
     import pkgutil
 
     from app.workers import tasks
-    from app.workers.tasks._registry import get_registered
 
     for mod_info in pkgutil.iter_modules(tasks.__path__):
         if mod_info.name.startswith("_"):
             continue
         importlib.import_module(f"app.workers.tasks.{mod_info.name}")
+    _TASK_MODULES_IMPORTED = True
+
+
+def _build_handlers() -> dict[str, Callable[..., Any]]:
+    _import_task_modules()
     return get_registered()
 
 
@@ -117,385 +118,25 @@ def get_handlers() -> dict[str, Callable[..., Any]]:
     return _HANDLERS_CACHE
 
 
-def _task_recon_id(task: Task) -> str | None:
-    state = task.task_state_json or {}
-    inputs = state.get("inputs") or {}
-    recon_id = inputs.get("recon_id")
-    return str(recon_id) if recon_id else None
+async def _run_status_hook(session: Any, task: Task, status: str) -> None:
+    """Fire the ``on_status`` hook registered for ``task.kind``, if any.
 
-
-def _task_radiance_field_id(task: Task) -> str | None:
-    state = task.task_state_json or {}
-    inputs = state.get("inputs") or {}
-    radiance_field_id = inputs.get("radiance_field_id")
-    return str(radiance_field_id) if radiance_field_id else None
-
-
-def _task_radiance_evaluation_id(task: Task) -> str | None:
-    state = task.task_state_json or {}
-    inputs = state.get("inputs") or {}
-    evaluation_id = inputs.get("evaluation_id")
-    return str(evaluation_id) if evaluation_id else None
-
-
-async def _mark_task_reconstruction_status(session: Any, task: Task, status: str) -> None:
-    if task.kind != "map":
-        return
-    recon_id = _task_recon_id(task)
-    if recon_id is None:
-        return
-    await reconstruction_service.mark_reconstruction_status(
-        session,
-        tenant_id=task.tenant_id,
-        recon_id=recon_id,
-        status=status,
-    )
-
-
-async def _mark_task_radiance_status(session: Any, task: Task, status: str) -> None:
-    if task.kind not in {"radiance_train", "radiance_eval"}:
-        return
-    if task.kind == "radiance_eval":
-        evaluation_id = _task_radiance_evaluation_id(task)
-        if evaluation_id is not None:
-            await radiance_service.mark_radiance_evaluation_status(
-                session,
-                tenant_id=task.tenant_id,
-                evaluation_id=evaluation_id,
-                status=status,
-            )
-        return
-    radiance_field_id = _task_radiance_field_id(task)
-    if radiance_field_id is None:
-        return
-    await radiance_service.mark_radiance_field_status(
-        session,
-        tenant_id=task.tenant_id,
-        radiance_field_id=radiance_field_id,
-        status=status,
-    )
-    evaluation_id = _task_radiance_evaluation_id(task)
-    if evaluation_id is not None and status == "failed":
-        await radiance_service.mark_radiance_evaluation_status(
-            session,
-            tenant_id=task.tenant_id,
-            evaluation_id=evaluation_id,
-            status="failed",
-            error={
-                "code": task.error_class or "TaskFailed",
-                "message": task.error_message or "radiance_train failed",
-            },
-        )
-
-
-async def _apply_task_success_side_effects(
-    session: Any, task: Task, outputs: dict[str, Any] | None
-) -> None:
-    result = outputs or {}
-    if task.kind == "map":
-        recon_id = _task_recon_id(task)
-        if recon_id is None:
-            return
-        models = result.get("models")
-        if not isinstance(models, list):
-            models = []
-        model_summaries = [cast(dict[str, Any], m) for m in models if isinstance(m, dict)]
-        await reconstruction_service.record_mapping_result(
-            session,
-            tenant_id=task.tenant_id,
-            recon_id=recon_id,
-            models=model_summaries,
-            snapshot_seq=result.get("snapshot_seq"),
-            snapshot_path=result.get("snapshot_path"),
-        )
-    elif task.kind == "radiance_train":
-        radiance_field_id = _task_radiance_field_id(task)
-        if radiance_field_id is None:
-            return
-        await radiance_service.record_radiance_train_result(
-            session,
-            tenant_id=task.tenant_id,
-            radiance_field_id=radiance_field_id,
-            outputs=result,
-            expected_evaluation_id=_task_radiance_evaluation_id(task),
-        )
-    elif task.kind == "radiance_eval":
-        evaluation_id = _task_radiance_evaluation_id(task)
-        if evaluation_id is None:
-            return
-        await radiance_service.record_radiance_evaluation_result(
-            session,
-            tenant_id=task.tenant_id,
-            evaluation_id=evaluation_id,
-            outputs=result,
-        )
-
-
-def _int_or_none(value: object) -> int | None:
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float) and value.is_integer():
-        return int(value)
-    return None
-
-
-def _safe_relative_file(root: Path, rel_name: object) -> Path | None:
-    if not isinstance(rel_name, str) or not rel_name:
-        return None
-    candidate = (root / rel_name).resolve()
-    try:
-        candidate.relative_to(root)
-    except ValueError:
-        return None
-    return candidate if candidate.is_file() else None
-
-
-async def _apply_derived_dataset_outputs(session: Any, task: Task, outputs: dict[str, Any]) -> None:
-    """Register worker-generated image directories as datasets.
-
-    Projection jobs emit a generic ``derived_dataset`` block. The dispatcher
-    turns that block into normal ImageSource, Dataset, and Image rows so
-    downstream SfM stages can consume generated pixels without backend-specific
-    bookkeeping.
+    Hook lookup triggers the same lazy task-module import as handler
+    dispatch, so hooks fire even on paths that never resolve a handler
+    (cancel-before-pickup, unknown kind).
     """
-    raw = outputs.get("derived_dataset")
-    if not isinstance(raw, dict):
-        return
-    root_raw = raw.get("root")
-    if not isinstance(root_raw, str) or not root_raw:
-        return
-    root = Path(root_raw).resolve()
-    settings = get_settings()
-    workspace_root = settings.workspace_root.resolve()
-    try:
-        root.relative_to(workspace_root)
-    except ValueError:
-        return
-    if not root.is_dir():
-        return
-
-    job = await session.get(Job, task.job_id)
-    if job is None:
-        return
-    image_specs = raw.get("images")
-    if not isinstance(image_specs, list):
-        image_specs = []
-    image_rows = [item for item in image_specs if isinstance(item, dict)]
-    valid_images: list[tuple[dict[str, Any], Path, str]] = []
-    for item in image_rows:
-        rel_name = item.get("name")
-        image_path = _safe_relative_file(root, rel_name)
-        if image_path is not None and isinstance(rel_name, str):
-            valid_images.append((cast(dict[str, Any], item), image_path, rel_name))
-    if not valid_images:
-        return
-
-    existing = await _find_existing_derived_dataset(session, task=task, root=root)
-    if existing is not None:
-        dataset, source = existing
-        registered_existing = await _derived_dataset_image_refs(
-            session,
-            tenant_id=task.tenant_id,
-            dataset_id=dataset.dataset_id,
-        )
-        raw["name"] = dataset.name
-        raw["dataset_id"] = dataset.dataset_id
-        raw["project_id"] = dataset.project_id
-        raw["source_id"] = source.source_id
-        raw["registered_images"] = registered_existing
-        raw["reused"] = True
-        return
-
-    source = ImageSource(
-        tenant_id=task.tenant_id,
-        kind="local",
-        uri_or_root=str(root),
-        fingerprint_json={
-            "kind": "derived",
-            "task_id": task.task_id,
-            "job_id": task.job_id,
-            "source_dataset_id": raw.get("source_dataset_id"),
-            "image_names": sorted(rel_name for _, _, rel_name in valid_images),
-        },
-    )
-    session.add(source)
-    await session.flush()
-
-    dataset_name = raw.get("name")
-    if not isinstance(dataset_name, str) or not dataset_name.strip():
-        dataset_name = f"{task.kind}-{task.task_id[:8]}"
-    dataset_name = await _unique_derived_dataset_name(
-        session,
-        tenant_id=task.tenant_id,
-        project_id=job.project_id,
-        requested=dataset_name.strip(),
-        task_id=task.task_id,
-    )
-    dataset = await dataset_service.create_dataset(
-        session,
-        tenant_id=task.tenant_id,
-        project_id=job.project_id,
-        source_id=source.source_id,
-        name=dataset_name.strip(),
-        camera_model=str(raw.get("camera_model") or "PINHOLE"),
-        intrinsics_mode=str(raw.get("intrinsics_mode") or "per_image"),
-        is_spherical=bool(raw.get("is_spherical", False)),
-        rig_config=cast(dict[str, Any] | None, raw.get("rig_config"))
-        if isinstance(raw.get("rig_config"), dict)
-        else None,
-    )
-
-    registered: list[dict[str, Any]] = []
-    for item, image_path, rel_name in valid_images:
-        with image_path.open("rb") as fp:
-            content_sha, byte_size = stream_sha256(fp)
-        with image_path.open("rb") as fp:
-            metadata = read_image_metadata(fp.read(MAX_HEADER_SCAN_BYTES))
-        image = await image_service.add_image(
-            session,
-            tenant_id=task.tenant_id,
-            dataset=dataset,
-            name=rel_name,
-            content_sha=content_sha,
-            source_kind="local",
-            rel_path=rel_name,
-            byte_size=byte_size,
-            width=_int_or_none(item.get("width")) or metadata.width,
-            height=_int_or_none(item.get("height")) or metadata.height,
-        )
-        registered.append(
-            {
-                "image_id": image.image_id,
-                "name": image.name,
-                "width": image.width,
-                "height": image.height,
-                "content_sha": image.content_sha,
-            }
-        )
-
-    raw["name"] = dataset.name
-    raw["dataset_id"] = dataset.dataset_id
-    raw["project_id"] = job.project_id
-    raw["source_id"] = source.source_id
-    raw["registered_images"] = registered
+    _import_task_modules()
+    hook = get_status_hook(task.kind)
+    if hook is not None:
+        await hook(session, task, status)
 
 
-async def _find_existing_derived_dataset(
-    session: Any, *, task: Task, root: Path
-) -> tuple[Dataset, ImageSource] | None:
-    rows = (
-        (
-            await session.execute(
-                select(ImageSource).where(
-                    ImageSource.tenant_id == task.tenant_id,
-                    ImageSource.kind == "local",
-                    ImageSource.uri_or_root == str(root),
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    for source in rows:
-        fingerprint = source.fingerprint_json
-        if not isinstance(fingerprint, dict) or fingerprint.get("task_id") != task.task_id:
-            continue
-        dataset = (
-            (
-                await session.execute(
-                    select(Dataset).where(
-                        Dataset.tenant_id == task.tenant_id,
-                        Dataset.source_id == source.source_id,
-                    )
-                )
-            )
-            .scalars()
-            .first()
-        )
-        if dataset is not None:
-            return dataset, source
-    return None
-
-
-async def _derived_dataset_image_refs(
-    session: Any, *, tenant_id: str, dataset_id: str
-) -> list[dict[str, Any]]:
-    images = (
-        (
-            await session.execute(
-                select(Image).where(
-                    Image.tenant_id == tenant_id,
-                    Image.dataset_id == dataset_id,
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    return [
-        {
-            "image_id": image.image_id,
-            "name": image.name,
-            "width": image.width,
-            "height": image.height,
-            "content_sha": image.content_sha,
-        }
-        for image in images
-    ]
-
-
-async def _unique_derived_dataset_name(
-    session: Any,
-    *,
-    tenant_id: str,
-    project_id: str,
-    requested: str,
-    task_id: str,
-) -> str:
-    base = requested[:255].strip() or f"project_images-{task_id[:8]}"
-    existing = await _dataset_name_exists(
-        session,
-        tenant_id=tenant_id,
-        project_id=project_id,
-        name=base,
-    )
-    if not existing:
-        return base
-    suffix = f"-{task_id[:8]}"
-    first = f"{base[: 255 - len(suffix)]}{suffix}"
-    if not await _dataset_name_exists(
-        session,
-        tenant_id=tenant_id,
-        project_id=project_id,
-        name=first,
-    ):
-        return first
-    for index in range(2, 1000):
-        suffix = f"-{task_id[:8]}-{index}"
-        candidate = f"{base[: 255 - len(suffix)]}{suffix}"
-        if not await _dataset_name_exists(
-            session,
-            tenant_id=tenant_id,
-            project_id=project_id,
-            name=candidate,
-        ):
-            return candidate
-    return f"{base[:239]}-{task_id[:8]}-{new_id()[:6]}"
-
-
-async def _dataset_name_exists(session: Any, *, tenant_id: str, project_id: str, name: str) -> bool:
-    existing = (
-        await session.execute(
-            select(Dataset.dataset_id).where(
-                Dataset.tenant_id == tenant_id,
-                Dataset.project_id == project_id,
-                Dataset.name == name,
-            )
-        )
-    ).first()
-    return existing is not None
+async def _run_success_hook(session: Any, task: Task, outputs: dict[str, Any]) -> None:
+    """Fire the ``on_success`` hook registered for ``task.kind``, if any."""
+    _import_task_modules()
+    hook = get_success_hook(task.kind)
+    if hook is not None:
+        await hook(session, task, outputs)
 
 
 # Dependency-readiness vocabulary is single-sourced in
@@ -569,6 +210,44 @@ async def _advance_job_after_terminal(job_id: str) -> None:
         await job_service.finalize_job_if_ready(session, job_id=job_id)
         await session.commit()
     await _enqueue_task_ids(ready)
+
+
+async def _finalize_task(
+    session: Any,
+    task: Task,
+    *,
+    status: str,
+    error_class: str | None = None,
+    error_message: str | None = None,
+) -> None:
+    """Apply one non-success terminal transition and commit it.
+
+    Sets the terminal ``status`` (plus the error fields when given and
+    ``finished_at``), fires the kind's ``on_status`` hook with the
+    resource status ``"failed"`` (cancelled tasks also fail their
+    resource), and commits the session. Callers await
+    :func:`_post_terminal` right after for the job-level roll-ups.
+    """
+    task.status = status
+    if error_class is not None:
+        task.error_class = error_class
+    if error_message is not None:
+        task.error_message = error_message
+    task.finished_at = now_utc()
+    await _run_status_hook(session, task, "failed")
+    await session.commit()
+
+
+async def _post_terminal(session: Any, job_id: str) -> None:
+    """Job-level roll-ups after a committed terminal task transition:
+    finalize the job if every task is terminal, then advance the DAG.
+
+    ``_maybe_finalize_job`` reuses the caller's (already committed)
+    session, exactly as the pre-extraction inline blocks did;
+    ``_advance_job_after_terminal`` opens its own.
+    """
+    await _maybe_finalize_job(session, job_id)
+    await _advance_job_after_terminal(job_id)
 
 
 async def execute_task(task_id: str) -> dict[str, Any]:
@@ -652,19 +331,17 @@ async def execute_task(task_id: str) -> dict[str, Any]:
         # maps to ``cancelled_dirty`` (the task may have left partial state
         # behind on a prior run); a plain request maps to ``cancelled``.
         if job is not None and job.cancel_requested:
-            task.status = "cancelled_dirty" if job.cancel_force else "cancelled"
-            task.finished_at = now_utc()
-            await _mark_task_reconstruction_status(session, task, "failed")
-            await _mark_task_radiance_status(session, task, "failed")
-            await session.commit()
-            await _maybe_finalize_job(session, task.job_id)
-            await _advance_job_after_terminal(task.job_id)
+            await _finalize_task(
+                session,
+                task,
+                status="cancelled_dirty" if job.cancel_force else "cancelled",
+            )
+            await _post_terminal(session, task.job_id)
             log.info("task.cancelled", force=job.cancel_force)
             return {"status": "cancelled"}
         task.status = "running"
         task.started_at = now_utc()
-        await _mark_task_reconstruction_status(session, task, "running")
-        await _mark_task_radiance_status(session, task, "running")
+        await _run_status_hook(session, task, "running")
         await session.commit()
 
     handler = get_handlers().get(task.kind)
@@ -676,15 +353,14 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             if not _owns_live_running_lease(t):
                 log.info("task.lost_lease_before_unknown_handler", status=t.status)
                 return {"status": "lost_lease"}
-            t.status = "failed"
-            t.error_class = "UnknownTask"
-            t.error_message = f"No handler for kind={task.kind}"
-            t.finished_at = now_utc()
-            await _mark_task_reconstruction_status(session, t, "failed")
-            await _mark_task_radiance_status(session, t, "failed")
-            await session.commit()
-            await _maybe_finalize_job(session, t.job_id)
-            await _advance_job_after_terminal(t.job_id)
+            await _finalize_task(
+                session,
+                t,
+                status="failed",
+                error_class="UnknownTask",
+                error_message=f"No handler for kind={task.kind}",
+            )
+            await _post_terminal(session, t.job_id)
         return {"status": "failed"}
 
     event_path = None
@@ -715,26 +391,24 @@ async def execute_task(task_id: str) -> dict[str, Any]:
                 return {"status": "lost_lease"}
             j = await session.get(Job, t.job_id)
             if j is not None and j.cancel_requested:
-                t.status = "cancelled_dirty"
-                t.error_class = "Cancelled"
-                t.error_message = "job cancellation requested before task commit"
-                t.finished_at = now_utc()
-                await _mark_task_reconstruction_status(session, t, "failed")
-                await _mark_task_radiance_status(session, t, "failed")
-                await session.commit()
-                await _maybe_finalize_job(session, t.job_id)
-                await _advance_job_after_terminal(t.job_id)
+                await _finalize_task(
+                    session,
+                    t,
+                    status="cancelled_dirty",
+                    error_class="Cancelled",
+                    error_message="job cancellation requested before task commit",
+                )
+                await _post_terminal(session, t.job_id)
                 log.info("task.cancelled_after_handler", force=j.cancel_force)
                 return {"status": "cancelled_dirty"}
-            await _apply_derived_dataset_outputs(session, t, outputs or {})
+            await dataset_service.register_derived_dataset(session, task=t, outputs=outputs or {})
             t.status = "succeeded"
             t.outputs_ref_json = outputs or {}
             t.finished_at = now_utc()
             await artifact_service.record_task_artifacts(session, task=t, outputs=outputs or {})
-            await _apply_task_success_side_effects(session, t, outputs or {})
+            await _run_success_hook(session, t, outputs or {})
             await session.commit()
-            await _maybe_finalize_job(session, t.job_id)
-            await _advance_job_after_terminal(t.job_id)
+            await _post_terminal(session, t.job_id)
         return {"status": "succeeded", "outputs": outputs}
     except BackendUnavailableError as e:
         # Engine-neutral: any backend that can't load its engine lands
@@ -748,15 +422,14 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             if not _owns_live_running_lease(t):
                 log.info("task.lost_lease_before_backend_unavailable_failure", status=t.status)
                 return {"status": "lost_lease"}
-            t.status = "failed"
-            t.error_class = type(e).__name__.removesuffix("Error")
-            t.error_message = sanitize_public_error_message(e)
-            t.finished_at = now_utc()
-            await _mark_task_reconstruction_status(session, t, "failed")
-            await _mark_task_radiance_status(session, t, "failed")
-            await session.commit()
-            await _maybe_finalize_job(session, t.job_id)
-            await _advance_job_after_terminal(t.job_id)
+            await _finalize_task(
+                session,
+                t,
+                status="failed",
+                error_class=type(e).__name__.removesuffix("Error"),
+                error_message=sanitize_public_error_message(e),
+            )
+            await _post_terminal(session, t.job_id)
         return {"status": "failed", "error": "backend_unavailable"}
     except Exception as e:
         public_error = sanitize_public_error_message(e)
@@ -769,15 +442,14 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             if not _owns_live_running_lease(t):
                 log.info("task.lost_lease_before_failure_commit", status=t.status)
                 return {"status": "lost_lease"}
-            t.status = "failed"
-            t.error_class = type(e).__name__
-            t.error_message = public_error
-            t.finished_at = now_utc()
-            await _mark_task_reconstruction_status(session, t, "failed")
-            await _mark_task_radiance_status(session, t, "failed")
-            await session.commit()
-            await _maybe_finalize_job(session, t.job_id)
-            await _advance_job_after_terminal(t.job_id)
+            await _finalize_task(
+                session,
+                t,
+                status="failed",
+                error_class=type(e).__name__,
+                error_message=public_error,
+            )
+            await _post_terminal(session, t.job_id)
         return {"status": "failed", "error": public_error}
     finally:
         heartbeat_task.cancel()

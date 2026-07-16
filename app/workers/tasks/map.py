@@ -15,7 +15,7 @@ threads ``job_dir`` through.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from app.adapters.backend import require_backend_method
 from app.adapters.progress import call_with_optional_progress
@@ -24,6 +24,7 @@ from app.core.errors import ValidationError
 from app.core.paths import Paths
 from app.db.models import Task
 from app.schemas.progress_event import Phase
+from app.services import reconstruction_service
 from app.storage.snapshot_emit import emit_snapshot_files
 from app.storage.snapshots import SnapshotStore
 from app.workers._materialize import materialize_image_set
@@ -48,7 +49,47 @@ def _num_reg_images(rec: Any) -> int:
     return int(nr() if callable(nr) else nr)
 
 
-@task_handler("map")
+def _task_recon_id(task: Task) -> str | None:
+    state = task.task_state_json or {}
+    inputs = state.get("inputs") or {}
+    recon_id = inputs.get("recon_id")
+    return str(recon_id) if recon_id else None
+
+
+async def _on_status(session: Any, task: Task, status: str) -> None:
+    """Roll the owning Reconstruction's status up with the task's."""
+    recon_id = _task_recon_id(task)
+    if recon_id is None:
+        return
+    await reconstruction_service.mark_reconstruction_status(
+        session,
+        tenant_id=task.tenant_id,
+        recon_id=recon_id,
+        status=status,
+    )
+
+
+async def _on_success(session: Any, task: Task, outputs: dict[str, Any]) -> None:
+    """Persist submodel rows + snapshot pointers from mapping outputs."""
+    result = outputs or {}
+    recon_id = _task_recon_id(task)
+    if recon_id is None:
+        return
+    models = result.get("models")
+    if not isinstance(models, list):
+        models = []
+    model_summaries = [cast(dict[str, Any], m) for m in models if isinstance(m, dict)]
+    await reconstruction_service.record_mapping_result(
+        session,
+        tenant_id=task.tenant_id,
+        recon_id=recon_id,
+        models=model_summaries,
+        snapshot_seq=result.get("snapshot_seq"),
+        snapshot_path=result.get("snapshot_path"),
+    )
+
+
+@task_handler("map", on_status=_on_status, on_success=_on_success)
 def run(task: Task) -> dict[str, Any]:
     paths = Paths(get_settings())
     inputs, spec = read_state(task)

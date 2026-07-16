@@ -420,32 +420,42 @@ def test_sse_stream_terminates_after_job_reaches_terminal(
 
 def test_dispatcher_finalizes_job_after_every_task_transition() -> None:
     """Static guard: ``app/workers/dispatcher.py::execute_task`` must
-    call ``_maybe_finalize_job`` after every terminal Task transition
-    (succeeded / failed-via-exception / failed-via-PycolmapUnavailable
-    / failed-via-UnknownTask). Missing any one re-introduces the
-    "Job.status stuck at pending" bug that broke wait_for_job until
-    we added the rollup.
+    roll ``Job.status`` up after every terminal Task transition
+    (succeeded / failed-via-exception / failed-via-BackendUnavailable
+    / failed-via-UnknownTask / both cancel branches). Missing any one
+    re-introduces the "Job.status stuck at pending" bug that broke
+    wait_for_job until we added the rollup.
+
+    Since the dispatcher decomposition the rollup is funneled through
+    ``_post_terminal`` (``_maybe_finalize_job`` + DAG advancement), so
+    the guard pins (a) ``_maybe_finalize_job`` still exists and is
+    awaited by ``_post_terminal``, and (b) every terminal branch awaits
+    ``_post_terminal``.
     """
     from pathlib import Path as _Path
 
     src = (_Path(__file__).resolve().parents[2] / "app" / "workers" / "dispatcher.py").read_text(
         encoding="utf-8"
     )
-    # The function must exist + be called from every terminal branch.
-    has_helper = "def _maybe_finalize_job" in src or "_maybe_finalize_job(" in src
-    assert has_helper, (
+    # The rollup must exist + be awaited by the shared post-terminal hop.
+    assert "def _maybe_finalize_job" in src, (
         "dispatcher.py is missing _maybe_finalize_job — Job.status "
         "rollup will silently break wait_for_job."
     )
-    # Counting call sites is brittle; instead count the four
+    assert "await _maybe_finalize_job(" in src, (
+        "dispatcher.py never awaits _maybe_finalize_job — Job.status "
+        "rollup will silently break wait_for_job."
+    )
+    # Counting call sites is brittle; instead count the six
     # known-terminal transitions and require at least that many calls.
-    finalize_calls = src.count("_maybe_finalize_job(")
-    # Expected sites: definition (1) + 4 call sites (UnknownTask,
-    # success, PycolmapUnavailable, generic exception). Anything
-    # less than 5 means a branch lost its rollup.
-    assert finalize_calls >= 5, (
-        f"dispatcher.py has only {finalize_calls} _maybe_finalize_job "
-        "references; expected ≥5 (definition + 4 task-transition "
+    post_terminal_calls = src.count("_post_terminal(")
+    # Expected sites: definition (1) + 6 call sites (cancel-before-
+    # pickup, UnknownTask, cancel-after-handler, success,
+    # BackendUnavailable, generic exception). Anything less than 7
+    # means a terminal branch lost its rollup.
+    assert post_terminal_calls >= 7, (
+        f"dispatcher.py has only {post_terminal_calls} _post_terminal "
+        "references; expected ≥7 (definition + 6 task-transition "
         "branches). A terminal branch is missing the rollup call."
     )
 
