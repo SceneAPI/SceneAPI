@@ -100,8 +100,24 @@ def build_plugin_server(
         return int(version)
 
     def _extension_catalog() -> Any:
+        """Validate the backend's live declarations before serving them.
+
+        The capability vocabulary is closed (SFMAPI-SPEC.md §6: "The public
+        capability surface is closed until plugin-qualified capability ids
+        are versioned and client-gated"); a backend advertising ids outside
+        ``app.core.capabilities.ALL_KNOWN`` is misconfigured, and every
+        catalog-backed endpoint (``/healthz``, ``/capabilities``, ...) must
+        surface a server error rather than silently serve garbage.
+        """
+        from app.core.capabilities import ALL_KNOWN
         from sfm_hub.models import PluginBackendCatalog
 
+        unknown = sorted(set(caps) - ALL_KNOWN)
+        if unknown:
+            raise ValueError(
+                "backend advertises capability ids outside the canonical "
+                f"vocabulary (app.core.capabilities.ALL_KNOWN): {', '.join(unknown)}"
+            )
         return PluginBackendCatalog.model_validate(
             {
                 "schema_version": _catalog_schema_version(),

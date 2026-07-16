@@ -11,7 +11,7 @@ from app.schemas.api.scene import PosePrior
 
 
 class ImageCreate(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(..., min_length=1, max_length=512)
     blob_sha: str | None = Field(
@@ -31,7 +31,7 @@ class BatchCreateImagesRequest(BaseModel):
     ``ImageCreate``; the server registers them all in a single
     transaction."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     requests: list[ImageCreate] = Field(default_factory=list, max_length=1000)
 

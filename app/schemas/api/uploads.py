@@ -21,7 +21,7 @@ UploadState = Literal["open", "received", "finalized", "expired"]
 
 
 class UploadInit(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     expected_size: int = Field(..., gt=0)
     content_type: str | None = None
@@ -29,7 +29,7 @@ class UploadInit(BaseModel):
 
 
 class UploadFinalizeRequest(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     content_sha: str | None = Field(None, min_length=64, max_length=64)
 

@@ -10,7 +10,7 @@ from app.schemas.api.common import Link, Page, TimestampedModel
 
 
 class ProjectCreate(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = Field(None, max_length=1024)
@@ -19,7 +19,7 @@ class ProjectCreate(BaseModel):
 class ProjectPatch(BaseModel):
     """Partial update. Unset fields are left untouched."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=1024)

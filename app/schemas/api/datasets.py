@@ -16,7 +16,7 @@ class UploadEntrySpec(BaseModel):
     canonical content-addressed sha (returned by ``POST
     /v1/uploads/{id}:finalize``)."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(..., min_length=1, max_length=512)
     blob_sha: str = Field(..., min_length=64, max_length=64)
@@ -26,7 +26,7 @@ class UploadSourceSpec(BaseModel):
     """Image source backed by previously-uploaded blobs (sfmapi owns
     the bytes via the content-addressed blob store)."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     kind: Literal["upload"] = "upload"
     entries: list[UploadEntrySpec] = Field(default_factory=list)
@@ -37,7 +37,7 @@ class LocalSourceSpec(BaseModel):
     are NEVER copied — workers stream from ``root`` in place. Locked
     by ``L3`` in ``docs/guides/decisions.md`` (50GB local dirs)."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     kind: Literal["local"] = "local"
     root: str
@@ -48,7 +48,7 @@ class S3SourceSpec(BaseModel):
     """Image source backed by an S3 prefix. Bytes are lazy-downloaded
     to the worker's LRU cache on first read; remote-only by default."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     kind: Literal["s3"] = "s3"
     bucket: str
@@ -72,7 +72,7 @@ by dataset creation; backend-native source importers live under
 
 
 class DatasetCreate(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(..., min_length=1, max_length=255)
     source: SourceSpec
@@ -87,7 +87,7 @@ class DatasetPatch(BaseModel):
     """Partial update. Unset fields are left untouched. The dataset's
     `source_id` is immutable — to change images, create a new dataset."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     camera_model: str | None = None

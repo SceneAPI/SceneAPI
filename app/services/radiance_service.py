@@ -347,9 +347,20 @@ def _public_dict(value: Any) -> dict[str, Any]:
     return public if isinstance(public, dict) else {}
 
 
-def _public_list(value: Any) -> list[Any]:
-    public = sanitize_public_outputs(value if isinstance(value, list) else [])
-    return public if isinstance(public, list) else []
+def _public_artifact_list(value: Any) -> list[Any]:
+    """Sanitize a provider's artifact-descriptor rows.
+
+    Wrapping the rows under an ``"artifacts"`` key routes them through the
+    sanitizer's artifact-descriptor branch: a credential-free non-local
+    ``uri`` (``mem://``, ``s3://``, public https) is preserved and the row's
+    ``metadata`` is cleaned. Sanitizing the bare list instead would take the
+    generic-text branch, which redacts every ``uri`` outright and leaves the
+    stored artifact rows pointing at nothing.
+    """
+    rows = value if isinstance(value, list) else []
+    public = sanitize_public_outputs({"artifacts": rows})
+    artifacts = public.get("artifacts") if isinstance(public, dict) else None
+    return artifacts if isinstance(artifacts, list) else []
 
 
 def _seal_radiance_snapshot_path(
@@ -695,7 +706,7 @@ async def record_radiance_evaluation_result(
     artifacts = outputs.get("artifacts")
     evaluation.status = "succeeded"
     evaluation.metrics_json = _public_dict(metrics)
-    evaluation.artifacts_json = _public_list(artifacts)
+    evaluation.artifacts_json = _public_artifact_list(artifacts)
     evaluation.error_json = None
 
 
