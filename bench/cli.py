@@ -59,9 +59,8 @@ def run(
     poll_interval: float,
 ) -> None:
     """Drive one or more benchmark datasets through the live server."""
-    from sfmapi_client import SfmApiClient  # type: ignore[import-not-found]
-
     from bench import harness, store
+    from bench._sdk import make_client
 
     targets: list[Path]
     if run_all:
@@ -77,7 +76,7 @@ def run(
         raise click.UsageError("pass --dataset NAME (repeatable) or --all")
 
     failed = 0
-    with SfmApiClient(base_url, api_key=api_key, timeout=120.0) as client:
+    with make_client(base_url, api_key=api_key, timeout=120.0) as client:
         for spec_path in targets:
             spec = harness.load_dataset(spec_path)
             click.secho(f"[bench] {spec.name} ({spec.recipe}) ...", fg="cyan")

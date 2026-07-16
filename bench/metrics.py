@@ -12,8 +12,15 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from sfmapi_client import SfmApiClient
-from sfmapi_client.models import JobDetail
+from sfmapi_client_gen.api.reconstructions import (
+    list_snapshots_v1_reconstructions_recon_id_snapshots_get as _list_snapshots,
+)
+from sfmapi_client_gen.api.reconstructions import (
+    read_snapshot_file_v1_reconstructions_recon_id_snapshots_seq_name_get as _read_snapshot_file,
+)
+from sfmapi_client_gen.models import JobDetail
+
+from bench._sdk import ApiClient, call
 
 
 @dataclass(frozen=True)
@@ -40,14 +47,15 @@ def metrics_from_snapshot_summary(summary: dict) -> ReconstructionMetrics:
     )
 
 
-def collect_metrics(client: SfmApiClient, *, recon_id: str) -> ReconstructionMetrics:
+def collect_metrics(client: ApiClient, *, recon_id: str) -> ReconstructionMetrics:
     """Fetch the latest sealed snapshot's summary and convert to metrics."""
-    seqs = client.list_snapshots(recon_id)
+    listing = call(_list_snapshots.sync, recon_id, client=client)
+    seqs = list(listing.seqs or [])
     if not seqs:
         return ReconstructionMetrics(0, 0, None, 0, {"error": "no sealed snapshots"})
     seq = seqs[-1]
-    raw = client.read_snapshot_file(recon_id, seq, "summary.json")
-    summary = json.loads(raw.decode("utf-8"))
+    resp = call(_read_snapshot_file.sync_detailed, recon_id, seq, "summary.json", client=client)
+    summary = json.loads(resp.content.decode("utf-8"))
     return metrics_from_snapshot_summary(summary)
 
 
@@ -55,10 +63,11 @@ def metrics_from_job_outputs(detail: JobDetail) -> dict[str, float]:
     """Best-effort fallback: read counts from the map task's
     `outputs_ref` when no snapshot is available."""
     out: dict[str, float] = {}
-    for t in detail.tasks:
+    for t in detail.tasks or []:
         if t.kind != "map" or not t.outputs_ref:
             continue
-        models = t.outputs_ref.get("models") or []
+        outputs = t.outputs_ref.additional_properties
+        models = outputs.get("models") or []
         out["num_reg_images"] = float(sum(int(m.get("num_reg_images", 0) or 0) for m in models))
         out["num_points3D"] = float(sum(int(m.get("num_points3D", 0) or 0) for m in models))
         out["num_submodels"] = float(len(models))

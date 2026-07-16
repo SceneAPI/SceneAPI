@@ -6,6 +6,10 @@ The harness creates an ephemeral project per run so historical
 projects don't accumulate. It does NOT delete the project on success
 (operators want to inspect the reconstruction); add `--cleanup` in
 the CLI if you need that.
+
+Speaks the supported generated SDK (``sfmapi_client_gen``); the
+hand-rolled ``sfmapi_client`` package is deprecated and no longer
+used here.
 """
 
 from __future__ import annotations
@@ -18,21 +22,43 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-
-from sfmapi_client import SfmApiClient
-from sfmapi_client.models import (
+from sfmapi_client_gen._ergonomics import TERMINAL_JOB_STATES
+from sfmapi_client_gen.api.datasets import (
+    create_v1_projects_project_id_datasets_post as _create_dataset,
+)
+from sfmapi_client_gen.api.health import version_version_get as _get_version
+from sfmapi_client_gen.api.images import (
+    batch_create_v_1_datasets_dataset_id_images_batch_create_post as _batch_create_images,
+)
+from sfmapi_client_gen.api.jobs import get_v1_jobs_job_id_get as _get_job
+from sfmapi_client_gen.api.pipelines import (
+    run_recipe_v1_projects_project_id_pipelines_recipe_post as _run_recipe,
+)
+from sfmapi_client_gen.api.projects import create_v1_projects_post as _create_project
+from sfmapi_client_gen.models import (
+    BatchCreateImagesRequest,
+    DatasetCreate,
     FeaturesSpec,
     GlobalSpec,
     HierarchicalSpec,
+    ImageCreate,
     IncrementalSpec,
     MatcherSpec,
     PairsSpec,
+    PipelineRequest,
+    ProjectCreate,
     SphericalSpec,
     VerifySpec,
+    VersionResponse,
 )
+from sfmapi_client_gen.models.run_recipe_v1_projects_project_id_pipelines_recipe_post_recipe import (
+    RunRecipeV1ProjectsProjectIdPipelinesRecipePostRecipe as _RecipeSlug,
+)
+from sfmapi_client_gen.types import UNSET, Unset
 
 from bench import metrics as bench_metrics
 from bench import store
+from bench._sdk import ApiClient, call
 
 _SPEC_BY_KIND = {
     "incremental": IncrementalSpec,
@@ -113,9 +139,51 @@ def _resolve_git_sha() -> str:
         return "local"
 
 
+_BATCH_CREATE_LIMIT = 1000  # server-side cap per images:batchCreate call
+
+
+def _register_local_images(client: ApiClient, dataset_id: str, image_list: list[str]) -> None:
+    """Bulk-register the collected local images against the dataset.
+
+    The wire requires images to be registered explicitly before a
+    pipeline can run (the legacy submit-time ``image_root`` /
+    ``image_list`` parameters are gone); ``rel_path`` marks each row
+    as a ``local``-kind image resolved under the dataset source root.
+    """
+    for start in range(0, len(image_list), _BATCH_CREATE_LIMIT):
+        chunk = image_list[start : start + _BATCH_CREATE_LIMIT]
+        call(
+            _batch_create_images.sync,
+            dataset_id,
+            client=client,
+            body=BatchCreateImagesRequest(
+                requests=[ImageCreate(name=name, rel_path=name) for name in chunk]
+            ),
+        )
+
+
+def _runtime_version_id(rv: VersionResponse) -> str:
+    """Opaque engine-runtime identifier stamped on each bench row.
+
+    The wire's ``VersionResponse`` carries the backend identity plus a
+    backend-defined ``runtime_versions`` map (engine shas, CUDA arch,
+    ... — whatever the backend salts into its cache keys); flatten it
+    deterministically. Headless servers (no backend registered) fall
+    back to the sfmapi version itself.
+    """
+    backend = rv.backend
+    if backend is None or isinstance(backend, Unset):
+        return f"sfmapi:{rv.sfmapi}"
+    parts: list[str] = [str(backend.name), str(backend.version)]
+    versions = backend.runtime_versions
+    if not isinstance(versions, Unset):
+        parts.extend(f"{k}={v}" for k, v in sorted(versions.additional_properties.items()))
+    return ":".join(parts)
+
+
 def run_one(
     *,
-    client: SfmApiClient,
+    client: ApiClient,
     dataset: DatasetSpec,
     project_prefix: str = "bench",
     poll_interval: float = 2.0,
@@ -125,10 +193,14 @@ def run_one(
     t0 = time.time()
     sha = _resolve_git_sha()
 
-    rv = client.version()
-    runtime_version_id = f"{rv.colmap_sha}:{rv.baxx_sha}:{rv.cudss_ver}:{rv.cuda_arch}"
+    rv = call(_get_version.sync, client=client)
+    runtime_version_id = _runtime_version_id(rv)
 
-    proj = client.create_project(f"{project_prefix}-{dataset.name}-{int(time.time())}")
+    proj = call(
+        _create_project.sync,
+        client=client,
+        body=ProjectCreate(name=f"{project_prefix}-{dataset.name}-{int(time.time())}"),
+    )
 
     if dataset.source["kind"] != "local":
         raise NotImplementedError(
@@ -142,41 +214,53 @@ def run_one(
     if not image_list:
         raise RuntimeError(f"no images matched in {image_root}")
 
-    ds = client.create_dataset(
+    ds = call(
+        _create_dataset.sync,
         proj.project_id,
-        name=dataset.name,
-        source={"kind": "local", "root": str(image_root)},
-        camera_model=dataset.camera_model,
+        client=client,
+        body=DatasetCreate.from_dict(
+            {
+                "name": dataset.name,
+                "source": {"kind": "local", "root": str(image_root)},
+                "camera_model": dataset.camera_model,
+            }
+        ),
     )
+
+    _register_local_images(client, ds.dataset_id, image_list)
 
     spec_cls = _SPEC_BY_KIND[dataset.recipe]
     spec_payload = {**dataset.spec, "kind": dataset.recipe}
-    spec = spec_cls.model_validate(spec_payload)
+    spec = spec_cls.from_dict(spec_payload)
 
-    job = client.run_pipeline(
-        proj.project_id,
+    request = PipelineRequest(
         dataset_id=ds.dataset_id,
-        image_root=str(image_root),
-        image_list=image_list,
         spec=spec,
-        features=FeaturesSpec.model_validate(dataset.features) if dataset.features else None,
-        pairs=PairsSpec.model_validate(dataset.pairs) if dataset.pairs else None,
-        matcher=MatcherSpec.model_validate(dataset.matcher) if dataset.matcher else None,
-        verify=VerifySpec.model_validate(dataset.verify) if dataset.verify else None,
+        features=FeaturesSpec.from_dict(dataset.features) if dataset.features else UNSET,
+        pairs=PairsSpec.from_dict(dataset.pairs) if dataset.pairs else UNSET,
+        matcher=MatcherSpec.from_dict(dataset.matcher) if dataset.matcher else UNSET,
+        verify=VerifySpec.from_dict(dataset.verify) if dataset.verify else UNSET,
+    )
+    job = call(
+        _run_recipe.sync,
+        proj.project_id,
+        _RecipeSlug(dataset.recipe),
+        client=client,
+        body=request,
     )
 
     deadline = time.time() + timeout_seconds
-    detail = client.get_job(job.job_id)
-    while detail.status not in ("succeeded", "failed", "cancelled", "cancelled_dirty"):
+    detail = call(_get_job.sync, job.job_id, client=client)
+    while str(detail.status) not in TERMINAL_JOB_STATES:
         if time.time() > deadline:
             raise TimeoutError(f"bench {dataset.name} timed out after {timeout_seconds:.0f}s")
         time.sleep(poll_interval)
-        detail = client.get_job(job.job_id)
+        detail = call(_get_job.sync, job.job_id, client=client)
 
     wall = time.time() - t0
     metrics: dict[str, float] = {"wall_seconds": wall}
 
-    recon_id = job.recon_id or ""
+    recon_id = job.recon_id if isinstance(job.recon_id, str) else ""
     if recon_id:
         try:
             m = bench_metrics.collect_metrics(client, recon_id=recon_id)
@@ -189,7 +273,7 @@ def run_one(
             )
             if m.mean_reproj_err is not None:
                 metrics["mean_reproj_err"] = float(m.mean_reproj_err)
-        except Exception:  # noqa: BLE001 — fall back to job outputs
+        except Exception:
             pass
     metrics.update(bench_metrics.metrics_from_job_outputs(detail))
 
@@ -201,8 +285,10 @@ def run_one(
         "expected": dataset.expected,
     }
     if detail.error_class:
-        notes["error_class"] = detail.error_class
-        notes["error_message"] = detail.error_message
+        notes["error_class"] = str(detail.error_class)
+        notes["error_message"] = (
+            detail.error_message if isinstance(detail.error_message, str) else None
+        )
 
     return store.BenchResult(
         dataset=dataset.name,
@@ -212,7 +298,7 @@ def run_one(
         started_at=started_at,
         finished_at=store.now_iso(),
         wall_seconds=wall,
-        status=detail.status,
+        status=str(detail.status),
         metrics=metrics,
         notes=notes,
     )
