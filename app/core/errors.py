@@ -135,20 +135,44 @@ class CapabilityUnavailableError(SfmApiError):
         super().__init__(detail=detail, capability=capability)
 
 
-class PycolmapUnavailableError(CapabilityUnavailableError):
-    """Backwards-compat: the colmap_mod backend can't load pycolmap.
+class BackendUnavailableError(CapabilityUnavailableError):
+    """The registered backend can't load the engine this request needs.
 
-    Subclass of :class:`CapabilityUnavailableError` so callers that
-    catch the parent see this too. Status code stays 501 — the failure
-    is the same shape (a capability the deployment doesn't expose),
-    even though the reason is backend-specific.
+    Engine-neutral: raised when the backend package itself is missing
+    or broken (import failure, absent native dependency), as opposed to
+    a healthy backend that simply doesn't implement the capability
+    (plain :class:`CapabilityUnavailableError`). Same 501 status and
+    RFC 7807 shape as its parent; ``capability`` names the missing
+    engine surface. The worker dispatcher catches this base class and
+    derives the task's ``error_class`` from the exception type name.
+    """
+
+    error_type = "backend_unavailable"
+    title = "Backend engine not available in this deployment"
+
+    def __init__(self, reason: str = "", *, capability: str = "backend") -> None:
+        super().__init__(capability=capability, reason=reason or self.title)
+
+
+class PycolmapUnavailableError(BackendUnavailableError):
+    """Deprecated alias: the colmap backend can't load pycolmap.
+
+    Kept as a subclass of the engine-neutral
+    :class:`BackendUnavailableError` for backwards compatibility — the
+    class name is serialized state (tasks persist ``error_class =
+    "PycolmapUnavailable"`` and the wire slug is
+    ``pycolmap_unavailable``), so it survives until 0.1.0. New code
+    should raise / catch :class:`BackendUnavailableError` instead.
+    Status code stays 501 — the failure is the same shape (a capability
+    the deployment doesn't expose), even though the reason is
+    backend-specific.
     """
 
     error_type = "pycolmap_unavailable"
     title = "pycolmap not available in this deployment"
 
     def __init__(self, reason: str = "") -> None:
-        super().__init__(capability="pycolmap", reason=reason or self.title)
+        super().__init__(reason or self.title, capability="pycolmap")
 
 
 class QuotaExceededError(SfmApiError):

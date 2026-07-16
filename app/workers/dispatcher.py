@@ -35,7 +35,7 @@ from typing import Any, cast
 from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.core.errors import PycolmapUnavailableError
+from app.core.errors import BackendUnavailableError
 from app.core.hashing import stream_sha256
 from app.core.ids import new_id
 from app.core.image_metadata import MAX_HEADER_SCAN_BYTES, read_image_metadata
@@ -45,7 +45,14 @@ from app.core.public_outputs import sanitize_public_error_message
 from app.db.models import Dataset, Image, ImageSource, Job, Task
 from app.db.session import get_session_factory
 from app.orchestrator.lease import now_utc, refresh_lease, try_acquire_lease
-from app.orchestrator.queue import get_queue
+from app.orchestrator.queue import get_shared_queue
+from app.orchestrator.readiness import (
+    CANCELLED_DEPENDENCY_STATUSES,
+    READY_DEPENDENCY_STATUSES,
+)
+from app.orchestrator.readiness import (
+    dependency_state as _dependency_state_from_statuses,
+)
 from app.services import (
     artifact_service,
     dataset_service,
@@ -491,26 +498,11 @@ async def _dataset_name_exists(session: Any, *, tenant_id: str, project_id: str,
     return existing is not None
 
 
-FAILED_DEPENDENCY_STATUSES = {"failed"}
-CANCELLED_DEPENDENCY_STATUSES = {"cancelled", "cancelled_dirty"}
-READY_DEPENDENCY_STATUSES = {"succeeded", "skipped"}
-
-
-def _dependency_state_from_statuses(
-    deps: list[str],
-    status_by_id: dict[str, str],
-) -> str:
-    if any(dep not in status_by_id for dep in deps):
-        return "failed"
-    if any(status_by_id.get(dep) in FAILED_DEPENDENCY_STATUSES for dep in deps):
-        return "failed"
-    if any(status_by_id.get(dep) == "cancelled_dirty" for dep in deps):
-        return "cancelled_dirty"
-    if any(status_by_id.get(dep) == "cancelled" for dep in deps):
-        return "cancelled"
-    if any(status_by_id.get(dep) not in READY_DEPENDENCY_STATUSES for dep in deps):
-        return "blocked"
-    return "ready"
+# Dependency-readiness vocabulary is single-sourced in
+# ``app.orchestrator.readiness`` (shared with the scheduler and the
+# janitor); ``_dependency_state_from_statuses`` is its
+# ``dependency_state`` imported at the top of this module under the
+# historical local name.
 
 
 async def _task_dependency_state(session: Any, task: Task) -> str:
@@ -562,13 +554,12 @@ async def _mark_dependency_failures_and_ready(session: Any, job_id: str) -> list
 async def _enqueue_task_ids(task_ids: list[str]) -> None:
     if not task_ids:
         return
-    queue = get_queue()
-    try:
-        for task_id in task_ids:
-            with contextlib.suppress(Exception):
-                await queue.enqueue(task_id)
-    finally:
-        await queue.close()
+    # Shared, process-cached queue — closing it per task completion
+    # would rebuild the Redis pool on every DAG advancement.
+    queue = get_shared_queue()
+    for task_id in task_ids:
+        with contextlib.suppress(Exception):
+            await queue.enqueue(task_id)
 
 
 async def _advance_job_after_terminal(job_id: str) -> None:
@@ -745,16 +736,20 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             await _maybe_finalize_job(session, t.job_id)
             await _advance_job_after_terminal(t.job_id)
         return {"status": "succeeded", "outputs": outputs}
-    except PycolmapUnavailableError as e:
+    except BackendUnavailableError as e:
+        # Engine-neutral: any backend that can't load its engine lands
+        # here. ``error_class`` derives from the exception type so the
+        # deprecated ``PycolmapUnavailableError`` subclass keeps its
+        # serialized legacy wire string ("PycolmapUnavailable").
         async with factory() as session:
             t = await session.get(Task, task_id)
             if t is None:
                 return {"status": "missing"}
             if not _owns_live_running_lease(t):
-                log.info("task.lost_lease_before_pycolmap_failure", status=t.status)
+                log.info("task.lost_lease_before_backend_unavailable_failure", status=t.status)
                 return {"status": "lost_lease"}
             t.status = "failed"
-            t.error_class = "PycolmapUnavailable"
+            t.error_class = type(e).__name__.removesuffix("Error")
             t.error_message = sanitize_public_error_message(e)
             t.finished_at = now_utc()
             await _mark_task_reconstruction_status(session, t, "failed")
@@ -762,7 +757,7 @@ async def execute_task(task_id: str) -> dict[str, Any]:
             await session.commit()
             await _maybe_finalize_job(session, t.job_id)
             await _advance_job_after_terminal(t.job_id)
-        return {"status": "failed", "error": "pycolmap_unavailable"}
+        return {"status": "failed", "error": "backend_unavailable"}
     except Exception as e:
         public_error = sanitize_public_error_message(e)
         log.error("task.failed", err=public_error, error_class=type(e).__name__)

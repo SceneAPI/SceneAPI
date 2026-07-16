@@ -1,6 +1,7 @@
 """Stable exception classes for sfmapi extensions."""
 
 from app.core.errors import (
+    BackendUnavailableError,
     BadRequestError,
     CapabilityUnavailableError,
     ConflictError,
@@ -14,6 +15,7 @@ from app.core.errors import (
 )
 
 __all__ = [
+    "BackendUnavailableError",
     "BadRequestError",
     "CapabilityUnavailableError",
     "ConflictError",

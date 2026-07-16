@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.errors import NotFoundError, ValidationError
 from app.db.models import Job, Task
-from app.orchestrator.scheduler import _dependency_ready
+from app.orchestrator.readiness import dependencies_ready
 
 
 async def resume_job(
@@ -66,7 +66,9 @@ async def resume_job(
     use_inline = settings.inline_tasks if inline is None else inline
     status_by_id = {t.task_id: t.status for t in tasks}
     ready_ids = [
-        t.task_id for t in tasks if t.status == "pending" and _dependency_ready(t, status_by_id)
+        t.task_id
+        for t in tasks
+        if t.status == "pending" and dependencies_ready(t.depends_on_json or [], status_by_id)
     ]
     if ready_ids:
         from app.orchestrator.queue import (

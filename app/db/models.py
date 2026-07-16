@@ -297,6 +297,10 @@ class Task(Base):
         Index("ix_task_cache_key", "cache_key"),
         Index("ix_task_status", "status"),
         Index("ix_task_lease_expires_at", "lease_expires_at"),
+        # Composite index serving the janitor's hot predicates:
+        # lease reclaim (status='running' AND lease_expires_at < now)
+        # and the pending-task sweeps (status='pending' prefix scan).
+        Index("ix_task_status_lease", "status", "lease_expires_at"),
     )
 
     task_id: Mapped[str] = mapped_column(ULIDType, primary_key=True, default=new_id)

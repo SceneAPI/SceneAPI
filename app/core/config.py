@@ -68,6 +68,12 @@ class Settings(BaseSettings):
     lease_ttl_seconds: int = 30
     janitor_interval_seconds: int = 10
 
+    # Retention/GC — the janitor deletes terminal jobs (their task /
+    # artifact / event rows and the job's events.jsonl file) once
+    # ``finished_at`` is older than this many days. Pinned jobs are
+    # kept. None disables the sweep (default: keep records forever).
+    retention_days: int | None = None
+
     snapshot_keep_last: int = 3
 
     inline_tasks: bool = False

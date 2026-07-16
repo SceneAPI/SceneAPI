@@ -12,7 +12,11 @@ from app.orchestrator.queue import (
     ArqQueue,
     InlineQueue,
     Queue,
+    close_shared_queue,
+    force_inline_queue,
     get_queue,
+    get_shared_queue,
+    reset_inline_queue,
 )
 
 pytestmark = pytest.mark.unit
@@ -85,3 +89,55 @@ def test_close_is_idempotent() -> None:
     q = InlineQueue(_settings())
     asyncio.run(q.close())
     asyncio.run(q.close())  # second close must not raise
+
+
+def test_get_shared_queue_caches_pool_backed_backend() -> None:
+    """ARQ pools are expensive — the shared accessor must hand back the
+    same instance per process instead of a fresh pool per enqueue."""
+    s = _settings()
+    try:
+        first = get_shared_queue(s)
+        second = get_shared_queue(s)
+        assert isinstance(first, ArqQueue)
+        assert first is second
+    finally:
+        asyncio.run(close_shared_queue())
+
+
+def test_get_shared_queue_returns_fresh_inline_instances() -> None:
+    """InlineQueue is stateless and must keep exact per-call semantics —
+    it is never cached."""
+    s = _settings(inline_tasks=True)
+    first = get_shared_queue(s)
+    second = get_shared_queue(s)
+    assert isinstance(first, InlineQueue)
+    assert isinstance(second, InlineQueue)
+    assert first is not second
+
+
+def test_get_shared_queue_respects_force_inline_contextvar() -> None:
+    token = force_inline_queue()
+    try:
+        q = get_shared_queue(_settings())  # settings say arq
+        assert isinstance(q, InlineQueue)
+    finally:
+        reset_inline_queue(token)
+    asyncio.run(close_shared_queue())  # nothing cached, still safe
+
+
+def test_close_shared_queue_closes_and_drops_cache() -> None:
+    s = _settings()
+    first = get_shared_queue(s)
+    closed: list[bool] = []
+
+    async def fake_close() -> None:
+        closed.append(True)
+
+    first.close = fake_close  # type: ignore[method-assign]
+    asyncio.run(close_shared_queue())
+    assert closed == [True]
+    try:
+        rebuilt = get_shared_queue(s)
+        assert rebuilt is not first
+    finally:
+        asyncio.run(close_shared_queue())

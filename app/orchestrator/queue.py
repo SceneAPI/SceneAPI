@@ -5,8 +5,9 @@ the Queue decides where execution happens. Three backends ship in v0:
 
   - ``arq``: enqueues into Redis via ARQ; the worker
     process (``app/workers/runner.py``) consumes from the same pool.
-  - ``raw_redis``: LPUSHes plain task ids for the C++ bridge worker's
-    BLPOP protocol.
+  - ``raw_redis``: LPUSHes plain task ids for external bridge workers
+    that BLPOP the same key (e.g. the C++ bridge worker shipped in the
+    separate ``sfmapi-cpp`` repo).
   - ``inline``: tests and ``inline_tasks=True`` dev mode. Calls
     ``run_task`` synchronously in the current event loop. Skips Redis
     entirely.
@@ -121,7 +122,12 @@ class InlineQueue:
 
 
 class RawRedisQueue:
-    """Plain task-id LPUSH backend consumed by bridge/bridge_worker.py."""
+    """Plain task-id LPUSH backend for external bridge workers.
+
+    Nothing in this repo consumes the key: it serves out-of-process
+    workers that BLPOP task ids off Redis (e.g. the C++ bridge worker
+    in the separate ``sfmapi-cpp`` repo).
+    """
 
     backend: str = "raw_redis"
 
@@ -176,12 +182,57 @@ def reset_inline_queue(token: Token[bool]) -> None:
     _FORCE_INLINE.reset(token)
 
 
+def _resolve_backend_name(s: Settings) -> str:
+    return "inline" if (_FORCE_INLINE.get() or s.inline_tasks) else s.queue_backend
+
+
 def get_queue(settings: Settings | None = None) -> Queue:
-    """Build a queue per ``settings.queue_backend`` (with a legacy
-    fall-through for ``inline_tasks=True``)."""
+    """Build a fresh queue per ``settings.queue_backend`` (with a legacy
+    fall-through for ``inline_tasks=True``). The caller owns ``close()``.
+    Hot enqueue paths (dispatcher, janitor, scheduler) should use
+    :func:`get_shared_queue` instead so pool-backed backends don't build
+    and tear down a Redis pool per call."""
     s = settings or get_settings()
-    backend = "inline" if (_FORCE_INLINE.get() or s.inline_tasks) else s.queue_backend
+    backend = _resolve_backend_name(s)
     cls = _BACKENDS.get(backend)
     if cls is None:
         raise ValueError(f"unknown queue_backend={backend!r}; valid: {sorted(_BACKENDS)}")
     return cls(s)
+
+
+_SHARED_QUEUES: dict[str, Queue] = {}
+
+
+def get_shared_queue(settings: Settings | None = None) -> Queue:
+    """Return a process-cached queue for the resolved backend.
+
+    Pool-backed backends (``arq``, ``raw_redis``) are constructed once
+    per process and reused across enqueues; the previous per-call
+    ``get_queue()`` / ``close()`` pattern rebuilt a Redis pool on every
+    task completion. Callers must NOT close the returned queue.
+    :func:`close_shared_queue` exists for explicit shutdown, but wiring
+    it into app lifespan is optional — the pools die with the process.
+
+    ``inline`` is deliberately NOT cached: it is stateless and cheap,
+    and a fresh instance per call preserves the exact semantics tests
+    and :func:`force_inline_queue` rely on.
+    """
+    s = settings or get_settings()
+    backend = _resolve_backend_name(s)
+    if backend == "inline":
+        return InlineQueue(s)
+    queue = _SHARED_QUEUES.get(backend)
+    if queue is None:
+        queue = get_queue(s)
+        _SHARED_QUEUES[backend] = queue
+    return queue
+
+
+async def close_shared_queue() -> None:
+    """Close and drop every cached shared queue. Idempotent; the next
+    :func:`get_shared_queue` call rebuilds from current settings."""
+    queues = list(_SHARED_QUEUES.values())
+    _SHARED_QUEUES.clear()
+    for queue in queues:
+        with contextlib.suppress(Exception):
+            await queue.close()

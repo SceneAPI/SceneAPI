@@ -6,9 +6,9 @@ import pytest
 from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.core.errors import ValidationError
+from app.core.errors import BackendUnavailableError, PycolmapUnavailableError, ValidationError
 from app.core.ids import new_id
-from app.db.models import Dataset, Image, ImageSource, StageArtifact, Task
+from app.db.models import Dataset, Image, ImageSource, Job, StageArtifact, Task
 from app.services import artifact_service, job_service, project_service
 from app.workers.dispatcher import (
     _apply_derived_dataset_outputs,
@@ -219,6 +219,92 @@ async def test_input_artifact_refs_validate_role_and_kind(session) -> None:
             dataset_id=None,
             input_artifacts={"verified_matches": {"artifact_id": artifact.artifact_id}},
         )
+
+
+async def _seed_pending_noop_task(session) -> tuple[str, str]:
+    project = await project_service.create_project(
+        session,
+        tenant_id="default",
+        name=f"backend-unavailable-{new_id()[:6]}",
+    )
+    job = await job_service.create_job(
+        session,
+        tenant_id="default",
+        project_id=project.project_id,
+        recipe="noop",
+        spec={},
+    )
+    task = Task(
+        task_id=new_id(),
+        tenant_id="default",
+        job_id=job.job_id,
+        kind="noop",
+        inputs_hash="i" * 64,
+        params_hash="p" * 64,
+        runtime_version_id="rv",
+        cache_key=new_id(),
+        gpu_required=False,
+    )
+    session.add(task)
+    await session.commit()
+    return task.task_id, job.job_id
+
+
+async def test_backend_unavailable_error_is_engine_neutral(session, monkeypatch) -> None:
+    """The dispatcher catches the engine-neutral base class and derives
+    ``error_class`` from the exception type name."""
+    task_id, job_id = await _seed_pending_noop_task(session)
+
+    def raise_unavailable(_task: Task) -> dict:
+        raise BackendUnavailableError("engine not installed")
+
+    import app.workers.dispatcher as dispatcher
+
+    monkeypatch.setattr(dispatcher, "_HANDLERS_CACHE", {"noop": raise_unavailable})
+
+    result = await execute_task(task_id)
+
+    assert result == {"status": "failed", "error": "backend_unavailable"}
+    task = await session.get(Task, task_id)
+    job = await session.get(Job, job_id)
+    await session.refresh(task)
+    await session.refresh(job)
+    assert task.status == "failed"
+    assert task.error_class == "BackendUnavailable"
+    assert task.error_message == "engine not installed"
+    assert job.status == "failed"
+
+
+async def test_pycolmap_unavailable_error_keeps_legacy_wire_error_class(
+    session, monkeypatch
+) -> None:
+    """``PycolmapUnavailableError`` is a deprecated subclass of
+    ``BackendUnavailableError``; its serialized ``error_class`` must stay
+    ``PycolmapUnavailable`` (it is wire/DB state until 0.1.0)."""
+    assert issubclass(PycolmapUnavailableError, BackendUnavailableError)
+    task_id, _job_id = await _seed_pending_noop_task(session)
+
+    def raise_unavailable(_task: Task) -> dict:
+        raise PycolmapUnavailableError("pycolmap missing")
+
+    import app.workers.dispatcher as dispatcher
+
+    monkeypatch.setattr(dispatcher, "_HANDLERS_CACHE", {"noop": raise_unavailable})
+
+    result = await execute_task(task_id)
+
+    assert result["status"] == "failed"
+    task = await session.get(Task, task_id)
+    await session.refresh(task)
+    assert task.status == "failed"
+    assert task.error_class == "PycolmapUnavailable"
+
+
+def test_backend_unavailable_error_exported_from_public_facade() -> None:
+    import sfmapi.errors as public_errors
+
+    assert public_errors.BackendUnavailableError is BackendUnavailableError
+    assert "BackendUnavailableError" in public_errors.__all__
 
 
 async def test_execute_task_does_not_rerun_terminal_task(session, monkeypatch) -> None:

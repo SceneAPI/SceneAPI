@@ -9,17 +9,21 @@ and the re-enqueue side effect.
 from __future__ import annotations
 
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 
 from app.core.ids import new_id
 from app.db.models import (
     Dataset,
     ImageSource,
     Job,
+    JobEvent,
     Project,
     Reconstruction,
     RuntimeVersion,
+    StageArtifact,
     Task,
     Upload,
 )
@@ -502,3 +506,139 @@ async def test_run_janitor_once_reaps_expired_unfinalized_upload(session) -> Non
     # A finalized upload past expires_at is kept — its bytes are content
     # addressed and may still be referenced.
     assert await session.get(Upload, finalized) is not None
+
+
+# ----------------------------------------------------------------------
+# Retention GC (settings-driven, default OFF)
+# ----------------------------------------------------------------------
+
+
+async def _seed_terminal_job(
+    session,
+    *,
+    status: str = "succeeded",
+    finished_days_ago: float | None = 40.0,
+    pinned: bool = False,
+    with_records: bool = False,
+) -> tuple[str, Path]:
+    """Persist a Job (+ one Task, optionally artifact/event rows and an
+    events.jsonl file) finished ``finished_days_ago`` days in the past.
+    Returns ``(job_id, events_jsonl_path)``."""
+    from app.core.config import get_settings
+    from app.core.paths import Paths
+
+    # NB: ULID prefixes are time-ordered — same-millisecond ids share
+    # their first chars, so use the random suffix for uniqueness.
+    project = Project(tenant_id="default", name=f"gc-{new_id()[-10:]}")
+    session.add(project)
+    await session.flush()
+    finished_at = None
+    if finished_days_ago is not None:
+        finished_at = now_utc() - timedelta(days=finished_days_ago)
+    job = Job(
+        tenant_id="default",
+        project_id=project.project_id,
+        recipe="x",
+        status=status,
+        pinned=pinned,
+        finished_at=finished_at,
+    )
+    session.add(job)
+    await session.flush()
+    task = Task(
+        task_id=new_id(),
+        tenant_id="default",
+        job_id=job.job_id,
+        kind="noop",
+        inputs_hash="x",
+        params_hash="x",
+        runtime_version_id="rv",
+        cache_key=new_id(),
+        gpu_required=False,
+        status="succeeded",
+        finished_at=finished_at,
+    )
+    session.add(task)
+    if with_records:
+        session.add(
+            StageArtifact(
+                tenant_id="default",
+                job_id=job.job_id,
+                task_id=task.task_id,
+                kind="features.local.v1",
+                uri="database.db",
+            )
+        )
+        session.add(JobEvent(event_id=1, job_id=job.job_id, ts=now_utc(), payload_json={"k": 1}))
+    events_file = (
+        Paths(get_settings()).job_root("default", project.project_id, job.job_id) / "events.jsonl"
+    )
+    if with_records:
+        events_file.parent.mkdir(parents=True, exist_ok=True)
+        events_file.write_text('{"kind":"log"}\n', encoding="utf-8")
+    await session.commit()
+    return job.job_id, events_file
+
+
+async def test_gc_expired_job_records_disabled_by_default(session) -> None:
+    """``retention_days`` defaults to None — the sweep must be a no-op."""
+    from app.orchestrator.janitor import gc_expired_job_records
+
+    job_id, _ = await _seed_terminal_job(session, finished_days_ago=365)
+
+    assert await gc_expired_job_records(session) == 0
+    assert await session.get(Job, job_id) is not None
+
+
+async def test_gc_expired_job_records_deletes_old_terminal_job(session) -> None:
+    """An old terminal job loses its row, task/artifact/event rows, and
+    its events.jsonl file."""
+    from app.core.config import reset_settings_for_tests
+    from app.orchestrator.janitor import gc_expired_job_records
+
+    reset_settings_for_tests(retention_days=30)
+    job_id, events_file = await _seed_terminal_job(session, finished_days_ago=31, with_records=True)
+    assert events_file.is_file()
+
+    removed = await gc_expired_job_records(session)
+    await session.commit()
+
+    assert removed == 1
+    assert await session.get(Job, job_id) is None
+    for model in (Task, StageArtifact, JobEvent):
+        rows = (await session.execute(select(model).where(model.job_id == job_id))).scalars().all()
+        assert rows == []
+    assert not events_file.exists()
+
+
+async def test_gc_expired_job_records_keeps_recent_pinned_and_unfinished_jobs(session) -> None:
+    from app.core.config import reset_settings_for_tests
+    from app.orchestrator.janitor import gc_expired_job_records
+
+    reset_settings_for_tests(retention_days=30)
+    recent_id, _ = await _seed_terminal_job(session, finished_days_ago=1)
+    pinned_id, _ = await _seed_terminal_job(session, finished_days_ago=365, pinned=True)
+    running_id, _ = await _seed_terminal_job(session, status="running", finished_days_ago=None)
+
+    removed = await gc_expired_job_records(session)
+    await session.commit()
+
+    assert removed == 0
+    assert await session.get(Job, recent_id) is not None
+    assert await session.get(Job, pinned_id) is not None
+    assert await session.get(Job, running_id) is not None
+
+
+async def test_run_janitor_once_runs_retention_gc_when_enabled(session) -> None:
+    """The GC stage is wired into the sweep behind the setting."""
+    from app.core.config import reset_settings_for_tests
+    from app.orchestrator.janitor import run_janitor_once
+
+    reset_settings_for_tests(retention_days=30)
+    old_id, _ = await _seed_terminal_job(session, finished_days_ago=31)
+    fresh_id, _ = await _seed_terminal_job(session, finished_days_ago=1)
+
+    await run_janitor_once(session)
+
+    assert await session.get(Job, old_id) is None
+    assert await session.get(Job, fresh_id) is not None

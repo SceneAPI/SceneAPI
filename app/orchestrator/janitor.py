@@ -13,22 +13,36 @@ message was created. The sweep is driven by a background loop in
 ``app/main.py::lifespan`` (``_janitor_loop``); the DB predicates are kept as
 pure, unit-testable functions, and :func:`run_janitor_once` adds the
 re-enqueue side effect.
+
+The dependency sweeps filter in SQL: only ``pending`` task rows plus the
+specific dependency rows they reference are fetched (deps may cross job
+boundaries, so the dep lookup is by task id, not job id). Both queries
+are served by the composite ``ix_task_status_lease`` index.
 """
 
 from __future__ import annotations
 
 import contextlib
+from datetime import datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.db.models import Reconstruction, Task
+from app.core.paths import Paths
+from app.db.models import Job, JobEvent, Reconstruction, StageArtifact, Task
 from app.orchestrator.lease import now_utc
-from app.orchestrator.queue import get_queue
+from app.orchestrator.queue import get_shared_queue
+from app.orchestrator.readiness import dependencies_ready, dependency_state
 from app.services import job_service
 
 _log = get_logger("orchestrator.janitor")
+
+#: Job statuses eligible for retention GC. ``cancelled_dirty`` never
+#: appears on Job rows today (task-level only), but is included so a
+#: future rollup change can't strand records.
+TERMINAL_JOB_STATUSES: tuple[str, ...] = ("succeeded", "failed", "cancelled", "cancelled_dirty")
 
 
 def _task_recon_id(task: Task) -> str | None:
@@ -73,6 +87,29 @@ async def reclaim_expired_leases(session: AsyncSession) -> list[str]:
     return reclaimed
 
 
+async def _load_pending_tasks_with_dep_statuses(
+    session: AsyncSession,
+) -> tuple[list[Task], dict[str, str]]:
+    """Fetch ``pending`` task rows plus a status map covering them and
+    every task they depend on.
+
+    Filters in SQL instead of scanning the whole table: the pending rows
+    come from an indexed status predicate, and only the referenced
+    dependency rows are loaded (by id — deps may live in other jobs).
+    A dep id absent from the returned map is missing from the DB.
+    """
+    pending = (await session.execute(select(Task).where(Task.status == "pending"))).scalars().all()
+    status_by_id = {str(task.task_id): task.status for task in pending}
+    dep_ids = {str(dep) for task in pending for dep in (task.depends_on_json or [])}
+    unknown = dep_ids - status_by_id.keys()
+    if unknown:
+        rows = await session.execute(
+            select(Task.task_id, Task.status).where(Task.task_id.in_(unknown))
+        )
+        status_by_id.update({str(task_id): str(status) for task_id, status in rows.all()})
+    return list(pending), status_by_id
+
+
 async def find_ready_pending_tasks(session: AsyncSession) -> list[str]:
     """Return pending tasks whose dependencies have reached a reusable terminal state.
 
@@ -80,16 +117,12 @@ async def find_ready_pending_tasks(session: AsyncSession) -> list[str]:
     run unless some background sweep re-enqueues it. Duplicate delivery is
     tolerated by the dispatcher lease/status gates.
     """
-    rows = (await session.execute(select(Task))).scalars().all()
-    status_by_id = {str(task.task_id): task.status for task in rows}
+    pending, status_by_id = await _load_pending_tasks_with_dep_statuses(session)
     ready: list[str] = []
-    for task in rows:
-        if task.status != "pending":
-            continue
+    for task in pending:
         if task.task_state_json is None:
             continue
-        deps = [str(dep) for dep in (task.depends_on_json or [])]
-        if all(status_by_id.get(dep) in {"succeeded", "skipped"} for dep in deps):
+        if dependencies_ready(task.depends_on_json or [], status_by_id):
             ready.append(str(task.task_id))
     return ready
 
@@ -100,44 +133,36 @@ async def propagate_terminal_dependencies(session: AsyncSession) -> list[str]:
     This closes the crash window after one task commits failure/cancellation
     but before the dispatcher advances the rest of the DAG. Without this sweep,
     downstream tasks stay pending forever because they can never become
-    dependency-ready.
+    dependency-ready. The fixed-point loop runs in Python over the pending
+    subset so terminality cascades within one sweep.
     """
-    rows = (await session.execute(select(Task))).scalars().all()
-    status_by_id = {str(task.task_id): task.status for task in rows}
+    pending, status_by_id = await _load_pending_tasks_with_dep_statuses(session)
     changed: list[str] = []
     affected_jobs: set[str] = set()
     affected_reconstructions: dict[tuple[str, str], str] = {}
     progressed = True
     while progressed:
         progressed = False
-        for task in rows:
+        for task in pending:
             task_id = str(task.task_id)
             if status_by_id.get(task_id) != "pending":
                 continue
             deps = [str(dep) for dep in (task.depends_on_json or [])]
-            finished_at = now_utc()
-            if any(dep not in status_by_id for dep in deps):
-                task.status = "failed"
-                task.error_class = "DependencyFailed"
-                task.error_message = "upstream dependency missing"
-                task.finished_at = finished_at
-            elif any(status_by_id.get(dep) == "failed" for dep in deps):
-                task.status = "failed"
-                task.error_class = "DependencyFailed"
-                task.error_message = "upstream dependency failed"
-                task.finished_at = finished_at
-            elif any(status_by_id.get(dep) == "cancelled_dirty" for dep in deps):
-                task.status = "cancelled_dirty"
-                task.error_class = "DependencyCancelled"
-                task.error_message = "upstream dependency cancelled"
-                task.finished_at = finished_at
-            elif any(status_by_id.get(dep) == "cancelled" for dep in deps):
-                task.status = "cancelled"
-                task.error_class = "DependencyCancelled"
-                task.error_message = "upstream dependency cancelled"
-                task.finished_at = finished_at
-            else:
+            state = dependency_state(deps, status_by_id)
+            if state in {"ready", "blocked"}:
                 continue
+            if state == "failed":
+                missing = any(dep not in status_by_id for dep in deps)
+                task.status = "failed"
+                task.error_class = "DependencyFailed"
+                task.error_message = (
+                    "upstream dependency missing" if missing else "upstream dependency failed"
+                )
+            else:  # cancelled / cancelled_dirty
+                task.status = state
+                task.error_class = "DependencyCancelled"
+                task.error_message = "upstream dependency cancelled"
+            task.finished_at = now_utc()
             status_by_id[task_id] = task.status
             changed.append(task_id)
             affected_jobs.add(str(task.job_id))
@@ -163,8 +188,55 @@ async def propagate_terminal_dependencies(session: AsyncSession) -> list[str]:
     return changed
 
 
+async def gc_expired_job_records(session: AsyncSession, *, now: datetime | None = None) -> int:
+    """Delete terminal Jobs (and their Tasks/artifacts/events) past retention.
+
+    Opt-in via ``settings.retention_days``; ``None`` (the default)
+    disables the sweep. A job is eligible when its status is terminal,
+    it is not ``pinned``, and ``finished_at`` is older than the cutoff.
+    Dependent rows (tasks, stage artifacts, job events) are deleted
+    explicitly rather than via ``ON DELETE CASCADE`` — SQLite does not
+    enforce FK cascades by default, and the explicit deletes keep both
+    engines identical. The job's ``events.jsonl`` file is unlinked when
+    present. Does not commit; the caller owns the transaction.
+
+    Returns the number of jobs deleted.
+    """
+    settings = get_settings()
+    if settings.retention_days is None:
+        return 0
+    cutoff = (now or now_utc()) - timedelta(days=settings.retention_days)
+    jobs = (
+        (
+            await session.execute(
+                select(Job).where(
+                    Job.status.in_(TERMINAL_JOB_STATUSES),
+                    Job.pinned.is_(False),
+                    Job.finished_at.is_not(None),
+                    Job.finished_at < cutoff,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not jobs:
+        return 0
+    paths = Paths(settings)
+    for job in jobs:
+        events_file = paths.job_root(job.tenant_id, job.project_id, job.job_id) / "events.jsonl"
+        with contextlib.suppress(OSError):
+            events_file.unlink(missing_ok=True)
+    job_ids = [job.job_id for job in jobs]
+    await session.execute(delete(StageArtifact).where(StageArtifact.job_id.in_(job_ids)))
+    await session.execute(delete(JobEvent).where(JobEvent.job_id.in_(job_ids)))
+    await session.execute(delete(Task).where(Task.job_id.in_(job_ids)))
+    await session.execute(delete(Job).where(Job.job_id.in_(job_ids)))
+    return len(jobs)
+
+
 async def run_janitor_once(session: AsyncSession) -> list[str]:
-    """Reclaim expired leases, re-enqueue ready tasks, and GC expired uploads.
+    """Reclaim expired leases, re-enqueue ready tasks, and GC expired records.
 
     ARQ is push-based: a bare status reset, or a submit-time enqueue
     failure, can leave a task ``pending`` with no queue message. Re-enqueue
@@ -173,21 +245,20 @@ async def run_janitor_once(session: AsyncSession) -> list[str]:
 
     The same sweep also drops uploads past ``expires_at`` that were
     never finalized (and their temp bytes) — this is what backs the
-    ``UploadState`` doc's "expired ... reaped by the janitor" claim.
-    Returns the reclaimed task ids.
+    ``UploadState`` doc's "expired ... reaped by the janitor" claim —
+    and, when ``retention_days`` is set, terminal job records older
+    than the retention window. Returns the reclaimed task ids.
     """
     reclaimed = await reclaim_expired_leases(session)
     terminal_deps = await propagate_terminal_dependencies(session)
     ready_pending = await find_ready_pending_tasks(session)
     enqueue_ids = list(dict.fromkeys([*reclaimed, *ready_pending]))
     if enqueue_ids:
-        queue = get_queue()
-        try:
-            for task_id in enqueue_ids:
-                with contextlib.suppress(Exception):
-                    await queue.enqueue(task_id)
-        finally:
-            await queue.close()
+        # Shared, process-cached queue — never closed per sweep.
+        queue = get_shared_queue()
+        for task_id in enqueue_ids:
+            with contextlib.suppress(Exception):
+                await queue.enqueue(task_id)
         _log.info(
             "janitor.enqueued_ready",
             count=len(enqueue_ids),
@@ -206,5 +277,14 @@ async def run_janitor_once(session: AsyncSession) -> list[str]:
         await session.commit()
         if expired:
             _log.info("janitor.uploads_expired", count=expired)
+
+    # Retention GC — delete terminal job records (and their events file)
+    # older than ``retention_days``. Opt-in (default off); failures are
+    # tolerated per tick exactly like the upload sweep above.
+    with contextlib.suppress(Exception):
+        removed = await gc_expired_job_records(session)
+        await session.commit()
+        if removed:
+            _log.info("janitor.job_records_expired", count=removed)
 
     return reclaimed
