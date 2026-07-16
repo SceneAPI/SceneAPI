@@ -28,6 +28,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from app.core.logging import get_logger
+
+_log = get_logger("sfmapi.capabilities")
+
 # ---- canonical capability names ------------------------------------------
 
 # CORE: every conforming server provides these. Listed for completeness.
@@ -353,22 +357,27 @@ def detect_capabilities() -> Capabilities:
             caps.features["backend.action_schema"] = True
             caps.features["backend.action_validate"] = True
             caps.features["backend.action_jobs"] = True
-    except Exception:
-        pass
+    except Exception as exc:
+        # Probe failures must not break capability detection — the flag
+        # just stays False — but they must be visible when debugging why
+        # a backend's surface never shows up.
+        _log.debug("sfmapi.capability_probe_failed", probe="backend_actions", error=str(exc))
     try:
         from app.adapters.backend_config import has_backend_config_schemas
 
         if has_backend_config_schemas(backend_impl):
             caps.features["backend.config_schemas"] = True
-    except Exception:
-        pass
+    except Exception as exc:
+        _log.debug("sfmapi.capability_probe_failed", probe="backend_config_schemas", error=str(exc))
     try:
         from app.adapters.backend_artifacts import has_backend_artifact_contracts
 
         if has_backend_artifact_contracts(backend_impl):
             caps.features["backend.artifact_contracts"] = True
-    except Exception:
-        pass
+    except Exception as exc:
+        _log.debug(
+            "sfmapi.capability_probe_failed", probe="backend_artifact_contracts", error=str(exc)
+        )
     # Backend advertised capabilities not in ALL_KNOWN are silently
     # dropped — log a warning so the integrator knows their
     # capability string never reaches the wire.
@@ -382,9 +391,7 @@ def detect_capabilities() -> Capabilities:
             )
         }
     if unknown:
-        from app.core.logging import get_logger
-
-        get_logger("sfmapi.capabilities").warning(
+        _log.warning(
             "backend.capabilities_unknown",
             backend=backend_impl.name,
             unknown=sorted(unknown),
@@ -404,8 +411,8 @@ def detect_capabilities() -> Capabilities:
 
         if has_projection_engine():
             caps.features["projection.equirectangular_to_cubemap"] = True
-    except Exception:
-        pass
+    except Exception as exc:
+        _log.debug("sfmapi.capability_probe_failed", probe="projection_engine", error=str(exc))
     # ``pose_priors.read_write`` is sfmapi-internal: sfmapi accepts pose
     # priors on images, stores them, and forwards them into the mapping
     # task — independent of the backend. Whether the backend then

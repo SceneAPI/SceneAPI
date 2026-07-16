@@ -34,6 +34,7 @@ from app.db.models import Blob, Dataset, Image, ImageSource, Reconstruction
 from app.orchestrator.dag import TaskNode, hash_inputs, hash_params
 from app.orchestrator.scheduler import submit_job_dag
 from app.schemas.api.projections import CubemapProjectionSpec, ProjectionJobRequest
+from app.schemas.pipeline_spec import BA_MODE_CAPABILITIES
 from app.services import (
     artifact_service,
     dataset_service,
@@ -979,12 +980,7 @@ async def _submit_recon_stage(
 
 def _bundle_adjust_capability(spec: dict[str, Any]) -> str:
     mode = str(spec.get("mode") or "standard")
-    return {
-        "standard": "ba.standard",
-        "two_stage": "ba.two_stage",
-        "featuremetric": "ba.featuremetric",
-        "rig": "ba.rig",
-    }.get(mode, "ba.standard")
+    return BA_MODE_CAPABILITIES.get(mode, "ba.standard")
 
 
 async def submit_bundle_adjust(

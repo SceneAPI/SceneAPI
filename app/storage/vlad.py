@@ -23,10 +23,19 @@ clients see a consistent monotone-in-dissimilarity scalar across
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import numpy as np
+if TYPE_CHECKING:  # annotation-only — see lazy imports below
+    import numpy as np
+
+# NumPy is imported lazily inside the functions that use it: this
+# module sits on the web-process import path (api/v1/similarity ->
+# services/similarity_service -> here) and a module-level import would
+# charge every web process the numpy startup cost. Guarded by the
+# import-guard test in tests/unit/test_app_starts.py.
 
 VLAD_FILE = "vlad.npz"
 
@@ -66,6 +75,8 @@ def write_index(
     manifest_hash: str,
 ) -> Path:
     """Persist a VLAD index. Vectors are L2-normalized in-place."""
+    import numpy as np
+
     if vectors.ndim != 2 or vectors.shape[0] != len(image_ids):
         raise ValueError(f"vectors shape {vectors.shape} doesn't match {len(image_ids)} ids")
     vectors = np.asarray(vectors, dtype=np.float32)
@@ -86,13 +97,13 @@ def write_index(
         image_ids=np.array(image_ids, dtype=np.str_),
         manifest=np.array(manifest, dtype=np.str_),
     )
-    import os
-
     os.replace(tmp, p)
     return p
 
 
 def read_index(dataset_dir: Path) -> VladIndex | None:
+    import numpy as np
+
     p = index_path(dataset_dir)
     if not p.is_file():
         return None
@@ -113,6 +124,8 @@ def k_nearest(
 ) -> list[VladNeighbor]:
     """Top-K nearest by cosine distance. Raises KeyError if image_id
     not in the index."""
+    import numpy as np
+
     qi = index.index_of(image_id)
     q = index.vectors[qi]
     sims = index.vectors @ q  # (N,)

@@ -13,6 +13,9 @@ P4 Phase a: ``POST /v1/oneshot/features``.
 
 from __future__ import annotations
 
+from functools import partial
+
+import anyio.to_thread
 from fastapi import APIRouter, Depends, Header, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -75,8 +78,15 @@ async def oneshot_features(
         use_gpu=use_gpu,
         seed=seed,
     )
-    return oneshot_service.extract_features_oneshot(
-        body, spec, content_type=content_type or "application/octet-stream"
+    # Engine-bound CPU work — run it in a worker thread so a slow
+    # oneshot request doesn't block the event loop (e.g. /healthz).
+    return await anyio.to_thread.run_sync(
+        partial(
+            oneshot_service.extract_features_oneshot,
+            body,
+            spec,
+            content_type=content_type or "application/octet-stream",
+        )
     )
 
 
@@ -130,10 +140,15 @@ async def oneshot_localize(
         use_gpu=use_gpu,
         seed=seed,
     )
-    return oneshot_service.localize_oneshot(
-        body,
-        recon_id=recon_id,
-        spec=spec,
-        sparse_dir=sparse_dir,
-        content_type=content_type or "application/octet-stream",
+    # Engine-bound CPU work — run it in a worker thread so a slow
+    # oneshot request doesn't block the event loop (e.g. /healthz).
+    return await anyio.to_thread.run_sync(
+        partial(
+            oneshot_service.localize_oneshot,
+            body,
+            recon_id=recon_id,
+            spec=spec,
+            sparse_dir=sparse_dir,
+            content_type=content_type or "application/octet-stream",
+        )
     )

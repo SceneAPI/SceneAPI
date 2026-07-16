@@ -473,7 +473,10 @@ async def import_artifact(
             )
         )
     ).scalar_one()
-    await session.commit()
+    # Flush, don't commit: services uniformly leave transaction
+    # ownership to the caller — the request-scoped session
+    # (app.db.session.get_db) commits on success.
+    await session.flush()
     return row
 
 

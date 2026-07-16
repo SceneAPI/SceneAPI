@@ -453,7 +453,22 @@ class BundleAdjustmentSpec(BaseModel):
     )
 
 
+# Canonical ``BundleAdjustmentSpec.mode`` -> gating-capability map.
+# Single source of truth imported by BOTH the web tier
+# (``app.services.sfm_stage_service``) and the worker
+# (``app.workers.tasks.ba``). Keep it next to the ``mode`` Literal
+# above: a new mode must land here with its capability in the same
+# change, so the two consumers can never drift.
+BA_MODE_CAPABILITIES: dict[str, str] = {
+    "standard": "ba.standard",
+    "two_stage": "ba.two_stage",
+    "featuremetric": "ba.featuremetric",
+    "rig": "ba.rig",
+}
+
+
 __all__ = [
+    "BA_MODE_CAPABILITIES",
     "BackendOptions",
     "BundleAdjustmentSpec",
     "FeatureType",

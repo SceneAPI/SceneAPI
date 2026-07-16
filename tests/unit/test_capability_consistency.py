@@ -29,7 +29,7 @@ import pytest
 
 from app.core.capabilities import ALL_KNOWN
 from app.core.processors import FEATURE_ATTRIBUTES
-from app.schemas.pipeline_spec import FeatureType
+from app.schemas.pipeline_spec import BA_MODE_CAPABILITIES, BundleAdjustmentSpec, FeatureType
 
 pytestmark = pytest.mark.unit
 
@@ -122,3 +122,23 @@ def test_feature_extractors_align_across_capabilities_schema_and_processors() ->
         str(value) for attr in FEATURE_ATTRIBUTES if attr.name == "type" for value in attr.enum
     }
     assert feature_types == capability_types == processor_types
+
+
+def test_ba_mode_capability_map_is_single_sourced() -> None:
+    """``BA_MODE_CAPABILITIES`` in ``app.schemas.pipeline_spec`` is the
+    one mode -> capability map; the web tier (sfm_stage_service) and
+    the worker (tasks.ba) must both use that object rather than carry
+    their own copy, and it must cover every ``BundleAdjustmentSpec.mode``
+    with a capability that exists in ``ALL_KNOWN``."""
+    from app.services import sfm_stage_service
+    from app.workers.tasks import ba
+
+    modes = set(get_args(BundleAdjustmentSpec.model_fields["mode"].annotation))
+    assert set(BA_MODE_CAPABILITIES) == modes, (
+        "BA_MODE_CAPABILITIES keys must exactly match BundleAdjustmentSpec.mode literals"
+    )
+    assert set(BA_MODE_CAPABILITIES.values()) <= ALL_KNOWN
+    assert sfm_stage_service.BA_MODE_CAPABILITIES is BA_MODE_CAPABILITIES
+    assert ba.BA_MODE_CAPABILITIES is BA_MODE_CAPABILITIES
+    for mode, capability in BA_MODE_CAPABILITIES.items():
+        assert sfm_stage_service._bundle_adjust_capability({"mode": mode}) == capability

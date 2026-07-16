@@ -29,8 +29,11 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
+from app.core.logging import get_logger
 from app.db.models import Job, JobEvent
 from app.db.session import get_session_factory
+
+_log = get_logger("sfmapi.ws_jobs")
 
 router = APIRouter(prefix="/ws/v1/jobs", tags=["jobs-ws"])
 
@@ -164,8 +167,11 @@ async def _pump_events(
             try:
                 await websocket.send_text(_json.dumps({"kind": "terminal", "status": job_status}))
                 await websocket.close(code=1000)
-            except Exception:
-                pass
+            except Exception as exc:
+                # Client usually vanished between the last event and the
+                # terminal frame — nothing to deliver to. Swallow (the
+                # stream is over either way) but leave a trace.
+                _log.debug("sfmapi.ws_terminal_send_failed", job_id=job_id, error=str(exc))
             return
         try:
             await asyncio.wait_for(stop.wait(), timeout=poll_interval)
