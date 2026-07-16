@@ -1,6 +1,6 @@
 """COLMAP command/action surface — the sfmapi core action standard.
 
-Companion to :mod:`app.core.colmap_db`. That module owns the COLMAP
+Companion to :mod:`sfmapi.contracts.colmap_db`. That module owns the COLMAP
 *data* format (the scene database); this one owns the COLMAP *command*
 surface: the ``action_id`` namespace COLMAP-family backends expose, the
 closed set of command categories, the read-only / GPU classification,

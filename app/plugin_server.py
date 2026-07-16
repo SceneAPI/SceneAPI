@@ -28,6 +28,7 @@ Compatibility is major-version based (:func:`protocol_compatible`).
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 
 PROTOCOL = "sfmapi-plugin-http-v1"
@@ -70,12 +71,46 @@ class TaskExecutor(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class ManifestBackend:
+    """Adapt a manifest-only plugin to the surface :func:`build_plugin_server`
+    reads.
+
+    Container-service plugins (the radiance trainers, for example) publish a
+    static plugin manifest and run their engine out of process -- they have no
+    in-process :class:`~app.adapters.backend.Backend` object to serve. This
+    adapter exposes the manifest's capability set (top-level ``capabilities``
+    plus every ``providers[].capabilities``) so the kit's capability
+    validation and catalog endpoints work unchanged; the extension catalogs
+    (datatypes / processors / pipelines) stay empty.
+    """
+
+    def __init__(
+        self,
+        manifest: Mapping[str, Any],
+        *,
+        version: str = "",
+        vendor: str | None = None,
+    ) -> None:
+        self._manifest = dict(manifest)
+        self.name = str(self._manifest.get("plugin_id", ""))
+        self.version = version
+        self.vendor = str(self._manifest.get("display_name", "")) if vendor is None else vendor
+
+    def capabilities(self) -> list[str]:
+        capabilities = {str(c) for c in self._manifest.get("capabilities") or []}
+        for provider in self._manifest.get("providers") or []:
+            if isinstance(provider, Mapping):
+                capabilities.update(str(c) for c in provider.get("capabilities") or [])
+        return sorted(capabilities)
+
+
 def build_plugin_server(
     backend: Any,
     *,
     plugin_id: str,
     package_version: str,
     executor: TaskExecutor,
+    runtime_info: Callable[[], Mapping[str, Any]] | None = None,
 ):
     """Build the ASGI app serving ``backend`` over ``sfmapi-plugin-http-v1``."""
     from fastapi import Body, FastAPI
@@ -136,8 +171,8 @@ def build_plugin_server(
         return {"status": "ok"}
 
     @app.get("/version")
-    async def version() -> dict[str, str]:
-        return {
+    async def version() -> dict[str, Any]:
+        body: dict[str, Any] = {
             "protocol": PROTOCOL,
             "protocol_version": PROTOCOL_VERSION,
             "plugin_id": plugin_id,
@@ -145,6 +180,9 @@ def build_plugin_server(
             "backend_version": str(getattr(backend, "version", "")),
             "capabilities_hash": capabilities_hash(caps),
         }
+        if runtime_info is not None:
+            body["runtime"] = dict(runtime_info())
+        return body
 
     @app.get("/capabilities")
     async def capabilities() -> dict[str, Any]:
@@ -290,6 +328,7 @@ def build_plugin_server(
 __all__ = [
     "PROTOCOL",
     "PROTOCOL_VERSION",
+    "ManifestBackend",
     "TaskExecutor",
     "build_plugin_server",
     "capabilities_hash",
