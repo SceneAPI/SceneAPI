@@ -55,9 +55,7 @@ class EffectiveDataflowRegistry:
         return self.data_type_aliases.get(type_id, type_id)
 
     def processor_for(self, processor_id: str) -> Processor | None:
-        return self._processors_by_id.get(
-            self.processor_aliases.get(processor_id, processor_id)
-        )
+        return self._processors_by_id.get(self.processor_aliases.get(processor_id, processor_id))
 
     def pipeline_for(self, pipeline_id: str) -> dict[str, object] | None:
         canonical = self.pipeline_aliases.get(pipeline_id, pipeline_id)
@@ -100,8 +98,7 @@ def _plugin_owned_id(plugin_id: str, local_id: str, core_ids: set[str] | frozens
         return local_id
     if "." in local_id:
         raise ValueError(
-            f"plugin-owned id {local_id!r} must be local or use the owning "
-            f"plugin prefix {prefix!r}"
+            f"plugin-owned id {local_id!r} must be local or use the owning plugin prefix {prefix!r}"
         )
     return f"{prefix}{local_id}"
 
@@ -229,9 +226,7 @@ def effective_registry(
         {plugin_id for plugin_id in plugin_ids if plugin_ids.count(plugin_id) > 1}
     )
     if duplicate_plugin_ids:
-        raise ValueError(
-            "duplicate active plugin id(s): " + ", ".join(duplicate_plugin_ids)
-        )
+        raise ValueError("duplicate active plugin id(s): " + ", ".join(duplicate_plugin_ids))
 
     data_types_by_id = dict(CORE_DATA_TYPES_BY_ID)
     plugin_data_types: list[DataType] = []
@@ -245,8 +240,7 @@ def effective_registry(
             type_id = _plugin_owned_id(manifest.plugin_id, row.type_id, core_datatype_ids)
             if type_id in data_types_by_id:
                 raise ValueError(
-                    f"duplicate active DataType {type_id!r} from plugin "
-                    f"{manifest.plugin_id!r}"
+                    f"duplicate active DataType {type_id!r} from plugin {manifest.plugin_id!r}"
                 )
             data_type = _datatype_from_manifest(row, type_id=type_id)
             data_types_by_id[type_id] = data_type
@@ -348,15 +342,14 @@ def effective_registry(
                         f"processor extension from plugin {manifest.plugin_id!r} "
                         f"duplicates input role {role!r} on "
                         f"{extension.processor_id!r}"
-                )
+                    )
                 special_inputs[role] = _port_from_manifest(
                     port,
                     datatype_map=datatype_map,
                 )
 
             existing_attrs = {
-                attr.name
-                for attr in (*processor.attributes, *processor.special_attributes)
+                attr.name for attr in (*processor.attributes, *processor.special_attributes)
             }
             special_attributes = list(processor.special_attributes)
             for attr in extension.special_attributes:
@@ -391,10 +384,7 @@ def effective_registry(
 
     processors = tuple(
         list(processors_by_id[processor.processor_id] for processor in CORE_PROCESSORS)
-        + [
-            processors_by_id[processor_id]
-            for processor_id in sorted(plugin_processor_ids)
-        ]
+        + [processors_by_id[processor_id] for processor_id in sorted(plugin_processor_ids)]
     )
 
     plugin_pipelines: list[dict[str, object]] = []
@@ -410,8 +400,7 @@ def effective_registry(
         processor_map = processor_maps_by_plugin[manifest.plugin_id]
         processor_attributes = {
             processor_id: {
-                attr.name: attr
-                for attr in (*processor.attributes, *processor.special_attributes)
+                attr.name: attr for attr in (*processor.attributes, *processor.special_attributes)
             }
             for processor_id, processor in processors_by_id.items()
         }
@@ -427,8 +416,7 @@ def effective_registry(
             )
             if pipeline_id in pipelines_by_id:
                 raise ValueError(
-                    f"duplicate active Pipeline {pipeline_id!r} from plugin "
-                    f"{manifest.plugin_id!r}"
+                    f"duplicate active Pipeline {pipeline_id!r} from plugin {manifest.plugin_id!r}"
                 )
             pipeline = _pipeline_from_manifest(
                 row,
@@ -451,22 +439,17 @@ def effective_registry(
             errors = core_pipelines.validate_pipeline(
                 steps,
                 initial_inputs=tuple(pipeline["initial_inputs"]),  # type: ignore[arg-type]
-                processor_lookup=lambda processor_id: processors_by_id.get(
-                    processor_id
-                ),
+                processor_lookup=lambda processor_id: processors_by_id.get(processor_id),
             )
             if errors:
                 detail = "; ".join(error.message for error in errors)
                 raise ValueError(
-                    f"plugin pipeline {pipeline_id!r} is invalid after "
-                    f"canonicalization: {detail}"
+                    f"plugin pipeline {pipeline_id!r} is invalid after canonicalization: {detail}"
                 )
             pipelines_by_id[pipeline_id] = pipeline
             plugin_pipelines.append(pipeline)
             if row.pipeline_id != pipeline_id and row.pipeline_id not in core_pipeline_ids:
-                pipeline_alias_candidates.setdefault(row.pipeline_id, set()).add(
-                    pipeline_id
-                )
+                pipeline_alias_candidates.setdefault(row.pipeline_id, set()).add(pipeline_id)
     for alias, targets in sorted(pipeline_alias_candidates.items()):
         if alias not in pipelines_by_id and len(targets) == 1:
             pipeline_aliases[alias] = next(iter(targets))
@@ -477,13 +460,10 @@ def effective_registry(
         pipeline["aliases"] = sorted(aliases_by_pipeline.get(str(pipeline["pipeline_id"]), []))
 
     return EffectiveDataflowRegistry(
-        data_types=tuple(CORE_DATA_TYPES) + tuple(
-            sorted(plugin_data_types, key=lambda item: item.type_id)
-        ),
+        data_types=tuple(CORE_DATA_TYPES)
+        + tuple(sorted(plugin_data_types, key=lambda item: item.type_id)),
         processors=processors,
-        pipelines=tuple(
-            sorted(plugin_pipelines, key=lambda item: str(item["pipeline_id"]))
-        ),
+        pipelines=tuple(sorted(plugin_pipelines, key=lambda item: str(item["pipeline_id"]))),
         data_type_aliases=data_type_aliases,
         processor_aliases=processor_aliases,
         pipeline_aliases=pipeline_aliases,

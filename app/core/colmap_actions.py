@@ -50,9 +50,7 @@ INPUT_SCHEMA_KIND = "cli"
 
 # Commands with no write side effects: idempotent, not long-running,
 # served with side_effects="read".
-READ_ONLY_COMMANDS = frozenset(
-    {"help", "version", "model_analyzer", "model_comparer"}
-)
+READ_ONLY_COMMANDS = frozenset({"help", "version", "model_analyzer", "model_comparer"})
 
 # Commands that do not require a GPU: the read-only set plus the CPU-only
 # database-maintenance command.
@@ -60,9 +58,7 @@ GPU_EXEMPT_COMMANDS = READ_ONLY_COMMANDS | {"database_cleaner"}
 
 # The closed set of categories :func:`category_for` may return. Pinned by
 # the contract so the served "category" field stays a known vocabulary.
-CATEGORIES = frozenset(
-    {"matching", "features", "mapping", "model", "dense", "database", "utility"}
-)
+CATEGORIES = frozenset({"matching", "features", "mapping", "model", "dense", "database", "utility"})
 
 
 def category_for(command: str) -> str:

@@ -113,9 +113,7 @@ def discovered_plugin_ids(*, load_manifests: bool = True) -> set[str]:
     ids = {plugin.plugin_id for plugin in discover_plugins(load=False)}
     if load_manifests:
         ids.update(
-            plugin.plugin_id
-            for plugin in discover_plugins(load=True)
-            if plugin.load_error is None
+            plugin.plugin_id for plugin in discover_plugins(load=True) if plugin.load_error is None
         )
     return ids
 

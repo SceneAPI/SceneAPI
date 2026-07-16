@@ -14,9 +14,7 @@ from sfm_hub.models import ContainerServiceRuntime, DockerRuntime
 MUTABLE_REFS = {"main", "master", "develop", "dev", "trunk"}
 COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 GITHUB_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
-PUBLIC_PACKAGE_RE = re.compile(
-    r"^[A-Za-z0-9_.-]+(?:\[[A-Za-z0-9_.-]+(?:,[A-Za-z0-9_.-]+)*\])?$"
-)
+PUBLIC_PACKAGE_RE = re.compile(r"^[A-Za-z0-9_.-]+(?:\[[A-Za-z0-9_.-]+(?:,[A-Za-z0-9_.-]+)*\])?$")
 PUBLIC_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 SENSITIVE_TEXT_RE = re.compile(
     r"(token|secret|password|authorization|bearer|api[_-]?key|access[_-]?key|"
@@ -25,9 +23,7 @@ SENSITIVE_TEXT_RE = re.compile(
 )
 
 
-def _container_service_direct_reference(
-    plugin_id: str, runtime: ContainerServiceRuntime
-) -> str:
+def _container_service_direct_reference(plugin_id: str, runtime: ContainerServiceRuntime) -> str:
     image = runtime.image
     if image is None:
         endpoint = runtime.service.default_url or f"${runtime.service.url_env}"
@@ -105,11 +101,7 @@ def parse_github_source(
     if len(parts) < 2:
         raise ValueError("GitHub URL must include owner and repository")
     owner, repo = parts[0], parts[1].removesuffix(".git")
-    if (
-        not GITHUB_NAME_RE.match(owner)
-        or not GITHUB_NAME_RE.match(repo)
-        or repo in {".", ".."}
-    ):
+    if not GITHUB_NAME_RE.match(owner) or not GITHUB_NAME_RE.match(repo) or repo in {".", ".."}:
         raise ValueError("GitHub URL must include a valid owner and repository")
     if len(parts) > 2:
         if len(parts) >= 4 and parts[2] == "tree":

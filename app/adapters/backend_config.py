@@ -9,7 +9,6 @@ those options through the stable ``backend_options`` envelope.
 from __future__ import annotations
 
 import inspect
-import re
 from collections.abc import Callable
 from typing import Any, Protocol
 from urllib.parse import quote

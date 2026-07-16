@@ -409,10 +409,7 @@ def test_backend_action_routing_uses_actions_profile(
     state.default_profile = "prefer-beta"
     save_state(state)
 
-    assert (
-        service._resolve_action_provider("echo.echo", None)
-        == "beta@beta_plugin"
-    )
+    assert service._resolve_action_provider("echo.echo", None) == "beta@beta_plugin"
 
 
 def test_backend_action_routing_uses_single_candidate(

@@ -14,7 +14,6 @@ from typing import Any
 
 from app.core.datatypes import is_data_type
 
-
 ATTRIBUTE_TYPES = ("int", "float", "bool", "str", "enum", "datatype-ref", "object")
 CONTRACT_NAME = "attributes"
 CONTRACT_SCHEMA_VERSION = 1
@@ -43,47 +42,31 @@ class Attribute:
         if self.type == "enum" and not self.enum:
             raise ValueError(f"enum attribute {self.name!r} must declare enum values")
         if self.type != "enum" and self.enum:
-            raise ValueError(
-                f"attribute {self.name!r} uses enum values but type is {self.type!r}"
-            )
+            raise ValueError(f"attribute {self.name!r} uses enum values but type is {self.type!r}")
         if self.enum and not all(isinstance(value, str) for value in self.enum):
-            raise ValueError(
-                f"attribute {self.name!r} enum values must be strings"
-            )
+            raise ValueError(f"attribute {self.name!r} enum values must be strings")
         if len(set(map(repr, self.enum))) != len(self.enum):
             raise ValueError(f"attribute {self.name!r} enum values must be unique")
-        if self.type not in {"int", "float"} and (
-            self.min is not None or self.max is not None
-        ):
-            raise ValueError(
-                f"attribute {self.name!r} min/max are only valid for numeric types"
-            )
+        if self.type not in {"int", "float"} and (self.min is not None or self.max is not None):
+            raise ValueError(f"attribute {self.name!r} min/max are only valid for numeric types")
         if self.min is not None and self.max is not None and self.min > self.max:
             raise ValueError(f"attribute {self.name!r} min must be <= max")
         if self.required and self.has_default:
-            raise ValueError(
-                f"attribute {self.name!r} cannot be required and defaulted"
-            )
+            raise ValueError(f"attribute {self.name!r} cannot be required and defaulted")
         if self.has_default:
             if self.default is None:
                 raise ValueError(f"attribute {self.name!r} default cannot be null")
             if not _type_ok(self, self.default, datatype_lookup=self.datatype_lookup):
-                raise ValueError(
-                    f"attribute {self.name!r} default must match type {self.type!r}"
-                )
+                raise ValueError(f"attribute {self.name!r} default must match type {self.type!r}")
             if (
                 self.type in {"int", "float"}
                 and isinstance(self.default, (int, float))
                 and not isinstance(self.default, bool)
             ):
                 if self.min is not None and self.default < self.min:
-                    raise ValueError(
-                        f"attribute {self.name!r} default must be >= min"
-                    )
+                    raise ValueError(f"attribute {self.name!r} default must be >= min")
                 if self.max is not None and self.default > self.max:
-                    raise ValueError(
-                        f"attribute {self.name!r} default must be <= max"
-                    )
+                    raise ValueError(f"attribute {self.name!r} default must be <= max")
 
     def contract_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {
@@ -124,10 +107,7 @@ def _type_ok(
     if attr.type == "int":
         return isinstance(value, int) and not isinstance(value, bool)
     if attr.type == "float":
-        return (
-            isinstance(value, (int, float))
-            and not isinstance(value, bool)
-        )
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
     if attr.type == "str":
         return isinstance(value, str)
     if attr.type == "enum":

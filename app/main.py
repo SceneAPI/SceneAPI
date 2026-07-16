@@ -15,8 +15,8 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -26,8 +26,8 @@ from app.core.config import Settings, get_settings
 from app.core.errors import SfmApiError
 from app.core.ids import new_id
 from app.core.logging import bind_request_context, configure_logging, get_logger
-from app.core.public_outputs import sanitize_public_outputs
 from app.core.profiling import RequestProfilingMiddleware
+from app.core.public_outputs import sanitize_public_outputs
 
 REQUEST_ID_HEADER = "X-Request-ID"
 

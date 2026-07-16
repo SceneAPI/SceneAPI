@@ -65,9 +65,8 @@ def _materialize_pairs_artifact(task: Task, artifact: dict[str, Any]) -> Path:
         raise ValidationError(f"input_artifacts.pairs.uri does not exist: {source}")
     artifact_format = str(artifact.get("artifact_format") or "")
     media_type = str(artifact.get("media_type") or "")
-    if (
-        artifact_format == "sfmapi.pairs.image_names.v1"
-        and (media_type == "application/json" or source.suffix.lower() == ".json")
+    if artifact_format == "sfmapi.pairs.image_names.v1" and (
+        media_type == "application/json" or source.suffix.lower() == ".json"
     ):
         stage = Paths(get_settings()).workspace_root / "_stage" / task.task_id
         stage.mkdir(parents=True, exist_ok=True)

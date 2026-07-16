@@ -328,8 +328,7 @@ def _reject_snapshot_links(root: Path) -> None:
                 except ValueError:
                     rel = child
                 raise ValidationError(
-                    "radiance_train snapshot_path must not contain symlinks or "
-                    f"junctions: {rel}"
+                    f"radiance_train snapshot_path must not contain symlinks or junctions: {rel}"
                 )
             if child.is_dir():
                 stack.append(child)
@@ -337,9 +336,7 @@ def _reject_snapshot_links(root: Path) -> None:
 
 def _write_json_if_absent(path: Path, payload: dict[str, Any]) -> None:
     if _is_symlink_or_junction(path):
-        raise ValidationError(
-            f"radiance_train metadata path is a symlink or junction: {path.name}"
-        )
+        raise ValidationError(f"radiance_train metadata path is a symlink or junction: {path.name}")
     if path.exists():
         return
     path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
@@ -381,9 +378,7 @@ def _seal_radiance_snapshot_path(
                 "radiance_train snapshot_path must reference an existing directory"
             )
         if _is_symlink_or_junction(provider):
-            raise ValidationError(
-                "radiance_train snapshot_path must not be a symlink or junction"
-            )
+            raise ValidationError("radiance_train snapshot_path must not be a symlink or junction")
         source = provider.resolve()
         if not source.is_dir():
             raise ValidationError("radiance_train snapshot_path must reference a directory")
@@ -396,8 +391,7 @@ def _seal_radiance_snapshot_path(
             and not _path_is_under(source, live_root)
         ):
             raise ValidationError(
-                "radiance_train snapshot_path must stay under the current "
-                "radiance field root"
+                "radiance_train snapshot_path must stay under the current radiance field root"
             )
         _reject_snapshot_links(source)
         if source != managed_resolved:

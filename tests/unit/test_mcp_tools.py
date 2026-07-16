@@ -321,9 +321,9 @@ def test_mcp_standalone_loads_backend_plugins(
     monkeypatch.setattr(
         discovery,
         "load_backend_entry_points",
-        lambda register_backend, register_provider: print("plugin stdout")
-        or calls.append((register_backend, register_provider))
-        or [],
+        lambda register_backend, register_provider: (
+            print("plugin stdout") or calls.append((register_backend, register_provider)) or []
+        ),
     )
     reset_settings_for_tests(auto_load_backend_plugins=True)
     try:

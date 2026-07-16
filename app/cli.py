@@ -251,12 +251,14 @@ def _scaffold_contract(args: argparse.Namespace) -> None:
     print()
     print("Next steps:")
     print(f"  1. flesh out contract_dict() in app/core/{args.name}.py with the real standard")
-    print(f"  2. register it in sfmapi-cpp/tools/gen_contracts.py:")
+    print("  2. register it in sfmapi-cpp/tools/gen_contracts.py:")
     print(f"       from app.core import {args.name}")
     print(f"       CONTRACTS = {{..., {args.name}.CONTRACT_NAME: {args.name}.contract_dict}}")
     print("  3. run:  uv run python ../sfmapi-cpp/tools/gen_contracts.py")
-    print("  4. commit the app/core module, the test, and the generated "
-          "parity/contracts + src/contracts artifacts.")
+    print(
+        "  4. commit the app/core module, the test, and the generated "
+        "parity/contracts + src/contracts artifacts."
+    )
     print("  The contract-coverage gate enforces all four are present.")
 
 

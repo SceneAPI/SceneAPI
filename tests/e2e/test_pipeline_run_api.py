@@ -18,46 +18,56 @@ def _install_typed_plugin(monkeypatch: pytest.MonkeyPatch) -> None:
     from sfm_hub.models import PluginManifest
     from sfm_hub.state import record_manual_install
 
-    manifest = PluginManifest.model_validate({
-        "schema_version": 1,
-        "plugin_id": "typed",
-        "display_name": "Typed test plugin",
-        "description": "Typed-dataflow extension fixture.",
-        "package_name": "typed-plugin",
-        "github_url": "https://github.com/example/typed-plugin",
-        "entry_points": ["typed_plugin:plugin"],
-        "providers": [{
-            "provider_id": "typed",
-            "display_name": "Typed",
+    manifest = PluginManifest.model_validate(
+        {
+            "schema_version": 1,
+            "plugin_id": "typed",
+            "display_name": "Typed test plugin",
+            "description": "Typed-dataflow extension fixture.",
+            "package_name": "typed-plugin",
+            "github_url": "https://github.com/example/typed-plugin",
+            "entry_points": ["typed_plugin:plugin"],
+            "providers": [
+                {
+                    "provider_id": "typed",
+                    "display_name": "Typed",
+                    "capabilities": ["radiance.train"],
+                }
+            ],
+            "runtime_modes": {
+                "uv": {
+                    "url": "https://github.com/example/typed-plugin",
+                    "package": "typed-plugin",
+                }
+            },
             "capabilities": ["radiance.train"],
-        }],
-        "runtime_modes": {
-            "uv": {
-                "url": "https://github.com/example/typed-plugin",
-                "package": "typed-plugin",
-            }
-        },
-        "capabilities": ["radiance.train"],
-        "datatypes": [{
-            "type_id": "typed_field",
-            "title": "Typed field",
-            "kind": "artifact",
-            "description": "Plugin-owned field.",
-        }],
-        "processors": [{
-            "processor_id": "train",
-            "title": "Typed train",
-            "consumer": {"model": {"datatype": "sparse_model"}},
-            "supplier": {"field": {"datatype": "typed_field"}},
-            "attributes": [{
-                "name": "method",
-                "type": "enum",
-                "enum": ["splat"],
-                "default": "splat",
-            }],
-            "capabilities": ["radiance.train"],
-        }],
-    })
+            "datatypes": [
+                {
+                    "type_id": "typed_field",
+                    "title": "Typed field",
+                    "kind": "artifact",
+                    "description": "Plugin-owned field.",
+                }
+            ],
+            "processors": [
+                {
+                    "processor_id": "train",
+                    "title": "Typed train",
+                    "consumer": {"model": {"datatype": "sparse_model"}},
+                    "supplier": {"field": {"datatype": "typed_field"}},
+                    "attributes": [
+                        {
+                            "name": "method",
+                            "type": "enum",
+                            "enum": ["splat"],
+                            "default": "splat",
+                        }
+                    ],
+                    "capabilities": ["radiance.train"],
+                }
+            ],
+        }
+    )
     monkeypatch.setattr(
         dataflow_registry_service.plugin_registry,
         "list_manifests",
@@ -102,8 +112,11 @@ async def test_valid_legacy_pipeline_submits_job(client) -> None:
         json={
             "dataset_id": did,
             "steps": [
-                {"op": "features"}, {"op": "pairs"}, {"op": "matches"},
-                {"op": "verify"}, {"op": "map"},
+                {"op": "features"},
+                {"op": "pairs"},
+                {"op": "matches"},
+                {"op": "verify"},
+                {"op": "map"},
             ],
         },
     )
@@ -120,8 +133,7 @@ async def test_valid_legacy_string_pipeline_submits_job(client) -> None:
     pid, did = await _setup(client)
     resp = await client.post(
         f"/v1/projects/{pid}/pipelines:run",
-        json={"dataset_id": did,
-              "steps": ["features", "pairs", "matches", "verify", "map"]},
+        json={"dataset_id": did, "steps": ["features", "pairs", "matches", "verify", "map"]},
     )
     assert resp.status_code == 202, resp.text
     assert len(resp.json()["task_ids"]) == 4
@@ -152,11 +164,13 @@ async def test_plugin_processor_is_validated_before_executor_501(
         json={
             "dataset_id": did,
             "initial_inputs": ["sparse_model"],
-            "steps": [{
-                "ref": "train",
-                "processor": "typed.train",
-                "attributes": {"method": "splat"},
-            }],
+            "steps": [
+                {
+                    "ref": "train",
+                    "processor": "typed.train",
+                    "attributes": {"method": "splat"},
+                }
+            ],
         },
     )
     assert resp.status_code == 501, resp.text
@@ -235,7 +249,9 @@ async def test_valid_legacy_params_keep_flat_wiring_then_submit(client) -> None:
             "dataset_id": did,
             "steps": [
                 {"op": "features", "params": {"type": "sift"}},
-                {"op": "pairs"}, {"op": "matches"}, {"op": "verify"},
+                {"op": "pairs"},
+                {"op": "matches"},
+                {"op": "verify"},
                 {"op": "map"},
             ],
         },
@@ -338,8 +354,10 @@ async def test_processor_steps_use_named_port_graph_not_legacy_projection(client
         json={
             "dataset_id": did,
             "steps": [
-                {"processor": "features"}, {"processor": "pairs"},
-                {"processor": "matches"}, {"processor": "verify"},
+                {"processor": "features"},
+                {"processor": "pairs"},
+                {"processor": "matches"},
+                {"processor": "verify"},
                 {"processor": "map"},
             ],
         },
@@ -353,8 +371,7 @@ async def test_unknown_dataset_is_rejected_before_submit(client) -> None:
     pid = pr.json()["project_id"]
     resp = await client.post(
         f"/v1/projects/{pid}/pipelines:run",
-        json={"dataset_id": "00000000000000000000000000",
-              "steps": [{"op": "features"}]},
+        json={"dataset_id": "00000000000000000000000000", "steps": [{"op": "features"}]},
     )
     assert resp.status_code == 404
     assert "Dataset 00000000000000000000000000 not found" in resp.text

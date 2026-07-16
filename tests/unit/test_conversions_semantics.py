@@ -30,9 +30,8 @@ def test_cross_format_coercion_is_type_preserving() -> None:
 def test_cross_type_bridge_must_be_explicit() -> None:
     # Nominal typing: a type break is rejected (no implicit coercion)...
     broken = pipelines.validate_pipeline(["features", "map"])
-    assert broken and "match_graph" in broken[0].message
+    assert broken
+    assert "match_graph" in broken[0].message
     # ...and is bridged only by inserting the operations that PRODUCE the
     # missing type (matches/verify produce match_graph) -- an explicit step.
-    assert pipelines.validate_pipeline(
-        ["features", "pairs", "matches", "verify", "map"]
-    ) == []
+    assert pipelines.validate_pipeline(["features", "pairs", "matches", "verify", "map"]) == []

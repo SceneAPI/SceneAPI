@@ -17,8 +17,8 @@ from app.core.errors import NotFoundError
 from app.core.ids import new_id
 from app.db.models import Job, Task
 from app.orchestrator.dag import TaskNode
-from app.services import artifact_service
 from app.orchestrator.lease import now_utc
+from app.services import artifact_service
 
 
 async def create_job(

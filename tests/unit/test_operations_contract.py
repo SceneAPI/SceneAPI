@@ -34,9 +34,10 @@ def test_operation_capability_families_are_valid_and_disjoint() -> None:
     claimed: dict[str, str] = {}
     for op in ops.CORE_OPERATIONS:
         for family in op.capabilities:
-            assert any(
-                c == family or c.startswith(family + ".") for c in ALL_KNOWN
-            ), (op.op_id, family)
+            assert any(c == family or c.startswith(family + ".") for c in ALL_KNOWN), (
+                op.op_id,
+                family,
+            )
             assert family not in claimed, (family, claimed[family], op.op_id)
             claimed[family] = op.op_id
 
@@ -71,7 +72,12 @@ def test_pipeline_data_operations_cover_the_sfm_families() -> None:
     families = {f for op in ops.CORE_OPERATIONS for f in op.capabilities}
     # the SfM spine + the modeled post-processing
     assert {
-        "features.extract", "pairs", "matchers", "map", "ba", "triangulate",
+        "features.extract",
+        "pairs",
+        "matchers",
+        "map",
+        "ba",
+        "triangulate",
     } <= families
 
 
@@ -122,7 +128,9 @@ def test_operation_for_capability_inverse() -> None:
 def test_operations_for_provider_capability_set() -> None:
     # the typed view of a provider, derived from its capability set
     caps = {
-        "features.extract.sift", "matchers.superglue", "map.incremental",
+        "features.extract.sift",
+        "matchers.superglue",
+        "map.incremental",
         "projects.crud",  # infra -- ignored
     }
     assert ops.operations_for_capabilities(caps) == {"features", "matches", "map"}
@@ -134,8 +142,13 @@ def test_post_processing_operations_preserve_sparse_model() -> None:
     # refined/merged/georegistered are provenance, not distinct types. This pins
     # the decision so a future "distinguish the outputs" change is deliberate.
     post = {
-        "triangulate", "refine", "optimize_poses", "relocalize",
-        "merge", "georegister", "undistort",
+        "triangulate",
+        "refine",
+        "optimize_poses",
+        "relocalize",
+        "merge",
+        "georegister",
+        "undistort",
     }
     for op_id in post:
         op = ops.OPERATIONS_BY_ID[op_id]
@@ -147,9 +160,7 @@ def test_contract_dict_is_json_serializable_and_self_describing() -> None:
     payload = ops.contract_dict()
     assert json.loads(json.dumps(payload)) == payload
     assert payload["contract"] == ops.CONTRACT_NAME == "operations"
-    assert [o["op_id"] for o in payload["operations"]] == [
-        op.op_id for op in ops.CORE_OPERATIONS
-    ]
+    assert [o["op_id"] for o in payload["operations"]] == [op.op_id for op in ops.CORE_OPERATIONS]
 
 
 def test_core_contract_does_not_import_plugin() -> None:

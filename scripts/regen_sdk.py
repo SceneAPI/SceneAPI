@@ -111,14 +111,14 @@ def _replace_once(text: str, old: str, new: str, path: Path) -> str:
     count = text.count(old)
     if count != 1:
         raise RuntimeError(
-            f"expected exactly one generated SDK patch target in {path}: {old!r}; "
-            f"found {count}"
+            f"expected exactly one generated SDK patch target in {path}: {old!r}; found {count}"
         )
     return text.replace(old, new)
 
 
 def _patch_pipeline_step_models() -> None:
     """Keep generated pipeline models ergonomic across client regenerations."""
+
     def patch_file(path: Path, reps: dict[str, str]) -> None:
         if not path.is_file():
             raise FileNotFoundError(f"generated SDK patch target missing: {path}")
@@ -129,16 +129,15 @@ def _patch_pipeline_step_models() -> None:
 
     dict_reps = {
         "attributes = self.attributes.to_dict()": (
-            "attributes = self.attributes.to_dict() if hasattr(self.attributes, \"to_dict\") "
+            'attributes = self.attributes.to_dict() if hasattr(self.attributes, "to_dict") '
             "else dict(self.attributes)"
         ),
         "params = self.params.to_dict()": (
-            "params = self.params.to_dict() if hasattr(self.params, \"to_dict\") "
+            'params = self.params.to_dict() if hasattr(self.params, "to_dict") '
             "else dict(self.params)"
         ),
         "wires = self.wires.to_dict()": (
-            "wires = self.wires.to_dict() if hasattr(self.wires, \"to_dict\") "
-            "else dict(self.wires)"
+            'wires = self.wires.to_dict() if hasattr(self.wires, "to_dict") else dict(self.wires)'
         ),
     }
     patch_file(OUT_DIR / "models" / "processor_pipeline_step.py", dict_reps)
@@ -149,7 +148,7 @@ def _patch_pipeline_step_models() -> None:
     pipeline_params_path = OUT_DIR / "models" / "pipeline_step_params.py"
     step_reps = {
         "params = self.params.to_dict()": (
-            "params = self.params.to_dict() if hasattr(self.params, \"to_dict\") "
+            'params = self.params.to_dict() if hasattr(self.params, "to_dict") '
             "else dict(self.params)"
         ),
     }
@@ -157,26 +156,26 @@ def _patch_pipeline_step_models() -> None:
         patch_file(legacy_path, step_reps)
         pipeline_path.write_text(
             "from .legacy_operation_step import LegacyOperationStep as PipelineStep\n\n"
-            "__all__ = [\"PipelineStep\"]\n",
+            '__all__ = ["PipelineStep"]\n',
             encoding="utf-8",
         )
         pipeline_params_path.write_text(
             "from .legacy_operation_step_params import LegacyOperationStepParams as PipelineStepParams\n\n"
-            "__all__ = [\"PipelineStepParams\"]\n",
+            '__all__ = ["PipelineStepParams"]\n',
             encoding="utf-8",
         )
     elif pipeline_path.is_file():
         patch_file(pipeline_path, step_reps)
         legacy_path.write_text(
             "from .pipeline_step import PipelineStep as LegacyOperationStep\n\n"
-            "__all__ = [\"LegacyOperationStep\"]\n",
+            '__all__ = ["LegacyOperationStep"]\n',
             encoding="utf-8",
         )
         if not pipeline_params_path.is_file():
             raise FileNotFoundError(f"generated SDK patch target missing: {pipeline_params_path}")
         legacy_params_path.write_text(
             "from .pipeline_step_params import PipelineStepParams as LegacyOperationStepParams\n\n"
-            "__all__ = [\"LegacyOperationStepParams\"]\n",
+            '__all__ = ["LegacyOperationStepParams"]\n',
             encoding="utf-8",
         )
     else:
@@ -252,9 +251,13 @@ def _patch_documented_problem_responses() -> None:
         next_def = text.find("\ndef ", fn_start + 1)
         fn_end = len(text) if next_def < 0 else next_def
         fn_text = text[fn_start:fn_end]
-        guard_count = fn_text.count("response.status_code >= 400 and client.raise_on_unexpected_status")
+        guard_count = fn_text.count(
+            "response.status_code >= 400 and client.raise_on_unexpected_status"
+        )
         if guard_count > 1:
-            raise RuntimeError(f"expected one problem-response guard in {path}, found {guard_count}")
+            raise RuntimeError(
+                f"expected one problem-response guard in {path}, found {guard_count}"
+            )
         if guard_count == 1:
             continue
         idx = text.find(needle, fn_start, fn_end)
@@ -300,7 +303,11 @@ def _patch_mixed_json_file_responses() -> None:
     def _ensure_bytes_io_import(text: str) -> str:
         if "from io import BytesIO\n" in text:
             return text
-        return text.replace("from http import HTTPStatus\n", "from http import HTTPStatus\nfrom io import BytesIO\n", 1)
+        return text.replace(
+            "from http import HTTPStatus\n",
+            "from http import HTTPStatus\nfrom io import BytesIO\n",
+            1,
+        )
 
     targets = [
         (
@@ -332,8 +339,8 @@ def _patch_mixed_json_file_responses() -> None:
     )
     new_parse = (
         "    if response.status_code == 200:\n"
-        "        content_type = response.headers.get(\"content-type\", \"\").split(\";\", 1)[0].strip().lower()\n"
-        "        if content_type == \"application/json\":\n"
+        '        content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()\n'
+        '        if content_type == "application/json":\n'
         "            response_200 = response.json()\n"
         "        else:\n"
         "            response_200 = File(payload=BytesIO(response.content))\n\n"
@@ -477,7 +484,9 @@ def _patch_ts_artifact_conversion_targets(path: Path) -> None:
         if "accepted_formats?: [string, ...string[]];" in old_block and "} & ({" in old_block:
             return text
         if "accepted_formats?: string[];" not in old_block:
-            raise RuntimeError(f"generated TypeScript {label} accepted_formats field missing in {path}")
+            raise RuntimeError(
+                f"generated TypeScript {label} accepted_formats field missing in {path}"
+            )
         return text[:start] + new_block + text[end:]
 
     text = path.read_text(encoding="utf-8")

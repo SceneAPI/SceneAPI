@@ -16,8 +16,8 @@ BYTE-FOR-BYTE so the served job shape is identical across tiers:
 
 from __future__ import annotations
 
-import os
 import ipaddress
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -30,9 +30,7 @@ _PUBLIC_URL_RE = re.compile(
     re.IGNORECASE,
 )
 _PUBLIC_WIN_PATH_RE = re.compile(r"\b[A-Za-z]:[\\/][^\s\"')>,]+")
-_PUBLIC_POSIX_PATH_RE = re.compile(
-    r"(?<![\w.:/])/(?!v\d+(?:/|$)|/)[^\s\"')>,;]*"
-)
+_PUBLIC_POSIX_PATH_RE = re.compile(r"(?<![\w.:/])/(?!v\d+(?:/|$)|/)[^\s\"')>,;]*")
 _PUBLIC_BACKSLASH_PATH_RE = re.compile(r"(?<![\w.:/\\])\\[^\s\"')>,;]*")
 _PUBLIC_DROP_KEY_RE = re.compile(
     r"(host_?path|local_?path|sealed_?path|workspace|mount|env|secret|token|password|"
@@ -81,9 +79,7 @@ def _contains_public_private_marker(text: str) -> bool:
 
 def _legacy_numeric_ipv4_host(normalized: str) -> bool:
     labels = normalized.split(".")
-    return len(labels) > 1 and all(
-        _LEGACY_IPV4_LABEL_RE.fullmatch(label) for label in labels
-    )
+    return len(labels) > 1 and all(_LEGACY_IPV4_LABEL_RE.fullmatch(label) for label in labels)
 
 
 def _remote_query_pairs(query: str) -> list[tuple[str, str]]:
@@ -180,7 +176,7 @@ def _is_local_artifact_reference(value: str) -> bool:
 
 def _base_name(p: str) -> str:
     i = max(p.rfind("/"), p.rfind("\\"))
-    return p if i == -1 else p[i + 1:]
+    return p if i == -1 else p[i + 1 :]
 
 
 def _local_reference_path(value: str) -> Path | None:
@@ -191,7 +187,12 @@ def _local_reference_path(value: str) -> Path | None:
         raw_path = unquote(parsed.path)
         if parsed.netloc:
             raw_path = f"//{parsed.netloc}{raw_path}"
-        if len(raw_path) >= 3 and raw_path[0] == "/" and raw_path[1].isalpha() and raw_path[2] == ":":
+        if (
+            len(raw_path) >= 3
+            and raw_path[0] == "/"
+            and raw_path[1].isalpha()
+            and raw_path[2] == ":"
+        ):
             raw_path = raw_path[1:]
         return Path(raw_path)
     if _has_url_scheme(value):
@@ -255,18 +256,10 @@ def _private_network_artifact_host(parsed: Any) -> bool:
     try:
         ip = ipaddress.ip_address(normalized)
     except ValueError:
-        if (
-            re.fullmatch(r"[0-9.]+", normalized)
-            or _legacy_numeric_ipv4_host(normalized)
-        ):
-            return True
-        return False
-    shared_carrier_nat = (
-        ip.version == 4
-        and ipaddress.IPv4Address("100.64.0.0")
-        <= ip
-        <= ipaddress.IPv4Address("100.127.255.255")
-    )
+        return bool(re.fullmatch(r"[0-9.]+", normalized) or _legacy_numeric_ipv4_host(normalized))
+    shared_carrier_nat = ip.version == 4 and ipaddress.IPv4Address(
+        "100.64.0.0"
+    ) <= ip <= ipaddress.IPv4Address("100.127.255.255")
     return (
         shared_carrier_nat
         or ip.is_private
@@ -386,8 +379,10 @@ def _redact_public_text(value: Any, *, key: str | None = None) -> str:
     text = _PUBLIC_WIN_PATH_RE.sub("<redacted>", text)
     text = _PUBLIC_POSIX_PATH_RE.sub("<redacted>", text)
     text = _PUBLIC_BACKSLASH_PATH_RE.sub("<redacted>", text)
-    if hard_private or (had_url_or_path and not raw_had_url_or_path) or (
-        key_sensitive and had_url_or_path
+    if (
+        hard_private
+        or (had_url_or_path and not raw_had_url_or_path)
+        or (key_sensitive and had_url_or_path)
     ):
         return "<redacted>"
     return text[:2000]
@@ -445,17 +440,13 @@ def sanitize_public_artifact_file_refs(
         if isinstance(uri, str):
             if _is_local_artifact_reference(uri):
                 public_uri = (
-                    public_content_href
-                    if _same_local_reference(uri, public_content_path)
-                    else None
+                    public_content_href if _same_local_reference(uri, public_content_path) else None
                 )
             else:
                 public_uri = sanitize_public_artifact_uri(uri)
         elif isinstance(path, str) and _is_local_artifact_reference(path):
             public_uri = (
-                public_content_href
-                if _same_local_reference(path, public_content_path)
-                else None
+                public_content_href if _same_local_reference(path, public_content_path) else None
             )
         if not name:
             for candidate in (path, uri):
@@ -497,9 +488,7 @@ def _sanitize_public_outputs(
     out: dict[str, Any] = {}
     for key, child in value.items():
         text_key = str(key)
-        if _PUBLIC_DROP_KEY_RE.search(text_key) or _contains_public_private_marker(
-            text_key
-        ):
+        if _PUBLIC_DROP_KEY_RE.search(text_key) or _contains_public_private_marker(text_key):
             continue
         if key in ("host_path", "workspace"):
             continue
@@ -537,15 +526,10 @@ def _sanitize_public_outputs(
             out[key] = _redact_public_text(child, key=text_key)
             continue
         if key == "artifacts" and isinstance(child, list):
-            out[key] = [
-                _sanitize_public_outputs(item, _artifact_descriptor=True)
-                for item in child
-            ]
+            out[key] = [_sanitize_public_outputs(item, _artifact_descriptor=True) for item in child]
             continue
         if _artifact_descriptor and key == "files" and isinstance(child, list):
-            out[key] = [
-                _sanitize_public_outputs(item, _file_ref=True) for item in child
-            ]
+            out[key] = [_sanitize_public_outputs(item, _file_ref=True) for item in child]
             continue
         if _artifact_descriptor and key == "metadata" and isinstance(child, dict):
             out[key] = _sanitize_public_outputs(child, _artifact_descriptor=True)
@@ -583,9 +567,7 @@ def _sanitize_public_artifact_metadata_value(
         public_dict: dict[str, Any] = {}
         for item_key, item in value.items():
             text_key = str(item_key)
-            if _PUBLIC_DROP_KEY_RE.search(text_key) or _contains_public_private_marker(
-                text_key
-            ):
+            if _PUBLIC_DROP_KEY_RE.search(text_key) or _contains_public_private_marker(text_key):
                 continue
             public_item = _sanitize_public_artifact_metadata_value(
                 item,
@@ -627,11 +609,11 @@ def sanitize_public_error(value: Any) -> dict[str, Any] | None:
 
 
 __all__ = [
-    "sanitize_public_artifact_metadata",
     "sanitize_public_artifact_file_refs",
+    "sanitize_public_artifact_metadata",
+    "sanitize_public_artifact_metadata_dict",
     "sanitize_public_artifact_name",
     "sanitize_public_artifact_uri",
-    "sanitize_public_artifact_metadata_dict",
     "sanitize_public_error",
     "sanitize_public_error_message",
     "sanitize_public_outputs",

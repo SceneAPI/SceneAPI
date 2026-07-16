@@ -20,16 +20,15 @@ opt-in flag is needed.
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import sys
 
 # Force ephemeral mode for self-contained boot + plugin discovery.
 os.environ.setdefault("SFMAPI_EPHEMERAL", "true")
 
-from httpx import ASGITransport, AsyncClient  # noqa: E402
+from httpx import ASGITransport, AsyncClient
 
-from app.main import create_app  # noqa: E402
+from app.main import create_app
 
 
 def heading(title: str) -> None:
@@ -88,14 +87,16 @@ async def main() -> None:
             assert r2.status_code == 200, r2.text
             plugin_ids = sorted(item["plugin_id"] for item in r2.json()["items"])
             colmap_row = next(it for it in r2.json()["items"] if it["plugin_id"] == "colmap_cli")
-            rc_row = next(
-                it for it in r2.json()["items"] if it["plugin_id"] == "realityscan_cli"
-            )
+            rc_row = next(it for it in r2.json()["items"] if it["plugin_id"] == "realityscan_cli")
             print(f"registry plugins ({len(plugin_ids)}): {plugin_ids}")
-            print(f"  colmap_cli:      installed={colmap_row['installed']} enabled={colmap_row['enabled']}")
+            print(
+                f"  colmap_cli:      installed={colmap_row['installed']} enabled={colmap_row['enabled']}"
+            )
             print(f"  realityscan_cli: installed={rc_row['installed']} enabled={rc_row['enabled']}")
-            assert colmap_row["installed"] and colmap_row["enabled"]
-            assert rc_row["installed"] and rc_row["enabled"]
+            assert colmap_row["installed"]
+            assert colmap_row["enabled"]
+            assert rc_row["installed"]
+            assert rc_row["enabled"]
 
             heading("Layer 6 — HTTP discovery (/v1/backend/providers)")
             r3 = await client.get("/v1/backend/providers")
@@ -164,15 +165,14 @@ async def main() -> None:
                     assert submit.status_code == 422, body
                     detail = str(body.get("detail") or "")
                     print(f"  provider={provider!r} -> 422 detail={detail[:140]!r}")
-                    assert provider in detail and "candidates" in detail, (
+                    assert provider in detail, f"422 body did not name the provider: {body}"
+                    assert "candidates" in detail, (
                         f"422 body did not list alternative candidates: {body}"
                     )
                     # The candidates list MUST include colmap_cli (which
                     # IS enabled for features), proving routing knows about
                     # both plugins simultaneously.
-                    assert "colmap_cli" in detail, (
-                        f"candidates list missing colmap_cli: {body}"
-                    )
+                    assert "colmap_cli" in detail, f"candidates list missing colmap_cli: {body}"
 
         heading("Result")
         print("OK — two plugins coexist in one sfmapi instance and route independently.")

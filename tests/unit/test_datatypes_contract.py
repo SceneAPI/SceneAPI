@@ -12,7 +12,8 @@ def test_type_ids_are_unique_and_well_kinded() -> None:
     assert len(ids) == len(set(ids)), "duplicate type_id"
     for t in dt.CORE_DATA_TYPES:
         assert t.kind in dt.DATA_TYPE_KINDS, (t.type_id, t.kind)
-        assert t.title and t.description
+        assert t.title
+        assert t.description
     assert dt.CORE_DATA_TYPES_BY_ID.keys() == set(ids)
 
 
@@ -22,7 +23,11 @@ def test_pipeline_vocabulary_present() -> None:
         by_kind.setdefault(t.kind, set()).add(t.type_id)
     assert {"image_sequence", "camera", "camera_collection"} <= by_kind["scene_input"]
     assert {
-        "feature_set", "pair_set", "match_graph", "sparse_model", "projection",
+        "feature_set",
+        "pair_set",
+        "match_graph",
+        "sparse_model",
+        "projection",
     } <= by_kind["artifact"]
 
 
@@ -31,9 +36,7 @@ def test_contract_dict_is_json_serializable_and_self_describing() -> None:
     assert json.loads(json.dumps(payload)) == payload
     assert payload["contract"] == dt.CONTRACT_NAME == "datatypes"
     assert payload["contract_schema_version"] == dt.CONTRACT_SCHEMA_VERSION
-    assert [t["type_id"] for t in payload["types"]] == [
-        t.type_id for t in dt.CORE_DATA_TYPES
-    ]
+    assert [t["type_id"] for t in payload["types"]] == [t.type_id for t in dt.CORE_DATA_TYPES]
 
 
 def test_core_contract_does_not_import_plugin() -> None:

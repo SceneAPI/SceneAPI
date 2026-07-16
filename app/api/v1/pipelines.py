@@ -254,16 +254,18 @@ def _legacy_sfm_specs(
     if spec_model is None:
         raise ValidationError(
             f"unsupported legacy mapping kind: {kind}",
-            errors=[{
-                "loc": ["body", "steps", map_index, "params", "kind"],
-                "msg": f"unsupported legacy mapping kind: {kind}",
-                "type": "invalid_attribute",
-                "ctx": {
-                    "where": f"step {map_index} 'map'",
-                    "reason": "invalid_attribute",
-                    "path": f"steps.{map_index}.params.kind",
-                },
-            }],
+            errors=[
+                {
+                    "loc": ["body", "steps", map_index, "params", "kind"],
+                    "msg": f"unsupported legacy mapping kind: {kind}",
+                    "type": "invalid_attribute",
+                    "ctx": {
+                        "where": f"step {map_index} 'map'",
+                        "reason": "invalid_attribute",
+                        "path": f"steps.{map_index}.params.kind",
+                    },
+                }
+            ],
         )
     try:
         pipeline_spec = spec_model.model_validate(raw_map_spec).model_dump(mode="json")
@@ -285,27 +287,31 @@ def _legacy_spec_validation_error(
         if loc_parts and first_msg == "invalid legacy stage parameters":
             first_msg = str(err.get("msg") or first_msg)
         path = ".".join(["steps", str(index), "params", *loc_parts])
-        errors.append({
-            "loc": ["body", "steps", index, "params", *loc],
-            "msg": err.get("msg", "invalid legacy stage parameters"),
-            "type": "invalid_attribute",
-            "ctx": {
-                "where": f"step {index} '{op_id}'",
-                "reason": "invalid_attribute",
-                "path": path,
-            },
-        })
+        errors.append(
+            {
+                "loc": ["body", "steps", index, "params", *loc],
+                "msg": err.get("msg", "invalid legacy stage parameters"),
+                "type": "invalid_attribute",
+                "ctx": {
+                    "where": f"step {index} '{op_id}'",
+                    "reason": "invalid_attribute",
+                    "path": path,
+                },
+            }
+        )
     if not errors:
-        errors.append({
-            "loc": ["body", "steps", index, "params"],
-            "msg": first_msg,
-            "type": "invalid_attribute",
-            "ctx": {
-                "where": f"step {index} '{op_id}'",
-                "reason": "invalid_attribute",
-                "path": f"steps.{index}.params",
-            },
-        })
+        errors.append(
+            {
+                "loc": ["body", "steps", index, "params"],
+                "msg": first_msg,
+                "type": "invalid_attribute",
+                "ctx": {
+                    "where": f"step {index} '{op_id}'",
+                    "reason": "invalid_attribute",
+                    "path": f"steps.{index}.params",
+                },
+            }
+        )
     return ValidationError(
         f"pipeline failed type-check: step {index} '{op_id}': {first_msg}",
         errors=errors,
@@ -325,7 +331,7 @@ def _pipeline_validation_payload(
             part = parts[i]
             loc.append(int(part) if part.isdigit() else part)
             if part in {"attributes", "wires"} and i + 1 < len(parts):
-                loc.append(".".join(parts[i + 1:]))
+                loc.append(".".join(parts[i + 1 :]))
                 break
             i += 1
         return loc
@@ -378,14 +384,10 @@ async def run_pipeline(
     yet, so type-valid native requests return 501 after project/dataset
     validation rather than creating jobs that would fail later as ``UnknownTask``.
     """
-    await project_service.get_project(
-        session, tenant_id=tenant_id, project_id=project_id
-    )
+    await project_service.get_project(session, tenant_id=tenant_id, project_id=project_id)
     normalized_steps = core_steps(body.steps)
     registry = _effective_registry_or_error()
-    initial_inputs = tuple(
-        registry.canonical_datatype(type_id) for type_id in body.initial_inputs
-    )
+    initial_inputs = tuple(registry.canonical_datatype(type_id) for type_id in body.initial_inputs)
     input_errors = _initial_input_errors(
         initial_inputs,
         datatype_lookup=registry.has_datatype,
@@ -426,8 +428,7 @@ async def run_pipeline(
             processor_lookup=registry.processor_for,
         )
         errors.extend(
-            error for error in validation_errors
-            if error.reason != "duplicate_initial_input"
+            error for error in validation_errors if error.reason != "duplicate_initial_input"
         )
     if use_legacy_validation and not executable_legacy_sfm:
         errors.extend(provider_errors(body.steps))
@@ -438,89 +439,88 @@ async def run_pipeline(
             errors=_pipeline_validation_payload(errors),
         )
     d = await dataset_service.get_dataset(
-        session, tenant_id=tenant_id, dataset_id=body.dataset_id,
+        session,
+        tenant_id=tenant_id,
+        dataset_id=body.dataset_id,
         project_id=project_id,
     )
-    if use_legacy_validation:
-        if executable_legacy_sfm:
-            (
-                features_spec,
-                pairs_spec,
-                matcher_spec,
-                verify_spec,
-                pipeline_spec,
-            ) = _legacy_sfm_specs(body.steps)
-            matches_spec = {"pairs": pairs_spec, "matcher": matcher_spec}
-            sfm_stage_service.validate_recipe_stage_configs(
-                features_spec=features_spec,
-                matches_spec=matches_spec,
-                verify_spec=verify_spec,
-                pipeline_spec=pipeline_spec,
+    if use_legacy_validation and executable_legacy_sfm:
+        (
+            features_spec,
+            pairs_spec,
+            matcher_spec,
+            verify_spec,
+            pipeline_spec,
+        ) = _legacy_sfm_specs(body.steps)
+        matches_spec = {"pairs": pairs_spec, "matcher": matcher_spec}
+        sfm_stage_service.validate_recipe_stage_configs(
+            features_spec=features_spec,
+            matches_spec=matches_spec,
+            verify_spec=verify_spec,
+            pipeline_spec=pipeline_spec,
+            project_id=project_id,
+        )
+        input_artifacts = {
+            **features_spec.get("input_artifacts", {}),
+            **pairs_spec.get("input_artifacts", {}),
+            **matcher_spec.get("input_artifacts", {}),
+            **verify_spec.get("input_artifacts", {}),
+            **pipeline_spec.get("input_artifacts", {}),
+        }
+        resolved_artifacts = await artifact_service.resolve_input_artifacts(
+            session,
+            tenant_id=tenant_id,
+            dataset_id=d.dataset_id,
+            input_artifacts=input_artifacts,
+        )
+        materialization = await sfm_stage_service.derive_materialization(
+            session, tenant_id=tenant_id, dataset=d
+        )
+        r = await sfm_stage_service.ensure_reconstruction(
+            session, tenant_id=tenant_id, dataset=d, spec=pipeline_spec
+        )
+        db_path = sfm_stage_service.reconstruction_database_path(tenant_id, project_id, r.recon_id)
+        pose_priors = await sfm_stage_service.collect_pose_priors_by_name(
+            session, tenant_id=tenant_id, dataset_id=d.dataset_id
+        )
+        nodes = sfm_stage_service.build_recipe_dag(
+            project_id=project_id,
+            dataset_id=d.dataset_id,
+            recon_id=r.recon_id,
+            materialization=materialization,
+            database_path=db_path,
+            features_spec=features_spec,
+            matches_spec=matches_spec,
+            verify_spec=verify_spec,
+            pipeline_spec=pipeline_spec,
+            pose_priors=pose_priors or None,
+            input_artifacts=resolved_artifacts,
+        )
+        job_spec: dict[str, Any] = {
+            "features": features_spec,
+            "matches": matches_spec,
+            "verify": verify_spec,
+            "spec": pipeline_spec,
+        }
+        if resolved_artifacts:
+            job_spec["input_artifacts"] = resolved_artifacts
+        job_id, tasks = await submit_job_dag(
+            session,
+            tenant_id=tenant_id,
+            project_id=project_id,
+            recipe=str(pipeline_spec.get("kind") or "incremental"),
+            spec=job_spec,
+            nodes=nodes,
+        )
+        return accepted_response(
+            JobAcceptedResponse(
+                job_id=job_id,
                 project_id=project_id,
-            )
-            input_artifacts = {
-                **features_spec.get("input_artifacts", {}),
-                **pairs_spec.get("input_artifacts", {}),
-                **matcher_spec.get("input_artifacts", {}),
-                **verify_spec.get("input_artifacts", {}),
-                **pipeline_spec.get("input_artifacts", {}),
-            }
-            resolved_artifacts = await artifact_service.resolve_input_artifacts(
-                session,
-                tenant_id=tenant_id,
                 dataset_id=d.dataset_id,
-                input_artifacts=input_artifacts,
-            )
-            materialization = await sfm_stage_service.derive_materialization(
-                session, tenant_id=tenant_id, dataset=d
-            )
-            r = await sfm_stage_service.ensure_reconstruction(
-                session, tenant_id=tenant_id, dataset=d, spec=pipeline_spec
-            )
-            db_path = sfm_stage_service.reconstruction_database_path(
-                tenant_id, project_id, r.recon_id
-            )
-            pose_priors = await sfm_stage_service.collect_pose_priors_by_name(
-                session, tenant_id=tenant_id, dataset_id=d.dataset_id
-            )
-            nodes = sfm_stage_service.build_recipe_dag(
-                project_id=project_id,
-                dataset_id=d.dataset_id,
+                task_ids=[t.task_id for t in tasks],
                 recon_id=r.recon_id,
-                materialization=materialization,
-                database_path=db_path,
-                features_spec=features_spec,
-                matches_spec=matches_spec,
-                verify_spec=verify_spec,
-                pipeline_spec=pipeline_spec,
-                pose_priors=pose_priors or None,
-                input_artifacts=resolved_artifacts,
             )
-            job_spec: dict[str, Any] = {
-                "features": features_spec,
-                "matches": matches_spec,
-                "verify": verify_spec,
-                "spec": pipeline_spec,
-            }
-            if resolved_artifacts:
-                job_spec["input_artifacts"] = resolved_artifacts
-            job_id, tasks = await submit_job_dag(
-                session,
-                tenant_id=tenant_id,
-                project_id=project_id,
-                recipe=str(pipeline_spec.get("kind") or "incremental"),
-                spec=job_spec,
-                nodes=nodes,
-            )
-            return accepted_response(
-                JobAcceptedResponse(
-                    job_id=job_id,
-                    project_id=project_id,
-                    dataset_id=d.dataset_id,
-                    task_ids=[t.task_id for t in tasks],
-                    recon_id=r.recon_id,
-                )
-            )
+        )
     raise CapabilityUnavailableError(
         capability="pipelines.custom_execution",
         reason=(

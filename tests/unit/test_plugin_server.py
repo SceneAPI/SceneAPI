@@ -71,9 +71,7 @@ class ExtensionBackend(StubBackend):
                 "special_inputs": {
                     "radiance.prior": {"datatype": "radiance_field", "required": False}
                 },
-                "special_attributes": [
-                    {"name": "radiance.radiance_weight", "type": "float"}
-                ],
+                "special_attributes": [{"name": "radiance.radiance_weight", "type": "float"}],
             }
         ]
 
@@ -144,7 +142,9 @@ class ActionBackend(StubBackend):
             }
         ]
 
-    def validate_backend_action(self, action_id: str, inputs: dict[str, object]) -> dict[str, object]:
+    def validate_backend_action(
+        self, action_id: str, inputs: dict[str, object]
+    ) -> dict[str, object]:
         return {
             "action_id": action_id,
             "valid": True,

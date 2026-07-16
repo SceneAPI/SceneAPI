@@ -117,6 +117,4 @@ def test_localize_oneshot_passes_selected_feature_envelope(tmp_path: Path) -> No
     assert OneShotLocalizeProviderBackend.last_spec is not None
     assert OneShotLocalizeProviderBackend.last_spec["type"] == "sosnet"
     assert OneShotLocalizeProviderBackend.last_spec["portable"]["type"] == "sosnet"
-    assert OneShotLocalizeProviderBackend.last_spec["backend_options"] == {
-        "descriptor": "sosnet"
-    }
+    assert OneShotLocalizeProviderBackend.last_spec["backend_options"] == {"descriptor": "sosnet"}

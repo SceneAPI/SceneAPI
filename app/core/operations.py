@@ -19,7 +19,6 @@ from app.core.processors import (
     processors_for_capabilities,
 )
 
-
 Operation = Processor
 CORE_OPERATIONS = CORE_PROCESSORS
 OPERATIONS_BY_ID = PROCESSORS_BY_ID
@@ -54,9 +53,9 @@ def contract_dict() -> dict[str, Any]:
 
 
 __all__ = [
-    "CORE_OPERATIONS",
     "CONTRACT_NAME",
     "CONTRACT_SCHEMA_VERSION",
+    "CORE_OPERATIONS",
     "OPERATIONS_BY_ID",
     "Operation",
     "contract_dict",

@@ -22,8 +22,8 @@ from app.services import artifact_service
 from app.storage.snapshots import SnapshotStore
 from app.workers._task_io import read_state
 from app.workers.tasks._registry import task_handler
-from sfm_hub.registry import get_manifest
 from sfm_hub.models import _public_url_issue
+from sfm_hub.registry import get_manifest
 from sfm_hub.routing import ProviderRecord, provider_records
 
 _ARTIFACT_KEY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$")
@@ -170,19 +170,13 @@ def _validate_radiance_artifacts(
     if artifacts is None:
         return
     if not isinstance(artifacts, list):
-        raise ValidationError(
-            f"radiance provider {provider!r} {context} artifacts must be a list"
-        )
+        raise ValidationError(f"radiance provider {provider!r} {context} artifacts must be a list")
     for index, artifact in enumerate(artifacts):
         where = f"{context}.artifacts[{index}]"
         if not isinstance(artifact, dict):
-            raise ValidationError(
-                f"radiance provider {provider!r} {where} must be an object"
-            )
+            raise ValidationError(f"radiance provider {provider!r} {where} must be an object")
         if not _valid_artifact_key(artifact.get("kind")):
-            raise ValidationError(
-                f"radiance provider {provider!r} {where}.kind is invalid"
-            )
+            raise ValidationError(f"radiance provider {provider!r} {where}.kind is invalid")
         try:
             artifact_service.validate_artifact_descriptor(
                 artifact,
@@ -190,15 +184,11 @@ def _validate_radiance_artifacts(
                 context=f"{context}.artifacts",
             )
         except ValidationError as exc:
-            raise ValidationError(
-                f"radiance provider {provider!r} {exc.detail}"
-            ) from exc
+            raise ValidationError(f"radiance provider {provider!r} {exc.detail}") from exc
         for key in ("artifact_format", "datatype"):
             value = artifact.get(key)
             if value is not None and not _valid_artifact_key(value):
-                raise ValidationError(
-                    f"radiance provider {provider!r} {where}.{key} is invalid"
-                )
+                raise ValidationError(f"radiance provider {provider!r} {where}.{key} is invalid")
         for key, max_len in (
             ("name", 255),
             ("uri", 2048),
@@ -206,9 +196,7 @@ def _validate_radiance_artifacts(
             ("sha256", 128),
         ):
             value = artifact.get(key)
-            if value is not None and (
-                not isinstance(value, str) or len(value) > max_len
-            ):
+            if value is not None and (not isinstance(value, str) or len(value) > max_len):
                 raise ValidationError(
                     f"radiance provider {provider!r} {where}.{key} must be "
                     f"a string of at most {max_len} characters"
@@ -220,31 +208,26 @@ def _validate_radiance_artifacts(
             or schema_version < 1
         ):
             raise ValidationError(
-                f"radiance provider {provider!r} {where}.schema_version "
-                "must be a positive integer"
+                f"radiance provider {provider!r} {where}.schema_version must be a positive integer"
             )
         byte_size = artifact.get("byte_size")
         if byte_size is not None and (
             isinstance(byte_size, bool) or not isinstance(byte_size, int) or byte_size < 0
         ):
             raise ValidationError(
-                f"radiance provider {provider!r} {where}.byte_size "
-                "must be a non-negative integer"
+                f"radiance provider {provider!r} {where}.byte_size must be a non-negative integer"
             )
         for key in ("summary", "metadata", "producer"):
             value = artifact.get(key)
             if value is not None and not isinstance(value, dict):
                 raise ValidationError(
-                    f"radiance provider {provider!r} {where}.{key} "
-                    "must be an object when present"
+                    f"radiance provider {provider!r} {where}.{key} must be an object when present"
                 )
         files = artifact.get("files")
         if files is None:
             continue
         if not isinstance(files, list):
-            raise ValidationError(
-                f"radiance provider {provider!r} {where}.files must be a list"
-            )
+            raise ValidationError(f"radiance provider {provider!r} {where}.files must be a list")
         for file_index, file_item in enumerate(files):
             file_where = f"{where}.files[{file_index}]"
             if not isinstance(file_item, dict):
@@ -254,14 +237,12 @@ def _validate_radiance_artifacts(
             name = file_item.get("name")
             if not isinstance(name, str) or not name:
                 raise ValidationError(
-                    f"radiance provider {provider!r} {file_where}.name "
-                    "must be a non-empty string"
+                    f"radiance provider {provider!r} {file_where}.name must be a non-empty string"
                 )
             uri = file_item.get("uri", file_item.get("path"))
             if not isinstance(uri, str) or not uri:
                 raise ValidationError(
-                    f"radiance provider {provider!r} {file_where}.uri "
-                    "must be a non-empty string"
+                    f"radiance provider {provider!r} {file_where}.uri must be a non-empty string"
                 )
             for key, max_len in (
                 ("name", 255),
@@ -271,18 +252,14 @@ def _validate_radiance_artifacts(
                 ("sha256", 128),
             ):
                 value = file_item.get(key)
-                if value is not None and (
-                    not isinstance(value, str) or len(value) > max_len
-                ):
+                if value is not None and (not isinstance(value, str) or len(value) > max_len):
                     raise ValidationError(
                         f"radiance provider {provider!r} {file_where}.{key} "
                         f"must be a string of at most {max_len} characters"
                     )
             file_size = file_item.get("byte_size")
             if file_size is not None and (
-                isinstance(file_size, bool)
-                or not isinstance(file_size, int)
-                or file_size < 0
+                isinstance(file_size, bool) or not isinstance(file_size, int) or file_size < 0
             ):
                 raise ValidationError(
                     f"radiance provider {provider!r} {file_where}.byte_size "
@@ -299,9 +276,7 @@ def _validate_train_evaluation_artifacts(
     if evaluations is None:
         return
     if not isinstance(evaluations, list):
-        raise ValidationError(
-            f"radiance provider {provider!r} outputs.evaluations must be a list"
-        )
+        raise ValidationError(f"radiance provider {provider!r} outputs.evaluations must be a list")
     for index, item in enumerate(evaluations):
         if not isinstance(item, dict) or "artifacts" not in item:
             continue
@@ -317,8 +292,7 @@ def _has_metric_evaluation(outputs: dict[str, Any]) -> bool:
     if not isinstance(evaluations, list):
         return False
     return any(
-        isinstance(item, dict) and isinstance(item.get("metrics"), dict)
-        for item in evaluations
+        isinstance(item, dict) and isinstance(item.get("metrics"), dict) for item in evaluations
     )
 
 
@@ -397,9 +371,7 @@ def _radiance_provider_record(provider: str, capability: str = "radiance.train")
         for row in all_rows
         if row.provider.provider_id == bare_provider and (not sep or row.plugin_id == plugin_id)
     ]
-    candidates = [
-        row for row in same_provider if capability in row.provider.capabilities
-    ]
+    candidates = [row for row in same_provider if capability in row.provider.capabilities]
     if not candidates:
         if same_provider:
             raise CapabilityUnavailableError(
@@ -528,9 +500,7 @@ def _run_container_service_provider(
     try:
         body = json.loads(raw.decode("utf-8"))
     except json.JSONDecodeError as exc:
-        raise ValidationError(
-            f"radiance provider {provider!r} returned invalid JSON"
-        ) from exc
+        raise ValidationError(f"radiance provider {provider!r} returned invalid JSON") from exc
     if not isinstance(body, dict):
         raise ValidationError(f"radiance provider {provider!r} must return a JSON object")
     status = str(body.get("status") or "succeeded")
@@ -542,9 +512,7 @@ def _run_container_service_provider(
 
     outputs = body.get("outputs") if isinstance(body.get("outputs"), dict) else body
     if not isinstance(outputs, dict):
-        raise ValidationError(
-            f"radiance provider {provider!r} outputs must be a JSON object"
-        )
+        raise ValidationError(f"radiance provider {provider!r} outputs must be a JSON object")
     eval_config = spec.get("eval") if isinstance(spec.get("eval"), dict) else None
     radiance_field_id = inputs.get("radiance_field_id")
     evaluation_id = inputs.get("evaluation_id")
@@ -572,9 +540,13 @@ def _run_container_service_provider(
         and isinstance(evaluation_id, str)
         and bool(evaluation_id)
     )
-    if task_kind == "radiance_train" and not train_eval_expected and (
-        (isinstance(outputs.get("evaluation_id"), str) and outputs.get("evaluation_id"))
-        or isinstance(outputs.get("metrics"), dict)
+    if (
+        task_kind == "radiance_train"
+        and not train_eval_expected
+        and (
+            (isinstance(outputs.get("evaluation_id"), str) and outputs.get("evaluation_id"))
+            or isinstance(outputs.get("metrics"), dict)
+        )
     ):
         raise ValidationError(
             f"radiance provider {provider!r} train output includes top-level "
@@ -589,19 +561,20 @@ def _run_container_service_provider(
             f"radiance provider {provider!r} train output must put evaluation "
             "metrics under outputs.evaluations"
         )
-    if task_kind == "radiance_train" and _has_metric_evaluation(outputs) and not train_eval_expected:
+    if (
+        task_kind == "radiance_train"
+        and _has_metric_evaluation(outputs)
+        and not train_eval_expected
+    ):
         raise ValidationError(
             f"radiance provider {provider!r} train output includes evaluation "
             "metrics but this train task did not request an evaluation"
         )
     _validate_train_evaluation_artifacts(outputs, provider=provider)
-    if (
-        train_eval_expected
-        and not _normalize_train_evaluation_outputs(
-            outputs,
-            radiance_field_id=radiance_field_id,
-            evaluation_id=evaluation_id,
-        )
+    if train_eval_expected and not _normalize_train_evaluation_outputs(
+        outputs,
+        radiance_field_id=radiance_field_id,
+        evaluation_id=evaluation_id,
     ):
         raise ValidationError(
             f"radiance provider {provider!r} train output must include "

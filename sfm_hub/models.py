@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import re
 import ipaddress
+import re
 from collections.abc import Callable
 from typing import Annotated, Any, Literal
 from urllib.parse import unquote_plus, urlsplit
@@ -20,9 +20,7 @@ TrustTier = Literal["official", "verified", "community", "local"]
 _ENTRY_POINT_RE = re.compile(r"^[A-Za-z_][\w.]*:[A-Za-z_]\w*$")
 _GITHUB_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 _PUBLIC_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
-_PUBLIC_PACKAGE_RE = re.compile(
-    r"^[A-Za-z0-9_.-]+(?:\[[A-Za-z0-9_.-]+(?:,[A-Za-z0-9_.-]+)*\])?$"
-)
+_PUBLIC_PACKAGE_RE = re.compile(r"^[A-Za-z0-9_.-]+(?:\[[A-Za-z0-9_.-]+(?:,[A-Za-z0-9_.-]+)*\])?$")
 _PUBLIC_IMAGE_REF_RE = re.compile(
     r"^(?P<registry>[a-z0-9](?:[a-z0-9.-]*[a-z0-9])(?::[0-9]{1,5})?)/"
     r"(?P<repository>[a-z0-9]+(?:[._-][a-z0-9]+)*"
@@ -245,9 +243,7 @@ def _validate_public_image_ref(value: str | None, *, label: str) -> str | None:
             raise ValueError(f"{label} must be a public container image reference")
     match = _PUBLIC_IMAGE_REF_RE.match(value)
     if match is None or _private_registry_host(match.group("registry")):
-        raise ValueError(
-            f"{label} must use an explicit public registry image reference"
-        )
+        raise ValueError(f"{label} must use an explicit public registry image reference")
     return value
 
 
@@ -308,6 +304,7 @@ def _provider_id_re() -> re.Pattern[str]:
     ``sfm_hub`` cross-import elsewhere, so resolve lazily to avoid
     Python's module-import-cycle serialization."""
     from app.core.ids import PROVIDER_ID_RE
+
     return PROVIDER_ID_RE
 
 
@@ -758,8 +755,7 @@ class ProviderManifest(BaseModel):
             raise ValueError(f"provider_id must match {pattern.pattern!r}: {provider_id!r}")
         if len(provider_id) > PROVIDER_SELECTOR_COMPONENT_MAX_LENGTH:
             raise ValueError(
-                "provider_id must be at most "
-                f"{PROVIDER_SELECTOR_COMPONENT_MAX_LENGTH} characters"
+                f"provider_id must be at most {PROVIDER_SELECTOR_COMPONENT_MAX_LENGTH} characters"
             )
         return provider_id
 
@@ -803,9 +799,7 @@ class PluginPortSpecManifest(BaseModel):
     @classmethod
     def _datatype_format(cls, datatype: str) -> str:
         if not _CONTRACT_ID_RE.match(datatype):
-            raise ValueError(
-                f"datatype must match {_CONTRACT_ID_RE.pattern!r}: {datatype!r}"
-            )
+            raise ValueError(f"datatype must match {_CONTRACT_ID_RE.pattern!r}: {datatype!r}")
         return datatype
 
 
@@ -825,9 +819,7 @@ class PluginAttributeManifest(BaseModel):
     @classmethod
     def _name_format(cls, name: str) -> str:
         if not _ATTRIBUTE_RE.match(name):
-            raise ValueError(
-                f"attribute name must match {_ATTRIBUTE_RE.pattern!r}: {name!r}"
-            )
+            raise ValueError(f"attribute name must match {_ATTRIBUTE_RE.pattern!r}: {name!r}")
         return name
 
     @model_validator(mode="after")
@@ -866,8 +858,7 @@ class PluginProcessorManifest(BaseModel):
     def _processor_id_format(cls, processor_id: str) -> str:
         if not _LOCAL_DECLARATION_ID_RE.match(processor_id):
             raise ValueError(
-                f"processor_id must match {_LOCAL_DECLARATION_ID_RE.pattern!r}: "
-                f"{processor_id!r}"
+                f"processor_id must match {_LOCAL_DECLARATION_ID_RE.pattern!r}: {processor_id!r}"
             )
         return processor_id
 
@@ -955,19 +946,13 @@ class PluginProcessorExtensionManifest(BaseModel):
 
     @model_validator(mode="after")
     def _special_attributes_unique(self) -> PluginProcessorExtensionManifest:
-        required_inputs = [
-            role for role, port in self.special_inputs.items()
-            if port.required
-        ]
+        required_inputs = [role for role, port in self.special_inputs.items() if port.required]
         if required_inputs:
             raise ValueError(
                 "special_inputs must be optional; set required=false for: "
                 + ", ".join(sorted(required_inputs))
             )
-        required_attributes = [
-            attr.name for attr in self.special_attributes
-            if attr.required
-        ]
+        required_attributes = [attr.name for attr in self.special_attributes if attr.required]
         if required_attributes:
             raise ValueError(
                 "special_attributes must be optional; set required=false for: "
@@ -977,8 +962,7 @@ class PluginProcessorExtensionManifest(BaseModel):
         unqualified = sorted(name for name in names if "." not in name)
         if unqualified:
             raise ValueError(
-                "special attribute names must be plugin-qualified: "
-                + ", ".join(unqualified)
+                "special attribute names must be plugin-qualified: " + ", ".join(unqualified)
             )
         duplicates = sorted({name for name in names if names.count(name) > 1})
         if duplicates:
@@ -1013,9 +997,7 @@ class PluginPipelineStepManifest(BaseModel):
     @classmethod
     def _processor_format(cls, processor: str) -> str:
         if not _CONTRACT_ID_RE.match(processor):
-            raise ValueError(
-                f"processor must match {_CONTRACT_ID_RE.pattern!r}: {processor!r}"
-            )
+            raise ValueError(f"processor must match {_CONTRACT_ID_RE.pattern!r}: {processor!r}")
         return processor
 
     @field_validator("wires")
@@ -1058,8 +1040,7 @@ class PluginPipelineManifest(BaseModel):
     def _pipeline_id_format(cls, pipeline_id: str) -> str:
         if not _LOCAL_DECLARATION_ID_RE.match(pipeline_id):
             raise ValueError(
-                f"pipeline_id must match {_LOCAL_DECLARATION_ID_RE.pattern!r}: "
-                f"{pipeline_id!r}"
+                f"pipeline_id must match {_LOCAL_DECLARATION_ID_RE.pattern!r}: {pipeline_id!r}"
             )
         return pipeline_id
 
@@ -1069,14 +1050,12 @@ class PluginPipelineManifest(BaseModel):
         bad = [datatype for datatype in inputs if not _CONTRACT_ID_RE.match(datatype)]
         if bad:
             raise ValueError(
-                f"initial_inputs must match {_CONTRACT_ID_RE.pattern!r}: "
-                + ", ".join(sorted(bad))
+                f"initial_inputs must match {_CONTRACT_ID_RE.pattern!r}: " + ", ".join(sorted(bad))
             )
         duplicates = sorted({datatype for datatype in inputs if inputs.count(datatype) > 1})
         if duplicates:
             raise ValueError(
-                "initial_inputs must not contain duplicate datatype(s): "
-                + ", ".join(duplicates)
+                "initial_inputs must not contain duplicate datatype(s): " + ", ".join(duplicates)
             )
         return inputs
 
@@ -1105,8 +1084,7 @@ def _plugin_processor_ports(
     processors: list[PluginProcessorManifest],
 ) -> dict[str, tuple[dict[str, object], dict[str, object]]]:
     return {
-        processor.processor_id: (processor.consumer, processor.supplier)
-        for processor in processors
+        processor.processor_id: (processor.consumer, processor.supplier) for processor in processors
     }
 
 
@@ -1196,9 +1174,7 @@ def _validate_attribute_schema(
             attr.default,
             known_datatypes=known_datatypes,
         ):
-            raise ValueError(
-                f"attribute {attr.name!r} default must match type {attr.type!r}"
-            )
+            raise ValueError(f"attribute {attr.name!r} default must match type {attr.type!r}")
         if (
             attr.type in {"int", "float"}
             and isinstance(attr.default, (int, float))
@@ -1375,9 +1351,7 @@ def _validate_pipeline_graph(
         for role, port in supplier.items():
             datatype = str(port.datatype)  # type: ignore[attr-defined]
             verified = (
-                step.processor == "verify"
-                and role == "matches"
-                and datatype == "match_graph"
+                step.processor == "verify" and role == "matches" and datatype == "match_graph"
             )
             available.append((step.ref, role, datatype, verified))
             by_wire[f"{step.ref}.{role}"] = (datatype, verified)
@@ -1405,9 +1379,7 @@ def _validate_typed_extension_graph(
         )
 
     processor_ids = [processor.processor_id for processor in processors]
-    duplicate_processors = sorted(
-        {pid for pid in processor_ids if processor_ids.count(pid) > 1}
-    )
+    duplicate_processors = sorted({pid for pid in processor_ids if processor_ids.count(pid) > 1})
     if duplicate_processors:
         raise ValueError(f"duplicate processors: {', '.join(duplicate_processors)}")
     core_processors = _core_processor_ids()
@@ -1448,18 +1420,13 @@ def _validate_typed_extension_graph(
                 )
     known_processors = core_processors | set(processor_ids)
     extension_ids = [extension.processor_id for extension in processor_extensions]
-    duplicate_extensions = sorted(
-        {pid for pid in extension_ids if extension_ids.count(pid) > 1}
-    )
+    duplicate_extensions = sorted({pid for pid in extension_ids if extension_ids.count(pid) > 1})
     if duplicate_extensions:
-        raise ValueError(
-            f"duplicate processor_extensions: {', '.join(duplicate_extensions)}"
-        )
+        raise ValueError(f"duplicate processor_extensions: {', '.join(duplicate_extensions)}")
     for extension in processor_extensions:
         if extension.processor_id not in known_processors:
             raise ValueError(
-                f"processor extension references unknown processor "
-                f"{extension.processor_id!r}"
+                f"processor extension references unknown processor {extension.processor_id!r}"
             )
         for role, port in extension.special_inputs.items():
             if port.datatype not in known_dts:
@@ -1487,9 +1454,7 @@ def _validate_typed_extension_graph(
                 )
 
     pipeline_ids = [pipeline.pipeline_id for pipeline in pipelines]
-    duplicate_pipelines = sorted(
-        {pid for pid in pipeline_ids if pipeline_ids.count(pid) > 1}
-    )
+    duplicate_pipelines = sorted({pid for pid in pipeline_ids if pipeline_ids.count(pid) > 1})
     if duplicate_pipelines:
         raise ValueError(f"duplicate pipelines: {', '.join(duplicate_pipelines)}")
     core_pipelines = _core_pipeline_ids()
@@ -1570,13 +1535,10 @@ class PluginBackendCatalog(BaseModel):
     @classmethod
     def _plugin_id_format(cls, plugin_id: str | None) -> str | None:
         if plugin_id is not None and not _CONTRACT_ID_RE.match(plugin_id):
-            raise ValueError(
-                f"plugin_id must match {_CONTRACT_ID_RE.pattern!r}: {plugin_id!r}"
-            )
+            raise ValueError(f"plugin_id must match {_CONTRACT_ID_RE.pattern!r}: {plugin_id!r}")
         if plugin_id is not None and len(plugin_id) > PROVIDER_SELECTOR_COMPONENT_MAX_LENGTH:
             raise ValueError(
-                "plugin_id must be at most "
-                f"{PROVIDER_SELECTOR_COMPONENT_MAX_LENGTH} characters"
+                f"plugin_id must be at most {PROVIDER_SELECTOR_COMPONENT_MAX_LENGTH} characters"
             )
         return plugin_id
 
@@ -1587,9 +1549,8 @@ class PluginBackendCatalog(BaseModel):
 
     @model_validator(mode="after")
     def _catalog_is_coherent(self) -> PluginBackendCatalog:
-        if (
-            self.plugin_id is None
-            and (self.datatypes or self.processors or self.pipelines or self.processor_extensions)
+        if self.plugin_id is None and (
+            self.datatypes or self.processors or self.pipelines or self.processor_extensions
         ):
             raise ValueError("plugin_id is required when typed declarations are declared")
         if self.plugin_id is not None:
@@ -1656,8 +1617,10 @@ class Compatibility(BaseModel):
                 raise ValueError("compatibility extension keys must not contain secrets")
             try:
                 values = _public_text_values(value)
-            except ValueError as exc:
-                raise ValueError("compatibility extension values must be scalar, list, or object")
+            except ValueError:
+                raise ValueError(
+                    "compatibility extension values must be scalar, list, or object"
+                ) from None
             for item in values:
                 for variant in _public_text_variants(item):
                     if _SENSITIVE_PUBLIC_RE.search(variant):
@@ -1667,10 +1630,13 @@ class Compatibility(BaseModel):
                             "compatibility extension values must not contain local paths"
                         )
                     for url in _URL_RE.findall(variant):
-                        if _public_url_issue(
-                            url,
-                            allowed_schemes={"http", "https", "git+https"},
-                        ) is not None:
+                        if (
+                            _public_url_issue(
+                                url,
+                                allowed_schemes={"http", "https", "git+https"},
+                            )
+                            is not None
+                        ):
                             raise ValueError("compatibility extension URLs must be public")
         return self
 
@@ -1757,13 +1723,10 @@ class PluginManifest(BaseModel):
     @classmethod
     def _plugin_id_format(cls, plugin_id: str) -> str:
         if not _CONTRACT_ID_RE.match(plugin_id):
-            raise ValueError(
-                f"plugin_id must match {_CONTRACT_ID_RE.pattern!r}: {plugin_id!r}"
-            )
+            raise ValueError(f"plugin_id must match {_CONTRACT_ID_RE.pattern!r}: {plugin_id!r}")
         if len(plugin_id) > PROVIDER_SELECTOR_COMPONENT_MAX_LENGTH:
             raise ValueError(
-                "plugin_id must be at most "
-                f"{PROVIDER_SELECTOR_COMPONENT_MAX_LENGTH} characters"
+                f"plugin_id must be at most {PROVIDER_SELECTOR_COMPONENT_MAX_LENGTH} characters"
             )
         return plugin_id
 
@@ -1798,9 +1761,7 @@ class PluginManifest(BaseModel):
                 duplicates.append(dependency.plugin_id)
             seen.add(dependency.plugin_id)
         if duplicates:
-            raise ValueError(
-                f"duplicate plugin dependencies: {', '.join(sorted(set(duplicates)))}"
-            )
+            raise ValueError(f"duplicate plugin dependencies: {', '.join(sorted(set(duplicates)))}")
         return dependencies
 
     @field_validator("capabilities")

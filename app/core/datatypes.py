@@ -25,32 +25,49 @@ DATA_TYPE_KINDS = frozenset({"scene_input", "artifact"})
 
 @dataclass(frozen=True)
 class DataType:
-    type_id: str           # nominal id -- the unit of type-compatibility
+    type_id: str  # nominal id -- the unit of type-compatibility
     title: str
-    kind: str              # one of DATA_TYPE_KINDS
+    kind: str  # one of DATA_TYPE_KINDS
     description: str
 
 
 # Declaration order = serialization order (stable contract JSON).
 CORE_DATA_TYPES: tuple[DataType, ...] = (
     # scene inputs (provided to a pipeline)
-    DataType("image_sequence", "Image sequence", "scene_input",
-             "An ordered collection of images from a single capture."),
-    DataType("camera", "Camera", "scene_input",
-             "A single camera model (intrinsics + distortion)."),
-    DataType("camera_collection", "Camera collection", "scene_input",
-             "A collection of camera models, e.g. a multi-camera rig."),
+    DataType(
+        "image_sequence",
+        "Image sequence",
+        "scene_input",
+        "An ordered collection of images from a single capture.",
+    ),
+    DataType("camera", "Camera", "scene_input", "A single camera model (intrinsics + distortion)."),
+    DataType(
+        "camera_collection",
+        "Camera collection",
+        "scene_input",
+        "A collection of camera models, e.g. a multi-camera rig.",
+    ),
     # pipeline data (produced by operations)
-    DataType("feature_set", "Feature set", "artifact",
-             "Per-image keypoints and descriptors."),
-    DataType("pair_set", "Pair set", "artifact",
-             "The image pairs selected for matching."),
-    DataType("match_graph", "Match graph", "artifact",
-             "Feature correspondences across image pairs (optionally verified)."),
-    DataType("sparse_model", "Sparse model", "artifact",
-             "A sparse SfM model: camera poses, intrinsics, and a point cloud."),
-    DataType("projection", "Projection", "artifact",
-             "Rendered or reprojected views derived from a reconstruction."),
+    DataType("feature_set", "Feature set", "artifact", "Per-image keypoints and descriptors."),
+    DataType("pair_set", "Pair set", "artifact", "The image pairs selected for matching."),
+    DataType(
+        "match_graph",
+        "Match graph",
+        "artifact",
+        "Feature correspondences across image pairs (optionally verified).",
+    ),
+    DataType(
+        "sparse_model",
+        "Sparse model",
+        "artifact",
+        "A sparse SfM model: camera poses, intrinsics, and a point cloud.",
+    ),
+    DataType(
+        "projection",
+        "Projection",
+        "artifact",
+        "Rendered or reprojected views derived from a reconstruction.",
+    ),
     # dense_model / splat are deferred until an engine produces them -- the
     # I/O-completeness gate requires a format for every artifact DataType, so
     # they are re-added together with their formats when a producer exists.

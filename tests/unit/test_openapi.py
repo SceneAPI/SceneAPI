@@ -70,18 +70,12 @@ def test_upload_patch_declares_binary_request_body() -> None:
     from app.main import create_app
 
     request_body = (
-        create_app()
-        .openapi()["paths"]["/v1/uploads/{upload_id}"]["patch"]
-        .get("requestBody")
+        create_app().openapi()["paths"]["/v1/uploads/{upload_id}"]["patch"].get("requestBody")
     )
 
     assert request_body == {
         "required": True,
-        "content": {
-            "application/octet-stream": {
-                "schema": {"type": "string", "format": "binary"}
-            }
-        },
+        "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}},
     }
 
 

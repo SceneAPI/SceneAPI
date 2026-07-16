@@ -39,7 +39,11 @@ def _public_dict(value: Any) -> dict[str, Any]:
 def _public_artifact_list(value: Any) -> list[dict[str, Any]]:
     sanitized = sanitize_public_outputs({"artifacts": value or []})
     artifacts = sanitized.get("artifacts") if isinstance(sanitized, dict) else []
-    return [item for item in artifacts if isinstance(item, dict)] if isinstance(artifacts, list) else []
+    return (
+        [item for item in artifacts if isinstance(item, dict)]
+        if isinstance(artifacts, list)
+        else []
+    )
 
 
 class RadianceEvalConfig(BaseModel):
@@ -121,11 +125,7 @@ class RadianceTrainRequest(BaseModel):
         payload: dict[str, Any] = {
             "method": self.method,
             "max_steps": self.max_steps,
-            **(
-                {"eval": self.eval.model_dump(mode="json")}
-                if self.eval is not None
-                else {}
-            ),
+            **({"eval": self.eval.model_dump(mode="json")} if self.eval is not None else {}),
             "backend_options": dict(self.backend_options),
             "request_id": self.request_id,
         }

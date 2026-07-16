@@ -38,12 +38,8 @@ SNAPSHOT_FILE_MEDIA_TYPES = {
 _SNAPSHOT_FILE_RESPONSE = {
     200: {
         "content": {
-            "application/octet-stream": {
-                "schema": {"type": "string", "format": "binary"}
-            },
-            "application/json": {
-                "schema": {"type": "object", "additionalProperties": True}
-            }
+            "application/octet-stream": {"schema": {"type": "string", "format": "binary"}},
+            "application/json": {"schema": {"type": "object", "additionalProperties": True}},
         },
         "description": "Radiance snapshot file bytes or JSON sidecar content.",
     }
@@ -89,7 +85,12 @@ async def train_radiance_field(
     tenant_id: str = Depends(current_tenant),
     session: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
-    job_id, task_ids, radiance_field_id, evaluation_id = await radiance_service.submit_radiance_train(
+    (
+        job_id,
+        task_ids,
+        radiance_field_id,
+        evaluation_id,
+    ) = await radiance_service.submit_radiance_train(
         session,
         tenant_id=tenant_id,
         project_id=project_id,

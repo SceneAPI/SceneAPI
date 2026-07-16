@@ -29,18 +29,33 @@ def test_read_only_and_gpu_classification() -> None:
     assert not ca.requires_gpu("database_cleaner")
     assert ca.requires_gpu("patch_match_stereo")
     # GPU-exempt is exactly the read-only set plus database_cleaner.
-    assert ca.GPU_EXEMPT_COMMANDS == ca.READ_ONLY_COMMANDS | {"database_cleaner"}
+    assert ca.READ_ONLY_COMMANDS | {"database_cleaner"} == ca.GPU_EXEMPT_COMMANDS
 
 
 def test_category_for_only_returns_declared_vocabulary() -> None:
     commands = [
-        "feature_extractor", "feature_importer",
-        "exhaustive_matcher", "sequential_matcher", "transitive_verifier",
-        "mapper", "hierarchical_mapper", "point_triangulator", "bundle_adjuster",
-        "model_analyzer", "model_aligner", "image_registrator", "image_deleter",
-        "patch_match_stereo", "stereo_fusion", "poisson_mesher", "delaunay_mesher",
-        "database_cleaner", "database_merger",
-        "help", "version", "gui",
+        "feature_extractor",
+        "feature_importer",
+        "exhaustive_matcher",
+        "sequential_matcher",
+        "transitive_verifier",
+        "mapper",
+        "hierarchical_mapper",
+        "point_triangulator",
+        "bundle_adjuster",
+        "model_analyzer",
+        "model_aligner",
+        "image_registrator",
+        "image_deleter",
+        "patch_match_stereo",
+        "stereo_fusion",
+        "poisson_mesher",
+        "delaunay_mesher",
+        "database_cleaner",
+        "database_merger",
+        "help",
+        "version",
+        "gui",
     ]
     for command in commands:
         assert ca.category_for(command) in ca.CATEGORIES, command
@@ -52,8 +67,13 @@ def test_every_declared_category_is_reachable() -> None:
     reachable = {
         ca.category_for(c)
         for c in [
-            "exhaustive_matcher", "feature_extractor", "mapper",
-            "model_analyzer", "patch_match_stereo", "database_cleaner", "gui",
+            "exhaustive_matcher",
+            "feature_extractor",
+            "mapper",
+            "model_analyzer",
+            "patch_match_stereo",
+            "database_cleaner",
+            "gui",
         ]
     }
     assert reachable == ca.CATEGORIES
@@ -110,9 +130,7 @@ def test_validate_cli_inputs_flags_unknown_required_and_type() -> None:
 
 
 def test_split_cli_inputs_separates_options_and_positional() -> None:
-    options, positional = ca.split_cli_inputs(
-        {"options": {"a": 1}, "positional_args": ["x", "y"]}
-    )
+    options, positional = ca.split_cli_inputs({"options": {"a": 1}, "positional_args": ["x", "y"]})
     assert options == {"a": 1}
     assert positional == ["x", "y"]
 

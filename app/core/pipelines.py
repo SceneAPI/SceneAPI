@@ -159,9 +159,7 @@ def _step_supply(step: PipelineStep, role: str, datatype: str) -> _Supply:
         role,
         datatype,
         verified_match_graph=(
-            step.processor == "verify"
-            and role == "matches"
-            and datatype == "match_graph"
+            step.processor == "verify" and role == "matches" and datatype == "match_graph"
         ),
     )
 
@@ -360,7 +358,7 @@ def _strict_validate_pipeline(
                             "missing_required_port",
                             f"{path}.wires.{role}",
                         )
-                )
+                    )
                 continue
             if port.multiple and port.required and len(candidates) == 1:
                 errors.append(
@@ -560,15 +558,11 @@ def contract_dict() -> dict[str, Any]:
             },
             "ref": "pipeline-local step id",
             "processor": "processor_id",
-            "attributes": (
-                "attribute values bound for this step; wins over params on "
-                "key overlap"
-            ),
+            "attributes": ("attribute values bound for this step; wins over params on key overlap"),
             "params": "legacy alias for attributes",
             "wires": {
                 "consumer_port": (
-                    "producer_ref.supplier_port or list of refs for "
-                    "multiple=true ports"
+                    "producer_ref.supplier_port or list of refs for multiple=true ports"
                 ),
             },
         },

@@ -581,11 +581,7 @@ async def test_radiance_train_result_rejects_snapshot_path_from_other_field(
         )
     )
     await session.flush()
-    other = (
-        Paths().radiance_field_root("default", project_id, new_id())
-        / "_live"
-        / "provider"
-    )
+    other = Paths().radiance_field_root("default", project_id, new_id()) / "_live" / "provider"
     other.mkdir(parents=True, exist_ok=True)
     (other / "summary.json").write_text("{}", encoding="utf-8")
 
@@ -698,16 +694,12 @@ async def test_radiance_results_store_only_public_provider_outputs(session) -> N
 
     snapshot = (
         await session.execute(
-            select(RadianceSnapshot).where(
-                RadianceSnapshot.radiance_field_id == radiance_field_id
-            )
+            select(RadianceSnapshot).where(RadianceSnapshot.radiance_field_id == radiance_field_id)
         )
     ).scalar_one()
     evaluation = (
         await session.execute(
-            select(RadianceEvaluation).where(
-                RadianceEvaluation.evaluation_id == evaluation_id
-            )
+            select(RadianceEvaluation).where(RadianceEvaluation.evaluation_id == evaluation_id)
         )
     ).scalar_one()
 
@@ -732,7 +724,12 @@ async def test_radiance_results_store_only_public_provider_outputs(session) -> N
         "note": "kept",
     }
     public_repr = repr(
-        [snapshot.summary_json, evaluation.metrics_json, evaluation.artifacts_json, persisted_metadata]
+        [
+            snapshot.summary_json,
+            evaluation.metrics_json,
+            evaluation.artifacts_json,
+            persisted_metadata,
+        ]
     )
     assert "SECRET" not in public_repr
     assert "SFMAPI_" not in public_repr
@@ -777,9 +774,7 @@ async def test_radiance_train_result_rejects_live_snapshot_symlink_escapes(
     await session.flush()
 
     live_root = (
-        Paths().radiance_field_root("default", project_id, radiance_field_id)
-        / "_live"
-        / "provider"
+        Paths().radiance_field_root("default", project_id, radiance_field_id) / "_live" / "provider"
     )
     live_root.mkdir(parents=True, exist_ok=True)
     outside_payload = tmp_path / "outside-point-cloud.ply"

@@ -56,11 +56,13 @@ def test_features_spec_accepts_alternative_type() -> None:
 
 
 def test_features_spec_accepts_legacy_sift_aliases() -> None:
-    f = FeaturesSpec.model_validate({
-        "extractor_options": {"peak_threshold": 0.01},
-        "sift_max_num_features": 4096,
-        "sift_first_octave": -1,
-    })
+    f = FeaturesSpec.model_validate(
+        {
+            "extractor_options": {"peak_threshold": 0.01},
+            "sift_max_num_features": 4096,
+            "sift_first_octave": -1,
+        }
+    )
 
     assert f.type == "sift"
     assert f.max_num_features == 4096
@@ -69,10 +71,12 @@ def test_features_spec_accepts_legacy_sift_aliases() -> None:
 
 def test_features_spec_rejects_sift_aliases_for_non_sift_type() -> None:
     with pytest.raises(PydanticValidationError):
-        FeaturesSpec.model_validate({
-            "type": "superpoint",
-            "sift_max_num_features": 4096,
-        })
+        FeaturesSpec.model_validate(
+            {
+                "type": "superpoint",
+                "sift_max_num_features": 4096,
+            }
+        )
 
 
 def test_pairs_spec_strategies() -> None:

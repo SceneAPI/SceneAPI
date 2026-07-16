@@ -38,8 +38,7 @@ def test_multi_input_op_satisfied_by_upstream_not_just_predecessor() -> None:
     # `map` consumes feature_set (from step 0) AND match_graph (from step 3);
     # the immediate predecessor (verify) only produces match_graph -- the
     # availability model must still accept it.
-    assert pl.validate_pipeline(
-        ["features", "pairs", "matches", "verify", "map"]) == []
+    assert pl.validate_pipeline(["features", "pairs", "matches", "verify", "map"]) == []
 
 
 def test_missing_input_is_reported() -> None:
@@ -71,50 +70,63 @@ def test_initial_inputs_gate_the_first_stage() -> None:
 
 
 def test_named_port_pipeline_with_explicit_wires_type_checks() -> None:
-    errors = pl.validate_pipeline([
-        pl.PipelineStep(ref="extract", processor="features"),
-        pl.PipelineStep(ref="pair", processor="pairs",
-                        wires={"features": "extract.features"}),
-        pl.PipelineStep(ref="match", processor="matches", wires={
-            "features": "extract.features",
-            "pairs": "pair.pairs",
-        }),
-        pl.PipelineStep(ref="verify", processor="verify",
-                        wires={"matches": "match.matches"}),
-        pl.PipelineStep(ref="map", processor="map", wires={
-            "features": "extract.features",
-            "matches": "verify.matches",
-        }),
-    ])
+    errors = pl.validate_pipeline(
+        [
+            pl.PipelineStep(ref="extract", processor="features"),
+            pl.PipelineStep(ref="pair", processor="pairs", wires={"features": "extract.features"}),
+            pl.PipelineStep(
+                ref="match",
+                processor="matches",
+                wires={
+                    "features": "extract.features",
+                    "pairs": "pair.pairs",
+                },
+            ),
+            pl.PipelineStep(ref="verify", processor="verify", wires={"matches": "match.matches"}),
+            pl.PipelineStep(
+                ref="map",
+                processor="map",
+                wires={
+                    "features": "extract.features",
+                    "matches": "verify.matches",
+                },
+            ),
+        ]
+    )
     assert errors == []
 
 
 def test_named_port_pipeline_reports_ambiguous_inference() -> None:
-    errors = pl.validate_pipeline([
-        pl.PipelineStep(ref="extract", processor="features"),
-        pl.PipelineStep(ref="pair", processor="pairs",
-                        wires={"features": "extract.features"}),
-        pl.PipelineStep(ref="match", processor="matches", wires={
-            "features": "extract.features",
-            "pairs": "pair.pairs",
-        }),
-        pl.PipelineStep(ref="verify", processor="verify",
-                        wires={"matches": "match.matches"}),
-        pl.PipelineStep(ref="map", processor="map",
-                        wires={"features": "extract.features"}),
-    ])
+    errors = pl.validate_pipeline(
+        [
+            pl.PipelineStep(ref="extract", processor="features"),
+            pl.PipelineStep(ref="pair", processor="pairs", wires={"features": "extract.features"}),
+            pl.PipelineStep(
+                ref="match",
+                processor="matches",
+                wires={
+                    "features": "extract.features",
+                    "pairs": "pair.pairs",
+                },
+            ),
+            pl.PipelineStep(ref="verify", processor="verify", wires={"matches": "match.matches"}),
+            pl.PipelineStep(ref="map", processor="map", wires={"features": "extract.features"}),
+        ]
+    )
     assert [e.reason for e in errors] == ["ambiguous_input"]
     assert errors[0].path == "steps.4.wires.matches"
 
 
 def test_named_port_pipeline_validates_attributes() -> None:
-    errors = pl.validate_pipeline([
-        pl.PipelineStep(
-            ref="extract",
-            processor="features",
-            attributes={"type": "bogus"},
-        ),
-    ])
+    errors = pl.validate_pipeline(
+        [
+            pl.PipelineStep(
+                ref="extract",
+                processor="features",
+                attributes={"type": "bogus"},
+            ),
+        ]
+    )
     assert [e.reason for e in errors] == ["invalid_attribute"]
     assert errors[0].path == "steps.0.attributes.type"
 
@@ -135,17 +147,19 @@ def test_special_inputs_and_attributes_are_accepted_when_declared(
     )
     monkeypatch.setitem(proc.PROCESSORS_BY_ID, "demo_special", extended)
 
-    errors = pl.validate_pipeline([
-        pl.PipelineStep(
-            ref="demo",
-            processor="demo_special",
-            attributes={"plugin.weight": 0.5},
-            wires={
-                "images": "inputs.image_sequence",
-                "plugin.mask": "inputs.image_sequence",
-            },
-        )
-    ])
+    errors = pl.validate_pipeline(
+        [
+            pl.PipelineStep(
+                ref="demo",
+                processor="demo_special",
+                attributes={"plugin.weight": 0.5},
+                wires={
+                    "images": "inputs.image_sequence",
+                    "plugin.mask": "inputs.image_sequence",
+                },
+            )
+        ]
+    )
 
     assert errors == []
 
@@ -198,8 +212,7 @@ def test_plugin_processor_lookup_can_extend_pipeline_validation() -> None:
         ],
         initial_inputs=("sparse_model",),
         processor_lookup=lambda processor_id: (
-            radiance if processor_id == "radiance.train"
-            else proc.processor_for(processor_id)
+            radiance if processor_id == "radiance.train" else proc.processor_for(processor_id)
         ),
     )
 
@@ -207,23 +220,30 @@ def test_plugin_processor_lookup_can_extend_pipeline_validation() -> None:
 
 
 def test_merge_requires_at_least_two_models() -> None:
-    errors = pl.validate_pipeline([
-        pl.PipelineStep(ref="extract", processor="features"),
-        pl.PipelineStep(ref="pair", processor="pairs",
-                        wires={"features": "extract.features"}),
-        pl.PipelineStep(ref="match", processor="matches", wires={
-            "features": "extract.features",
-            "pairs": "pair.pairs",
-        }),
-        pl.PipelineStep(ref="verify", processor="verify",
-                        wires={"matches": "match.matches"}),
-        pl.PipelineStep(ref="map", processor="map", wires={
-            "features": "extract.features",
-            "matches": "verify.matches",
-        }),
-        pl.PipelineStep(ref="merge", processor="merge",
-                        wires={"model": ["map.model"]}),
-    ])
+    errors = pl.validate_pipeline(
+        [
+            pl.PipelineStep(ref="extract", processor="features"),
+            pl.PipelineStep(ref="pair", processor="pairs", wires={"features": "extract.features"}),
+            pl.PipelineStep(
+                ref="match",
+                processor="matches",
+                wires={
+                    "features": "extract.features",
+                    "pairs": "pair.pairs",
+                },
+            ),
+            pl.PipelineStep(ref="verify", processor="verify", wires={"matches": "match.matches"}),
+            pl.PipelineStep(
+                ref="map",
+                processor="map",
+                wires={
+                    "features": "extract.features",
+                    "matches": "verify.matches",
+                },
+            ),
+            pl.PipelineStep(ref="merge", processor="merge", wires={"model": ["map.model"]}),
+        ]
+    )
     assert [e.reason for e in errors] == ["invalid_fan_in"]
     assert "requires at least two inputs" in errors[0].message
     assert errors[0].path == "steps.5.wires.model"
@@ -240,50 +260,74 @@ def test_duplicate_initial_inputs_do_not_satisfy_multi_input_ports() -> None:
 
 
 def test_merge_rejects_duplicate_explicit_model_refs() -> None:
-    errors = pl.validate_pipeline([
-        pl.PipelineStep(ref="extract", processor="features"),
-        pl.PipelineStep(ref="pair", processor="pairs",
-                        wires={"features": "extract.features"}),
-        pl.PipelineStep(ref="match", processor="matches", wires={
-            "features": "extract.features",
-            "pairs": "pair.pairs",
-        }),
-        pl.PipelineStep(ref="verify", processor="verify",
-                        wires={"matches": "match.matches"}),
-        pl.PipelineStep(ref="map", processor="map", wires={
-            "features": "extract.features",
-            "matches": "verify.matches",
-        }),
-        pl.PipelineStep(ref="merge", processor="merge",
-                        wires={"model": ["map.model", "map.model"]}),
-    ])
+    errors = pl.validate_pipeline(
+        [
+            pl.PipelineStep(ref="extract", processor="features"),
+            pl.PipelineStep(ref="pair", processor="pairs", wires={"features": "extract.features"}),
+            pl.PipelineStep(
+                ref="match",
+                processor="matches",
+                wires={
+                    "features": "extract.features",
+                    "pairs": "pair.pairs",
+                },
+            ),
+            pl.PipelineStep(ref="verify", processor="verify", wires={"matches": "match.matches"}),
+            pl.PipelineStep(
+                ref="map",
+                processor="map",
+                wires={
+                    "features": "extract.features",
+                    "matches": "verify.matches",
+                },
+            ),
+            pl.PipelineStep(
+                ref="merge", processor="merge", wires={"model": ["map.model", "map.model"]}
+            ),
+        ]
+    )
 
     assert [e.reason for e in errors] == ["invalid_fan_in"]
     assert "does not accept duplicate inputs" in errors[0].message
 
 
 def test_merge_rejects_duplicate_inside_otherwise_valid_fan_in() -> None:
-    errors = pl.validate_pipeline([
-        pl.PipelineStep(ref="extract", processor="features"),
-        pl.PipelineStep(ref="pair", processor="pairs",
-                        wires={"features": "extract.features"}),
-        pl.PipelineStep(ref="match", processor="matches", wires={
-            "features": "extract.features",
-            "pairs": "pair.pairs",
-        }),
-        pl.PipelineStep(ref="verify", processor="verify",
-                        wires={"matches": "match.matches"}),
-        pl.PipelineStep(ref="map_a", processor="map", wires={
-            "features": "extract.features",
-            "matches": "verify.matches",
-        }),
-        pl.PipelineStep(ref="map_b", processor="map", wires={
-            "features": "extract.features",
-            "matches": "verify.matches",
-        }),
-        pl.PipelineStep(ref="merge", processor="merge",
-                        wires={"model": ["map_a.model", "map_a.model", "map_b.model"]}),
-    ])
+    errors = pl.validate_pipeline(
+        [
+            pl.PipelineStep(ref="extract", processor="features"),
+            pl.PipelineStep(ref="pair", processor="pairs", wires={"features": "extract.features"}),
+            pl.PipelineStep(
+                ref="match",
+                processor="matches",
+                wires={
+                    "features": "extract.features",
+                    "pairs": "pair.pairs",
+                },
+            ),
+            pl.PipelineStep(ref="verify", processor="verify", wires={"matches": "match.matches"}),
+            pl.PipelineStep(
+                ref="map_a",
+                processor="map",
+                wires={
+                    "features": "extract.features",
+                    "matches": "verify.matches",
+                },
+            ),
+            pl.PipelineStep(
+                ref="map_b",
+                processor="map",
+                wires={
+                    "features": "extract.features",
+                    "matches": "verify.matches",
+                },
+            ),
+            pl.PipelineStep(
+                ref="merge",
+                processor="merge",
+                wires={"model": ["map_a.model", "map_a.model", "map_b.model"]},
+            ),
+        ]
+    )
 
     assert [e.reason for e in errors] == ["invalid_fan_in"]
     assert "does not accept duplicate inputs" in errors[0].message
@@ -298,18 +342,24 @@ def test_legacy_merge_requires_at_least_two_models() -> None:
 def test_inferred_dependencies_match_validated_port_graph() -> None:
     steps = [
         pl.PipelineStep(ref="extract", processor="features"),
-        pl.PipelineStep(ref="pair", processor="pairs",
-                        wires={"features": "extract.features"}),
-        pl.PipelineStep(ref="match", processor="matches", wires={
-            "features": "extract.features",
-            "pairs": "pair.pairs",
-        }),
-        pl.PipelineStep(ref="verify", processor="verify",
-                        wires={"matches": "match.matches"}),
-        pl.PipelineStep(ref="map", processor="map", wires={
-            "features": "extract.features",
-            "matches": "verify.matches",
-        }),
+        pl.PipelineStep(ref="pair", processor="pairs", wires={"features": "extract.features"}),
+        pl.PipelineStep(
+            ref="match",
+            processor="matches",
+            wires={
+                "features": "extract.features",
+                "pairs": "pair.pairs",
+            },
+        ),
+        pl.PipelineStep(ref="verify", processor="verify", wires={"matches": "match.matches"}),
+        pl.PipelineStep(
+            ref="map",
+            processor="map",
+            wires={
+                "features": "extract.features",
+                "matches": "verify.matches",
+            },
+        ),
     ]
     assert pl.validate_pipeline(steps) == []
     assert pl.inferred_step_dependencies(steps) == {
@@ -324,8 +374,9 @@ def test_inferred_dependencies_match_validated_port_graph() -> None:
 def test_inferred_input_source_does_not_create_task_dependency() -> None:
     steps = [
         pl.PipelineStep(ref="extract", processor="features"),
-        pl.PipelineStep(ref="project", processor="project",
-                        wires={"images": "inputs.image_sequence"}),
+        pl.PipelineStep(
+            ref="project", processor="project", wires={"images": "inputs.image_sequence"}
+        ),
     ]
     assert pl.validate_pipeline(steps) == []
     assert pl.inferred_step_dependencies(steps) == {

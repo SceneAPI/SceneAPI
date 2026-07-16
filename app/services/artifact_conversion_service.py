@@ -45,7 +45,12 @@ def _path_from_file_uri_or_local(uri: str) -> Path | None:
         raw_path = unquote(parsed.path)
         if parsed.netloc:
             raw_path = f"//{parsed.netloc}{raw_path}"
-        if len(raw_path) >= 3 and raw_path[0] == "/" and raw_path[1].isalpha() and raw_path[2] == ":":
+        if (
+            len(raw_path) >= 3
+            and raw_path[0] == "/"
+            and raw_path[1].isalpha()
+            and raw_path[2] == ":"
+        ):
             raw_path = raw_path[1:]
         return Path(raw_path)
     if parsed.scheme:
@@ -88,8 +93,7 @@ def _datatype_conflict_message(
         format_datatype = artifact_vocab.datatype_for_format(artifact_format)
         if format_datatype is not None and datatype != format_datatype:
             return (
-                f"datatype {datatype!r} is not compatible with "
-                f"artifact_format {artifact_format!r}"
+                f"datatype {datatype!r} is not compatible with artifact_format {artifact_format!r}"
             )
     kind_datatype = artifact_vocab.datatype_for_kind(kind)
     if kind_datatype is not None and datatype != kind_datatype:

@@ -11,7 +11,8 @@ from typing import Literal
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError as PydanticValidationError
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ValidationError as PydanticValidationError
 
 from app.core.public_outputs import sanitize_public_error_message
 from sfm_hub.models import PluginManifest, _public_url_issue
@@ -290,9 +291,7 @@ def _probe_container_service_plugin(manifest: PluginManifest) -> DoctorCheck:
         return catalog_error
 
     version_detail = (
-        f" for {actual_protocol} {actual_version}"
-        if actual_protocol and actual_version
-        else ""
+        f" for {actual_protocol} {actual_version}" if actual_protocol and actual_version else ""
     )
     metadata = {
         "protocol": actual_protocol,
@@ -382,10 +381,7 @@ def _probe_container_catalog(
         if body.get("plugin_id") != manifest.plugin_id:
             return None, _catalog_endpoint_error(
                 endpoint=endpoint,
-                detail=(
-                    f"plugin_id must be {manifest.plugin_id!r}, "
-                    f"got {body.get('plugin_id')!r}"
-                ),
+                detail=(f"plugin_id must be {manifest.plugin_id!r}, got {body.get('plugin_id')!r}"),
                 reason="catalog_plugin_id_mismatch",
             )
         expected_keys = {"schema_version", "plugin_id", *endpoint_arrays[endpoint]}
@@ -414,9 +410,7 @@ def _probe_container_catalog(
     if missing_endpoints:
         if len(missing_endpoints) == len(endpoint_arrays):
             try:
-                version_parts = tuple(
-                    int(part) for part in actual_protocol_version.split(".")[:2]
-                )
+                version_parts = tuple(int(part) for part in actual_protocol_version.split(".")[:2])
             except ValueError:
                 version_parts = (0, 0)
             if version_parts < (1, 1):
@@ -590,8 +584,8 @@ def doctor_manifest(manifest: PluginManifest, *, state: PluginState | None = Non
                 detail="plugin is enabled" if installed.enabled else "plugin is disabled",
             )
         )
-    # Real runtime probes — one per declared runtime mode. These are the
-    # checks that can actually return ``fail``.
+        # Real runtime probes — one per declared runtime mode. These are the
+        # checks that can actually return ``fail``.
         if installed.provisioning_status == "failed":
             metadata = {"provisioning_status": installed.provisioning_status}
             if installed.request_id:

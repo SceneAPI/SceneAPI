@@ -517,21 +517,13 @@ async def _task_dependency_state(session: Any, task: Task) -> str:
     deps = [str(dep) for dep in (task.depends_on_json or [])]
     if not deps:
         return "ready"
-    rows = (
-        (await session.execute(select(Task).where(Task.task_id.in_(deps))))
-        .scalars()
-        .all()
-    )
+    rows = (await session.execute(select(Task).where(Task.task_id.in_(deps)))).scalars().all()
     status_by_id = {row.task_id: row.status for row in rows}
     return _dependency_state_from_statuses(deps, status_by_id)
 
 
 async def _mark_dependency_failures_and_ready(session: Any, job_id: str) -> list[str]:
-    rows = (
-        (await session.execute(select(Task).where(Task.job_id == job_id)))
-        .scalars()
-        .all()
-    )
+    rows = (await session.execute(select(Task).where(Task.job_id == job_id))).scalars().all()
     status_by_id = {task.task_id: task.status for task in rows}
     changed = True
     while changed:

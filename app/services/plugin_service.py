@@ -40,8 +40,10 @@ from sfm_hub.state import (
     set_project_profile,
     set_provider_priority,
     set_workspace_profile,
-    set_enabled as set_plugin_enabled,
     upsert_profile,
+)
+from sfm_hub.state import (
+    set_enabled as set_plugin_enabled,
 )
 
 
@@ -153,9 +155,7 @@ def install_plugin(
 ) -> dict[str, Any]:
     _validate_request_id(request_id)
     if method not in {"uv", "docker", "container_service", "external_tool"}:
-        raise ValidationError(
-            "method must be one of: uv, docker, container_service, external_tool"
-        )
+        raise ValidationError("method must be one of: uv, docker, container_service, external_tool")
     if not dry_run and not allow_unsafe_execution:
         raise ValidationError(
             "plugin installation can execute local tools; set allow_unsafe_execution=true "
@@ -190,7 +190,9 @@ def install_plugin(
             package=package_name or manifest.package_name,
         )
         if method == "docker":
-            plan = build_docker_install_plan(plugin_id, manifest.runtime_modes.docker, source=source)
+            plan = build_docker_install_plan(
+                plugin_id, manifest.runtime_modes.docker, source=source
+            )
         elif method == "container_service":
             plan = build_container_service_install_plan(
                 plugin_id,
@@ -224,9 +226,7 @@ def install_plugin(
                     "provision_runtime": existing.provision_runtime,
                     "provisioned": existing.provisioned,
                     "provisioning_status": existing.provisioning_status,
-                    "provisioning_error": _public_provisioning_error(
-                        existing.provisioning_error
-                    ),
+                    "provisioning_error": _public_provisioning_error(existing.provisioning_error),
                     "request_id": request_id,
                     "provisioning": None,
                 }
@@ -243,6 +243,7 @@ def install_plugin(
                     f"plugin {plugin_id!r} does not define a container_service runtime"
                 )
             if method == "container_service":
+
                 def fail_install(message: str) -> None:
                     public_message = sanitize_public_error_message(message)
                     record_manual_install(
@@ -261,10 +262,7 @@ def install_plugin(
                 pre_check = next(
                     item for item in pre_report.checks if item.name == "container_service"
                 )
-                if (
-                    pre_check.status == "warn"
-                    and "endpoint is not configured" in pre_check.detail
-                ):
+                if pre_check.status == "warn" and "endpoint is not configured" in pre_check.detail:
                     fail_install(f"container_service health check failed: {pre_check.detail}")
                 if not provision_runtime:
                     if pre_check.status != "pass":
@@ -331,10 +329,7 @@ def install_plugin(
                 and provision_runtime
             ),
             "provisioned": bool(
-                not dry_run
-                and method == "container_service"
-                and provision_runtime
-                and plan.command
+                not dry_run and method == "container_service" and provision_runtime and plan.command
             ),
             "provisioning_status": (
                 "succeeded"
@@ -376,9 +371,7 @@ def install_plugin(
                     _public_provisioning_error(existing.provisioning_error)
                     or "previous attempt failed"
                 )
-                raise ValidationError(
-                    "plugin runtime provisioning failed: " + public_error
-                )
+                raise ValidationError("plugin runtime provisioning failed: " + public_error)
             return {
                 "plugin_id": plugin_id,
                 "method": "uv",
@@ -391,9 +384,7 @@ def install_plugin(
                 "provision_runtime": existing.provision_runtime,
                 "provisioned": existing.provisioned,
                 "provisioning_status": existing.provisioning_status,
-                "provisioning_error": _public_provisioning_error(
-                    existing.provisioning_error
-                ),
+                "provisioning_error": _public_provisioning_error(existing.provisioning_error),
                 "request_id": request_id,
                 "provisioning": None,
             }

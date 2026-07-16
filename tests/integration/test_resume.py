@@ -240,8 +240,14 @@ async def test_inline_resume_forces_downstream_dag_work_inline(session) -> None:
     await resume_job(session, tenant_id="default", job_id=j.job_id, inline=True)
 
     rows = (
-        await session.execute(select(Task).where(Task.job_id == j.job_id).order_by(Task.created_at))
-    ).scalars().all()
+        (
+            await session.execute(
+                select(Task).where(Task.job_id == j.job_id).order_by(Task.created_at)
+            )
+        )
+        .scalars()
+        .all()
+    )
     fresh_job = await session.get(Job, j.job_id)
     assert [row.status for row in rows] == ["succeeded", "succeeded"]
     assert fresh_job.status == "succeeded"

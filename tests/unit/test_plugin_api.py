@@ -267,7 +267,9 @@ async def test_plugin_admin_container_service_runtime_flow(
 
         doctor = await client.post("/v1/admin/plugins/hloc:doctor")
         assert doctor.status_code == 200, doctor.text
-        check = next(item for item in doctor.json()["checks"] if item["name"] == "container_service")
+        check = next(
+            item for item in doctor.json()["checks"] if item["name"] == "container_service"
+        )
         assert check["status"] == "pass"
         assert check["metadata"]["protocol"] == "sfmapi-plugin-http-v1"
 

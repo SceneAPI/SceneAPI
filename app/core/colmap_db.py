@@ -64,9 +64,7 @@ DATABASE_VERSION_PATCH = 0
 DATABASE_SCHEMA_REVISION = 2
 
 
-def make_database_version_number(
-    major: int, minor: int, patch: int, revision: int
-) -> int:
+def make_database_version_number(major: int, minor: int, patch: int, revision: int) -> int:
     """The contract's DB version-number encoding. The reference
     implementation matches this in ``util/version.cc``
     (``MakeDatabaseVersionNumber``)."""
@@ -213,162 +211,219 @@ def _col(name: str, sql_type: str, **kw: object) -> ColumnDef:
 
 COLMAP_DB_TABLES: tuple[TableDef, ...] = (
     # ---- upstream-standard (COLMAP 3.10+ rig/frame/sensor model) ----
-    TableDef("rigs", (
-        _col("rig_id", "INTEGER"),
-        _col("ref_sensor_id", "INTEGER"),
-        _col("ref_sensor_type", "INTEGER"),
-    )),
-    TableDef("rig_sensors", (
-        _col("rig_id", "INTEGER"),
-        _col("sensor_id", "INTEGER"),
-        _col("sensor_type", "INTEGER"),
-        _col("sensor_from_rig", "BLOB"),
-    )),
-    TableDef("cameras", (
-        _col("camera_id", "INTEGER"),
-        _col("model", "INTEGER"),
-        _col("width", "INTEGER"),
-        _col("height", "INTEGER"),
-        _col("params", "BLOB"),
-        _col("prior_focal_length", "INTEGER"),
-    )),
-    TableDef("frames", (
-        _col("frame_id", "INTEGER"),
-        _col("rig_id", "INTEGER"),
-    )),
-    TableDef("frame_data", (
-        _col("frame_id", "INTEGER"),
-        _col("data_id", "INTEGER"),
-        _col("sensor_id", "INTEGER"),
-        _col("sensor_type", "INTEGER"),
-    )),
-    TableDef("images", (
-        _col("image_id", "INTEGER"),
-        _col("name", "TEXT"),
-        _col("camera_id", "INTEGER"),
-        _col("time_id", "INTEGER", extension=True,
-             note="4D / multi-time-frame tag — the canonical per-image "
-                  "capture-time store. Read into Image.time_id for every "
-                  "image (photos, rig captures, and video frames alike); "
-                  "video_frames.time_id is the video-source-specific echo. "
-                  "NULL = untagged (static SfM). Nullable + ignored on "
-                  "SELECT * by non-4D tools, so it stays backward-compatible "
-                  "with vanilla upstream COLMAP readers."),
-    )),
-    TableDef("pose_priors", (
-        _col("pose_prior_id", "INTEGER"),
-        _col("corr_data_id", "INTEGER"),
-        _col("corr_sensor_id", "INTEGER"),
-        _col("corr_sensor_type", "INTEGER"),
-        _col("position", "BLOB"),
-        _col("position_covariance", "BLOB"),
-        _col("gravity", "BLOB"),
-        _col("coordinate_system", "INTEGER"),
-        _col("rotation", "BLOB"),
-        _col("rotation_covariance", "BLOB"),
-        _col("pose_covariance", "BLOB"),
-    )),
-    TableDef("keypoints", (
-        _col("image_id", "INTEGER"),
-        _col("rows", "INTEGER"),
-        _col("cols", "INTEGER"),
-        _col("data", "BLOB"),
-    )),
-    TableDef("descriptors", (
-        _col("image_id", "INTEGER"),
-        _col("type", "INTEGER", extension=True,
-             note="Extractor type (SIFT/ALIKED/...) so cross-extractor "
-                  "matching is rejected. Added at schema revision 1 "
-                  "(default SIFT for migrated rows)."),
-        _col("rows", "INTEGER"),
-        _col("cols", "INTEGER"),
-        _col("data", "BLOB"),
-    )),
-    TableDef("matches", (
-        _col("pair_id", "INTEGER"),
-        _col("rows", "INTEGER"),
-        _col("cols", "INTEGER"),
-        _col("data", "BLOB"),
-    )),
-    TableDef("two_view_geometries", (
-        _col("pair_id", "INTEGER"),
-        _col("rows", "INTEGER"),
-        _col("cols", "INTEGER"),
-        _col("data", "BLOB"),
-        _col("config", "INTEGER"),
-        _col("F", "BLOB"),
-        _col("E", "BLOB"),
-        _col("H", "BLOB"),
-        _col("qvec", "BLOB"),
-        _col("tvec", "BLOB"),
-    )),
+    TableDef(
+        "rigs",
+        (
+            _col("rig_id", "INTEGER"),
+            _col("ref_sensor_id", "INTEGER"),
+            _col("ref_sensor_type", "INTEGER"),
+        ),
+    ),
+    TableDef(
+        "rig_sensors",
+        (
+            _col("rig_id", "INTEGER"),
+            _col("sensor_id", "INTEGER"),
+            _col("sensor_type", "INTEGER"),
+            _col("sensor_from_rig", "BLOB"),
+        ),
+    ),
+    TableDef(
+        "cameras",
+        (
+            _col("camera_id", "INTEGER"),
+            _col("model", "INTEGER"),
+            _col("width", "INTEGER"),
+            _col("height", "INTEGER"),
+            _col("params", "BLOB"),
+            _col("prior_focal_length", "INTEGER"),
+        ),
+    ),
+    TableDef(
+        "frames",
+        (
+            _col("frame_id", "INTEGER"),
+            _col("rig_id", "INTEGER"),
+        ),
+    ),
+    TableDef(
+        "frame_data",
+        (
+            _col("frame_id", "INTEGER"),
+            _col("data_id", "INTEGER"),
+            _col("sensor_id", "INTEGER"),
+            _col("sensor_type", "INTEGER"),
+        ),
+    ),
+    TableDef(
+        "images",
+        (
+            _col("image_id", "INTEGER"),
+            _col("name", "TEXT"),
+            _col("camera_id", "INTEGER"),
+            _col(
+                "time_id",
+                "INTEGER",
+                extension=True,
+                note="4D / multi-time-frame tag — the canonical per-image "
+                "capture-time store. Read into Image.time_id for every "
+                "image (photos, rig captures, and video frames alike); "
+                "video_frames.time_id is the video-source-specific echo. "
+                "NULL = untagged (static SfM). Nullable + ignored on "
+                "SELECT * by non-4D tools, so it stays backward-compatible "
+                "with vanilla upstream COLMAP readers.",
+            ),
+        ),
+    ),
+    TableDef(
+        "pose_priors",
+        (
+            _col("pose_prior_id", "INTEGER"),
+            _col("corr_data_id", "INTEGER"),
+            _col("corr_sensor_id", "INTEGER"),
+            _col("corr_sensor_type", "INTEGER"),
+            _col("position", "BLOB"),
+            _col("position_covariance", "BLOB"),
+            _col("gravity", "BLOB"),
+            _col("coordinate_system", "INTEGER"),
+            _col("rotation", "BLOB"),
+            _col("rotation_covariance", "BLOB"),
+            _col("pose_covariance", "BLOB"),
+        ),
+    ),
+    TableDef(
+        "keypoints",
+        (
+            _col("image_id", "INTEGER"),
+            _col("rows", "INTEGER"),
+            _col("cols", "INTEGER"),
+            _col("data", "BLOB"),
+        ),
+    ),
+    TableDef(
+        "descriptors",
+        (
+            _col("image_id", "INTEGER"),
+            _col(
+                "type",
+                "INTEGER",
+                extension=True,
+                note="Extractor type (SIFT/ALIKED/...) so cross-extractor "
+                "matching is rejected. Added at schema revision 1 "
+                "(default SIFT for migrated rows).",
+            ),
+            _col("rows", "INTEGER"),
+            _col("cols", "INTEGER"),
+            _col("data", "BLOB"),
+        ),
+    ),
+    TableDef(
+        "matches",
+        (
+            _col("pair_id", "INTEGER"),
+            _col("rows", "INTEGER"),
+            _col("cols", "INTEGER"),
+            _col("data", "BLOB"),
+        ),
+    ),
+    TableDef(
+        "two_view_geometries",
+        (
+            _col("pair_id", "INTEGER"),
+            _col("rows", "INTEGER"),
+            _col("cols", "INTEGER"),
+            _col("data", "BLOB"),
+            _col("config", "INTEGER"),
+            _col("F", "BLOB"),
+            _col("E", "BLOB"),
+            _col("H", "BLOB"),
+            _col("qvec", "BLOB"),
+            _col("tvec", "BLOB"),
+        ),
+    ),
     # ---- fork-specific extension tables (colmap_mod) ----
-    TableDef("videos", (
-        _col("video_id", "INTEGER"),
-        _col("name", "TEXT"),
-        _col("source_path", "TEXT"),
-        _col("content_hash", "TEXT"),
-        _col("width", "INTEGER"),
-        _col("height", "INTEGER"),
-        _col("num_frames", "INTEGER"),
-        _col("fps", "REAL"),
-        _col("duration_seconds", "REAL"),
-        _col("codec_name", "TEXT"),
-        _col("sync_group", "TEXT"),
-    ), extension=True, note="Video ingestion source metadata."),
-    TableDef("video_frames", (
-        _col("video_id", "INTEGER"),
-        _col("image_id", "INTEGER"),
-        _col("frame_id", "INTEGER"),
-        _col("pts_seconds", "REAL"),
-        _col("time_id", "INTEGER"),
-    ), extension=True, note="Maps decoded video frames to image ids."),
-    TableDef("image_qualities", (
-        _col("image_id", "INTEGER"),
-        _col("quality", "REAL"),
-    ), extension=True,
+    TableDef(
+        "videos",
+        (
+            _col("video_id", "INTEGER"),
+            _col("name", "TEXT"),
+            _col("source_path", "TEXT"),
+            _col("content_hash", "TEXT"),
+            _col("width", "INTEGER"),
+            _col("height", "INTEGER"),
+            _col("num_frames", "INTEGER"),
+            _col("fps", "REAL"),
+            _col("duration_seconds", "REAL"),
+            _col("codec_name", "TEXT"),
+            _col("sync_group", "TEXT"),
+        ),
+        extension=True,
+        note="Video ingestion source metadata.",
+    ),
+    TableDef(
+        "video_frames",
+        (
+            _col("video_id", "INTEGER"),
+            _col("image_id", "INTEGER"),
+            _col("frame_id", "INTEGER"),
+            _col("pts_seconds", "REAL"),
+            _col("time_id", "INTEGER"),
+        ),
+        extension=True,
+        note="Maps decoded video frames to image ids.",
+    ),
+    TableDef(
+        "image_qualities",
+        (
+            _col("image_id", "INTEGER"),
+            _col("quality", "REAL"),
+        ),
+        extension=True,
         note="Per-image blur/sharpness (variance of Laplacian); written "
-             "when ImageReaderOptions.estimate_quality is on."),
-    TableDef("markers", (
-        _col("marker_id", "INTEGER"),
-        _col("label", "TEXT"),
-        _col("type", "INTEGER"),
-        _col("world_position", "BLOB"),
-        _col("world_position_cov", "BLOB"),
-        _col("point3D_id", "INTEGER"),
-        _col("enabled", "INTEGER"),
-    ), extension=True, note="Named 3D points / ground-control points with "
-                            "optional world-coordinate priors."),
-    TableDef("marker_projections", (
-        _col("marker_id", "INTEGER"),
-        _col("image_id", "INTEGER"),
-        _col("x", "REAL"),
-        _col("y", "REAL"),
-        _col("size", "REAL"),
-        _col("pinned", "INTEGER"),
-        _col("point2D_idx", "INTEGER"),
-    ), extension=True, note="Per-image 2D projections of markers."),
+        "when ImageReaderOptions.estimate_quality is on.",
+    ),
+    TableDef(
+        "markers",
+        (
+            _col("marker_id", "INTEGER"),
+            _col("label", "TEXT"),
+            _col("type", "INTEGER"),
+            _col("world_position", "BLOB"),
+            _col("world_position_cov", "BLOB"),
+            _col("point3D_id", "INTEGER"),
+            _col("enabled", "INTEGER"),
+        ),
+        extension=True,
+        note="Named 3D points / ground-control points with optional world-coordinate priors.",
+    ),
+    TableDef(
+        "marker_projections",
+        (
+            _col("marker_id", "INTEGER"),
+            _col("image_id", "INTEGER"),
+            _col("x", "REAL"),
+            _col("y", "REAL"),
+            _col("size", "REAL"),
+            _col("pinned", "INTEGER"),
+            _col("point2D_idx", "INTEGER"),
+        ),
+        extension=True,
+        note="Per-image 2D projections of markers.",
+    ),
 )
 
 COLMAP_DB_TABLES_BY_NAME: dict[str, TableDef] = {t.name: t for t in COLMAP_DB_TABLES}
 
 #: Tables that exist only in the colmap_mod fork (not vanilla upstream).
-EXTENSION_TABLES: frozenset[str] = frozenset(
-    t.name for t in COLMAP_DB_TABLES if t.extension
-)
+EXTENSION_TABLES: frozenset[str] = frozenset(t.name for t in COLMAP_DB_TABLES if t.extension)
 
 #: ``table.column`` extension columns added to otherwise-upstream tables.
 EXTENSION_COLUMNS: frozenset[str] = frozenset(
-    f"{t.name}.{c.name}"
-    for t in COLMAP_DB_TABLES
-    if not t.extension
-    for c in t.extension_columns
+    f"{t.name}.{c.name}" for t in COLMAP_DB_TABLES if not t.extension for c in t.extension_columns
 )
 
 #: Tables present in vanilla upstream COLMAP (the portable common core).
-UPSTREAM_TABLES: frozenset[str] = frozenset(
-    t.name for t in COLMAP_DB_TABLES if not t.extension
-)
+UPSTREAM_TABLES: frozenset[str] = frozenset(t.name for t in COLMAP_DB_TABLES if not t.extension)
 
 
 def is_extension_table(name: str) -> bool:
@@ -449,16 +504,16 @@ __all__ = [
     "COLMAP_KNOWN_MATCHER_TYPES",
     "CONTRACT_NAME",
     "CONTRACT_SCHEMA_VERSION",
-    "ColumnDef",
-    "contract_dict",
     "DATABASE_SCHEMA_REVISION",
     "DATABASE_VERSION_NUMBER",
     "EXTENSION_COLUMNS",
     "EXTENSION_TABLES",
     "MAX_NUM_IMAGES",
-    "TableDef",
     "UNDEFINED_EXTRACTOR_TYPE",
     "UPSTREAM_TABLES",
+    "ColumnDef",
+    "TableDef",
+    "contract_dict",
     "image_pair_to_pair_id",
     "is_colmap_native_extractor_type",
     "is_extension_column",

@@ -231,8 +231,7 @@ def test_pydantic_manifest_schema_exposes_runtime_id_constraints() -> None:
     assert schema["properties"]["plugin_id"]["maxLength"] == 64
     assert defs["ProviderManifest"]["properties"]["provider_id"]["maxLength"] == 64
     assert (
-        defs["PluginDataTypeManifest"]["properties"]["type_id"]["pattern"]
-        == r"^[a-z][a-z0-9_-]*$"
+        defs["PluginDataTypeManifest"]["properties"]["type_id"]["pattern"] == r"^[a-z][a-z0-9_-]*$"
     )
     assert (
         defs["PluginProcessorManifest"]["properties"]["processor_id"]["pattern"]
@@ -245,11 +244,9 @@ def test_pydantic_manifest_schema_exposes_runtime_id_constraints() -> None:
     special_required = defs["PluginSpecialInputPortSpecManifest"]["properties"]["required"]
     assert special_required["const"] is False
     assert special_required["default"] is False
-    special_attrs = (
-        defs["PluginProcessorExtensionManifest"]["properties"]["special_attributes"][
-            "items"
-        ]["$ref"].removeprefix("#/$defs/")
-    )
+    special_attrs = defs["PluginProcessorExtensionManifest"]["properties"]["special_attributes"][
+        "items"
+    ]["$ref"].removeprefix("#/$defs/")
     assert special_attrs == "PluginSpecialAttributeManifest"
     special_attr_required = defs[special_attrs]["properties"]["required"]
     assert special_attr_required["const"] is False
@@ -260,15 +257,17 @@ def test_pydantic_manifest_schema_exposes_runtime_id_constraints() -> None:
         ]
         is False
     )
-    assert "runtime PluginManifest validation" in (
-        defs["PluginProcessorExtensionManifest"]["properties"]["special_inputs"][
-            "description"
-        ]
+    assert (
+        "runtime PluginManifest validation"
+        in (defs["PluginProcessorExtensionManifest"]["properties"]["special_inputs"]["description"])
     )
-    assert "runtime PluginManifest validation" in (
-        defs["PluginProcessorExtensionManifest"]["properties"]["special_attributes"][
-            "description"
-        ]
+    assert (
+        "runtime PluginManifest validation"
+        in (
+            defs["PluginProcessorExtensionManifest"]["properties"]["special_attributes"][
+                "description"
+            ]
+        )
     )
 
 
@@ -355,9 +354,7 @@ def _typed_extension_manifest(**overrides: object) -> dict[str, object]:
                         "required": False,
                     }
                 },
-                "special_attributes": [
-                    {"name": "typed_radiance.radiance_weight", "type": "float"}
-                ],
+                "special_attributes": [{"name": "typed_radiance.radiance_weight", "type": "float"}],
             }
         ],
         "licenses": [],
@@ -453,10 +450,13 @@ def test_typed_extension_schema_accepts_manifest_shapes() -> None:
     assert _schema_errors("plugin_datatype", manifest["datatypes"][0]) == []
     assert _schema_errors("plugin_processor", manifest["processors"][0]) == []
     assert _schema_errors("plugin_pipeline", manifest["pipelines"][0]) == []
-    assert _schema_errors(
-        "plugin_processor_extension",
-        manifest["processor_extensions"][0],
-    ) == []
+    assert (
+        _schema_errors(
+            "plugin_processor_extension",
+            manifest["processor_extensions"][0],
+        )
+        == []
+    )
 
 
 def test_manifest_rejects_processor_unknown_datatype() -> None:
@@ -771,9 +771,7 @@ def test_manifest_rejects_unqualified_special_extension_names() -> None:
         processor_extensions=[
             {
                 "processor_id": "map",
-                "special_inputs": {
-                    "prior": {"datatype": "radiance_field", "required": False}
-                },
+                "special_inputs": {"prior": {"datatype": "radiance_field", "required": False}},
                 "special_attributes": [{"name": "radiance_weight", "type": "float"}],
             }
         ]
@@ -794,9 +792,7 @@ def test_manifest_rejects_extension_names_outside_plugin_namespace() -> None:
                         "required": False,
                     }
                 },
-                "special_attributes": [
-                    {"name": "other_plugin.radiance_weight", "type": "float"}
-                ],
+                "special_attributes": [{"name": "other_plugin.radiance_weight", "type": "float"}],
             }
         ]
     )
@@ -827,9 +823,7 @@ def test_static_schema_rejects_empty_segment_special_attribute_name() -> None:
         processor_extensions=[
             {
                 "processor_id": "map",
-                "special_attributes": [
-                    {"name": "typed_radiance..weight", "type": "float"}
-                ],
+                "special_attributes": [{"name": "typed_radiance..weight", "type": "float"}],
             }
         ]
     )
@@ -852,17 +846,13 @@ def test_static_schema_allows_special_input_required_default() -> None:
         processor_extensions=[
             {
                 "processor_id": "map",
-                "special_inputs": {
-                    "typed-radiance.prior": {"datatype": "radiance_field"}
-                },
+                "special_inputs": {"typed-radiance.prior": {"datatype": "radiance_field"}},
             }
         ],
     )
 
     parsed = PluginManifest.model_validate(manifest)
-    assert parsed.processor_extensions[0].special_inputs[
-        "typed-radiance.prior"
-    ].required is False
+    assert parsed.processor_extensions[0].special_inputs["typed-radiance.prior"].required is False
     assert not _schema_errors(
         "plugin_processor_extension",
         manifest["processor_extensions"][0],
@@ -884,9 +874,7 @@ def test_manifest_accepts_hyphenated_plugin_namespace_for_special_attributes() -
                         "required": False,
                     }
                 },
-                "special_attributes": [
-                    {"name": "typed-radiance.radiance_weight", "type": "float"}
-                ],
+                "special_attributes": [{"name": "typed-radiance.radiance_weight", "type": "float"}],
             }
         ],
     )
@@ -1004,7 +992,10 @@ def test_manifest_rejects_processor_capabilities_split_across_providers() -> Non
         ({"name": "max_steps", "type": "int", "default": "many"}, "default must match"),
         ({"name": "method", "type": "str", "enum": ["splat"]}, "uses enum values"),
         ({"name": "method", "type": "enum", "enum": ["splat", 3]}, "enum"),
-        ({"name": "method", "type": "enum", "enum": ["splat"], "default": "nerf"}, "default must match"),
+        (
+            {"name": "method", "type": "enum", "enum": ["splat"], "default": "nerf"},
+            "default must match",
+        ),
         ({"name": "weight", "type": "float", "min": 2, "max": 1}, "min must be <= max"),
         ({"name": "kind", "type": "datatype-ref", "default": "missing_type"}, "default must match"),
     ],
@@ -1379,9 +1370,7 @@ def test_manifest_accepts_plugin_owned_capability_vocabulary() -> None:
 
 def test_manifest_rejects_invalid_capability_id_shape() -> None:
     with pytest.raises(PydanticValidationError, match="String should match pattern"):
-        PluginManifest.model_validate(
-            _typed_extension_manifest(capabilities=["Bad Capability"])
-        )
+        PluginManifest.model_validate(_typed_extension_manifest(capabilities=["Bad Capability"]))
 
 
 @pytest.mark.parametrize(
@@ -1504,8 +1493,16 @@ def test_runtime_manifests_reject_private_build_inputs() -> None:
 
 def test_manifest_rejects_private_public_metadata_urls() -> None:
     for overrides in [
-        {"licenses": [{"name": "Apache-2.0", "url": "https://licenses.example/apache?token=secret"}]},
-        {"upstream_projects": [{"name": "upstream", "url": "https://user:pass@example.com/project"}]},
+        {
+            "licenses": [
+                {"name": "Apache-2.0", "url": "https://licenses.example/apache?token=secret"}
+            ]
+        },
+        {
+            "upstream_projects": [
+                {"name": "upstream", "url": "https://user:pass@example.com/project"}
+            ]
+        },
         {"conformance": {"report_url": "https://reports.example/run#sig=secret"}},
         {"compatibility": {"token": "secret-value"}},
         {"compatibility": {"path": "/home/me/private/model.bin"}},
@@ -1611,9 +1608,7 @@ def test_backend_catalog_rejects_unknown_datatype_refs() -> None:
 
 def _schema_errors(def_name: str, value: dict[str, object]) -> list[str]:
     schema = json.loads(Path("sfm_hub/schemas/backend-plugin.schema.json").read_text())
-    validator = Draft202012Validator(
-        {"$ref": f"#/$defs/{def_name}", "$defs": schema["$defs"]}
-    )
+    validator = Draft202012Validator({"$ref": f"#/$defs/{def_name}", "$defs": schema["$defs"]})
     return [error.message for error in validator.iter_errors(value)]
 
 
@@ -1746,10 +1741,7 @@ def test_container_service_default_url_rejects_encoded_signed_params() -> None:
                 "protocol": "sfmapi-plugin-http-v1",
                 "protocol_version": "1.0",
                 "service": {
-                    "default_url": (
-                        "http://plugin-hloc/health"
-                        "%253FX-Amz-Signature%253Dabc"
-                    )
+                    "default_url": ("http://plugin-hloc/health%253FX-Amz-Signature%253Dabc")
                 },
             }
         )
@@ -1971,9 +1963,7 @@ def test_container_service_image_dry_run_is_public_attach_only(
 
     assert result["command"] == []
     assert result["direct_reference"] == "ghcr.io/sfmapi/hloc-plugin:1.0"
-    assert result["warnings"] == [
-        plugin_service.IMAGE_BACKED_CONTAINER_SERVICE_ATTACH_WARNING
-    ]
+    assert result["warnings"] == [plugin_service.IMAGE_BACKED_CONTAINER_SERVICE_ATTACH_WARNING]
     assert result["provisioning_status"] == "not_requested"
 
 
@@ -2519,9 +2509,7 @@ def test_container_service_install_records_after_healthy_protocol(
         assert record.method == "container_service"
         assert record.request_id == "550e8400-e29b-41d4-a716-446655440043"
         report = doctor_manifest(manifest, state=load_state())
-        container_check = next(
-            item for item in report.checks if item.name == "container_service"
-        )
+        container_check = next(item for item in report.checks if item.name == "container_service")
         loadable_check = next(item for item in report.checks if item.name == "loadable")
         assert report.status != "fail"
         assert container_check.status == "pass"
@@ -3006,9 +2994,7 @@ def test_disabled_provider_is_rejected_for_runtime_resolution() -> None:
 def test_provider_resolution_uses_project_profile_before_default() -> None:
     record_manual_install("colmap_cli", method="external_tool")
     record_manual_install("pycolmap", method="uv")
-    upsert_profile(
-        RoutingProfile(name="default", routes={"features": ["colmap_cli@colmap_cli"]})
-    )
+    upsert_profile(RoutingProfile(name="default", routes={"features": ["colmap_cli@colmap_cli"]}))
     upsert_profile(
         RoutingProfile(name="project", routes={"features": ["colmap_pycolmap@pycolmap"]})
     )
@@ -3617,8 +3603,7 @@ def test_plugin_service_records_failed_provisioning_and_dedupes_retry(
     def fake_provisioner(package_name: str, *, dry_run: bool, force: bool) -> None:
         calls.append(f"provision:{package_name}:{dry_run}:{force}")
         raise ProvisioningError(
-            "download failed at C:/cache/model.bin from "
-            "https://artifacts.example/model.bin?sig=abc"
+            "download failed at C:/cache/model.bin from https://artifacts.example/model.bin?sig=abc"
         )
 
     monkeypatch.setattr(plugin_service, "run_uv_install", fake_uv_install)

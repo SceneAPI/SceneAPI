@@ -146,7 +146,9 @@ def test_match_worker_uses_precomputed_pairs_artifact_with_matcher_provider(
     assert captured["resolved_matcher_provider"] == "vismatch"
     assert captured["options"]["matcher_provider"] == "vismatch"
     assert captured["options"]["pairs"]["pairs_path"] == str(pairs_file)
-    assert captured["options"]["input_artifacts"]["pairs"]["metadata"]["producer"]["backend"] == "hloc"
+    assert (
+        captured["options"]["input_artifacts"]["pairs"]["metadata"]["producer"]["backend"] == "hloc"
+    )
 
 
 def test_match_worker_converts_json_pairs_artifact_to_pair_text(

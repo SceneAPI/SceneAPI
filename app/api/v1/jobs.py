@@ -24,11 +24,7 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 _SSE_RESPONSE = {
     200: {
-        "content": {
-            "text/event-stream": {
-                "schema": {"type": "string"}
-            }
-        },
+        "content": {"text/event-stream": {"schema": {"type": "string"}}},
         "description": "Server-sent progress events.",
     }
 }

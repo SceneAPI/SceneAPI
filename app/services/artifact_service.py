@@ -147,9 +147,7 @@ def _validate_reserved_metadata(
     )
     sha = metadata.get("sha256")
     if sha is not None and (not isinstance(sha, str) or not _SHA256_RE.fullmatch(sha)):
-        raise ValidationError(
-            f"{base}.metadata.sha256 must be a lowercase hex SHA-256 digest"
-        )
+        raise ValidationError(f"{base}.metadata.sha256 must be a lowercase hex SHA-256 digest")
     byte_size = metadata.get("byte_size")
     if byte_size is not None and (
         not isinstance(byte_size, int) or isinstance(byte_size, bool) or byte_size < 0
@@ -159,9 +157,7 @@ def _validate_reserved_metadata(
     if coordinate_frame is not None and (
         not isinstance(coordinate_frame, str) or len(coordinate_frame) > 255
     ):
-        raise ValidationError(
-            f"{base}.metadata.coordinate_frame must be a string up to 255 chars"
-        )
+        raise ValidationError(f"{base}.metadata.coordinate_frame must be a string up to 255 chars")
     producer = metadata.get("producer")
     if producer is not None and not isinstance(producer, dict):
         raise ValidationError(f"{base}.metadata.producer must be an object")
@@ -188,9 +184,7 @@ def validate_artifact_descriptor(
             descriptor[key] = metadata[key]
     kind = descriptor.get("kind")
     if not isinstance(kind, str) or not artifact_vocab.is_valid_artifact_key(kind):
-        raise ValidationError(
-            f"{base}.kind must match {artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
-        )
+        raise ValidationError(f"{base}.kind must match {artifact_vocab.ARTIFACT_KEY_RE.pattern!r}")
     core_kind = artifact_vocab.CORE_ARTIFACT_KINDS.get(kind)
     name = descriptor.get("name")
     if name is not None and (not isinstance(name, str) or len(name) > 255):
@@ -202,9 +196,7 @@ def validate_artifact_descriptor(
         raise ValidationError(f"{base}.uri must be a string up to 2048 chars")
     media_type = descriptor.get("media_type")
     if media_type is not None and (not isinstance(media_type, str) or len(media_type) > 127):
-        raise ValidationError(
-            f"{base}.media_type must be a string up to 127 chars"
-        )
+        raise ValidationError(f"{base}.media_type must be a string up to 127 chars")
     artifact_format = descriptor.get("artifact_format")
     if artifact_format is None and core_kind is not None:
         # The Format axis is open: a plugin backend may override the I/O format
@@ -213,8 +205,7 @@ def validate_artifact_descriptor(
         from app.adapters import backend_artifacts
 
         artifact_format = (
-            backend_artifacts.backend_default_format_for_kind(kind)
-            or core_kind.artifact_format
+            backend_artifacts.backend_default_format_for_kind(kind) or core_kind.artifact_format
         )
         descriptor["artifact_format"] = artifact_format
     if artifact_format is not None and (
@@ -265,8 +256,7 @@ def validate_artifact_descriptor(
         datatype = core_kind.datatype
         descriptor["datatype"] = datatype
     if datatype is not None and (
-        not isinstance(datatype, str)
-        or not artifact_vocab.is_valid_artifact_key(datatype)
+        not isinstance(datatype, str) or not artifact_vocab.is_valid_artifact_key(datatype)
     ):
         raise ValidationError(
             f"{base}.datatype must match {artifact_vocab.ARTIFACT_KEY_RE.pattern!r}"
@@ -292,9 +282,7 @@ def validate_artifact_descriptor(
     )
     sha = descriptor.get("sha256")
     if sha is not None and (not isinstance(sha, str) or not _SHA256_RE.fullmatch(sha)):
-        raise ValidationError(
-            f"{base}.sha256 must be a lowercase hex SHA-256 digest"
-        )
+        raise ValidationError(f"{base}.sha256 must be a lowercase hex SHA-256 digest")
     byte_size = descriptor.get("byte_size")
     if byte_size is not None and (
         not isinstance(byte_size, int) or isinstance(byte_size, bool) or byte_size < 0
@@ -304,9 +292,7 @@ def validate_artifact_descriptor(
     if coordinate_frame is not None and (
         not isinstance(coordinate_frame, str) or len(coordinate_frame) > 255
     ):
-        raise ValidationError(
-            f"{base}.coordinate_frame must be a string up to 255 chars"
-        )
+        raise ValidationError(f"{base}.coordinate_frame must be a string up to 255 chars")
     producer = descriptor.get("producer")
     if producer is not None and not isinstance(producer, dict):
         raise ValidationError(f"{base}.producer must be an object")

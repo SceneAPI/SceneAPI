@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import UTC
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -120,7 +121,7 @@ def test_task_artifact_metadata_files_strip_local_paths() -> None:
                                 "path": "C:/secret/c.bin",
                             },
                             {"name": "nested-private", "path": "C:/secret/d.bin"},
-                        ]
+                        ],
                     },
                 }
             ]
@@ -425,16 +426,12 @@ def test_artifact_out_hides_local_paths_and_exposes_content_href(tmp_path: Path)
 
         public_uri = "/v1/artifacts/existing/content"
         public_out = artifact_out(
-            SimpleNamespace(
-                **{**base, "artifact_id": new_id(), "uri": public_uri}
-            )
+            SimpleNamespace(**{**base, "artifact_id": new_id(), "uri": public_uri})
         )
         assert public_out.uri == public_uri
 
         local_out = artifact_out(
-            SimpleNamespace(
-                **{**base, "artifact_id": new_id(), "uri": "C:/secret/a.bin"}
-            )
+            SimpleNamespace(**{**base, "artifact_id": new_id(), "uri": "C:/secret/a.bin"})
         )
         assert local_out.uri is None
     finally:
@@ -456,9 +453,7 @@ def test_artifact_out_preserves_safe_remote_uri_and_drops_credentialed_uri() -> 
         "created_at": utcnow(),
     }
 
-    safe_out = artifact_out(
-        SimpleNamespace(**base, uri="https://artifacts.example/out.bin")
-    )
+    safe_out = artifact_out(SimpleNamespace(**base, uri="https://artifacts.example/out.bin"))
     assert safe_out.uri == "https://artifacts.example/out.bin"
 
     credentialed_out = artifact_out(
@@ -618,10 +613,7 @@ def test_public_outputs_preserve_safe_remote_artifact_uris_only() -> None:
                 },
                 {
                     "kind": "custom.output",
-                    "uri": (
-                        "https://artifacts.example/result.bin"
-                        "?safe=1;X-Amz-Signature=abc123"
-                    ),
+                    "uri": ("https://artifacts.example/result.bin?safe=1;X-Amz-Signature=abc123"),
                 },
                 {
                     "kind": "custom.output",
@@ -715,15 +707,19 @@ def test_public_artifact_uri_drops_sensitive_fragments() -> None:
 
     sanitized = sanitize_public_outputs(
         {
-            "artifacts": [{
-                "kind": "custom.output",
-                "uri": "https://artifacts.example/result.bin#safe=1;sig=abc123",
-                "files": [{
-                    "name": "fragment.bin",
-                    "uri": "https://artifacts.example/result.bin#X-Amz-Signature=abc123",
-                    "sha256": "d" * 64,
-                }],
-            }]
+            "artifacts": [
+                {
+                    "kind": "custom.output",
+                    "uri": "https://artifacts.example/result.bin#safe=1;sig=abc123",
+                    "files": [
+                        {
+                            "name": "fragment.bin",
+                            "uri": "https://artifacts.example/result.bin#X-Amz-Signature=abc123",
+                            "sha256": "d" * 64,
+                        }
+                    ],
+                }
+            ]
         }
     )
     assert "uri" not in sanitized["artifacts"][0]
@@ -738,10 +734,7 @@ def test_generic_public_outputs_redact_signed_remote_uri_strings() -> None:
 
     sanitized = sanitize_public_outputs(
         {
-            "message": (
-                "download "
-                "s3://bucket/object?X-Amz-Signature=abcdef"
-            ),
+            "message": ("download s3://bucket/object?X-Amz-Signature=abcdef"),
             "nested": {
                 "note": (
                     "wrapped "
@@ -767,8 +760,7 @@ def test_generic_public_outputs_reject_double_encoded_signed_path_params() -> No
                 {
                     "kind": "features.local.v1",
                     "uri": (
-                        "https://artifacts.example/features.json"
-                        "%253BX-Amz-Signature%253Dabcdef"
+                        "https://artifacts.example/features.json%253BX-Amz-Signature%253Dabcdef"
                     ),
                 }
             ]
@@ -807,10 +799,13 @@ def test_generic_public_outputs_redact_standalone_signed_parameters() -> None:
 def test_file_uri_parser_accepts_windows_drive_file_uri() -> None:
     from app.services.artifact_conversion_service import _file_uri_to_path
 
-    assert str(_file_uri_to_path("file:///C:/sfmapi/file.bin")).replace(
-        "\\",
-        "/",
-    ) == "C:/sfmapi/file.bin"
+    assert (
+        str(_file_uri_to_path("file:///C:/sfmapi/file.bin")).replace(
+            "\\",
+            "/",
+        )
+        == "C:/sfmapi/file.bin"
+    )
 
 
 def test_public_error_message_redacts_urls_paths_and_secrets() -> None:
@@ -1169,9 +1164,7 @@ def test_backend_io_formats_derive_datatype_per_contract_side() -> None:
         item.format_id: item
         for item in backend_artifacts.backend_io_formats(CrossDatatypeSideBackend())
     }
-    violations = backend_artifacts.backend_artifact_contract_violations(
-        CrossDatatypeSideBackend()
-    )
+    violations = backend_artifacts.backend_artifact_contract_violations(CrossDatatypeSideBackend())
 
     assert formats["plugin.features.bundle.v1"].datatype == "feature_set"
     assert formats["plugin.features.bundle.v1"].serves_kinds == ("features.local.v1",)
@@ -1196,9 +1189,7 @@ def test_backend_artifact_contract_rejects_cross_datatype_formats() -> None:
                 }
             ]
 
-    violations = backend_artifacts.backend_artifact_contract_violations(
-        MismatchedFormatBackend()
-    )
+    violations = backend_artifacts.backend_artifact_contract_violations(MismatchedFormatBackend())
 
     assert any("accepts_formats format" in violation for violation in violations)
     assert any("emits_formats format" in violation for violation in violations)
@@ -1577,7 +1568,9 @@ async def test_artifact_validation_rejects_uppercase_sha_metadata(
                 "artifact_format": "sfmapi.reconstruction.snapshot.v1",
                 "datatype": "sparse_model",
                 "schema_version": 1,
-                "files": [{"name": "points.bin", "uri": "points.bin", "sha256": points_sha.upper()}],
+                "files": [
+                    {"name": "points.bin", "uri": "points.bin", "sha256": points_sha.upper()}
+                ],
             },
         )
         session.add_all([file_artifact, dir_artifact])
@@ -1592,27 +1585,25 @@ async def test_artifact_validation_rejects_uppercase_sha_metadata(
         file_validation = await client.post(f"/v1/artifacts/{file_artifact_id}:validate")
         assert file_validation.status_code == 200, file_validation.text
         assert any(
-            issue["field"] == "metadata"
-            and "lowercase hex SHA-256" in issue["message"]
+            issue["field"] == "metadata" and "lowercase hex SHA-256" in issue["message"]
             for issue in file_validation.json()["issues"]
         )
 
         dir_validation = await client.post(f"/v1/artifacts/{dir_artifact_id}:validate")
         assert dir_validation.status_code == 200, dir_validation.text
         assert any(
-            issue["field"] == "files[0]"
-            and "lowercase hex SHA-256" in issue["message"]
+            issue["field"] == "files[0]" and "lowercase hex SHA-256" in issue["message"]
             for issue in dir_validation.json()["issues"]
         )
 
 
 def test_public_resource_specs_sanitize_backend_options() -> None:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from app.schemas.api.radiance import RadianceEvaluationOut, RadianceFieldOut
     from app.schemas.api.reconstructions import ReconstructionOut
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     recon = ReconstructionOut(
         recon_id="r1",
         project_id="p1",

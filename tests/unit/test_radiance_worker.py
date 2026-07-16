@@ -21,10 +21,12 @@ pytestmark = pytest.mark.unit
 def test_radiance_requests_accept_max_length_plugin_qualified_provider() -> None:
     provider = ("p" * 64) + "@" + ("g" * 64)
 
-    train = RadianceTrainRequest.model_validate({
-        "dataset_id": "dataset-1",
-        "provider": provider,
-    })
+    train = RadianceTrainRequest.model_validate(
+        {
+            "dataset_id": "dataset-1",
+            "provider": provider,
+        }
+    )
     evaluate = RadianceEvaluateRequest.model_validate({"provider": provider})
 
     assert train.provider == provider
@@ -33,15 +35,19 @@ def test_radiance_requests_accept_max_length_plugin_qualified_provider() -> None
 
 def test_radiance_requests_reject_overlength_provider_selector_components() -> None:
     with pytest.raises(PydanticValidationError):
-        RadianceTrainRequest.model_validate({
-            "dataset_id": "dataset-1",
-            "provider": "p" * 65,
-        })
+        RadianceTrainRequest.model_validate(
+            {
+                "dataset_id": "dataset-1",
+                "provider": "p" * 65,
+            }
+        )
 
     with pytest.raises(PydanticValidationError):
-        RadianceEvaluateRequest.model_validate({
-            "provider": ("p" * 64) + "@" + ("g" * 65),
-        })
+        RadianceEvaluateRequest.model_validate(
+            {
+                "provider": ("p" * 64) + "@" + ("g" * 65),
+            }
+        )
 
 
 def _start_execute_service(
@@ -224,10 +230,12 @@ def test_radiance_train_accepts_single_anonymous_nested_evaluation(
                 "radiance_field_id": "rf-provider",
                 "snapshot_seq": 7,
                 "snapshot_path": "mem://snapshots/rf-provider/7",
-                "evaluations": [{
-                    "radiance_field_id": "rf-provider",
-                    "metrics": {"psnr": 31.0},
-                }],
+                "evaluations": [
+                    {
+                        "radiance_field_id": "rf-provider",
+                        "metrics": {"psnr": 31.0},
+                    }
+                ],
             },
         }
     }
@@ -276,11 +284,13 @@ def test_radiance_train_rejects_metric_evaluation_without_requested_eval(
                 "radiance_field_id": "rf-provider",
                 "snapshot_seq": 7,
                 "snapshot_path": "mem://snapshots/rf-provider/7",
-                "evaluations": [{
-                    "radiance_field_id": "rf-provider",
-                    "evaluation_id": "ev-foreign",
-                    "metrics": {"psnr": 31.0},
-                }],
+                "evaluations": [
+                    {
+                        "radiance_field_id": "rf-provider",
+                        "evaluation_id": "ev-foreign",
+                        "metrics": {"psnr": 31.0},
+                    }
+                ],
             },
         }
     }
@@ -365,11 +375,13 @@ def test_radiance_train_rejects_conflicting_nested_evaluation_id(
                 "radiance_field_id": "rf-provider",
                 "snapshot_seq": 7,
                 "snapshot_path": "mem://snapshots/rf-provider/7",
-                "evaluations": [{
-                    "radiance_field_id": "rf-provider",
-                    "evaluation_id": "ev-provider",
-                    "metrics": {"psnr": 31.0},
-                }],
+                "evaluations": [
+                    {
+                        "radiance_field_id": "rf-provider",
+                        "evaluation_id": "ev-provider",
+                        "metrics": {"psnr": 31.0},
+                    }
+                ],
             },
         }
     }
@@ -590,9 +602,7 @@ def test_radiance_train_rejects_duplicate_same_id_artifact_row(
         [
             {
                 "kind": "radiance.metrics",
-                "metadata": {
-                    "files": [{"name": "x", "uri": "mem://x", "sha256": "A" * 64}]
-                },
+                "metadata": {"files": [{"name": "x", "uri": "mem://x", "sha256": "A" * 64}]},
             }
         ],
         [{"kind": "radiance.metrics", "files": [{}]}],
@@ -610,12 +620,14 @@ def test_radiance_train_rejects_malformed_nested_evaluation_artifacts(
                 "radiance_field_id": "rf-provider",
                 "snapshot_seq": 7,
                 "snapshot_path": "mem://snapshots/rf-provider/7",
-                "evaluations": [{
-                    "radiance_field_id": "rf-provider",
-                    "evaluation_id": "ev-task",
-                    "metrics": {"psnr": 31.0},
-                    "artifacts": artifacts,
-                }],
+                "evaluations": [
+                    {
+                        "radiance_field_id": "rf-provider",
+                        "evaluation_id": "ev-task",
+                        "metrics": {"psnr": 31.0},
+                        "artifacts": artifacts,
+                    }
+                ],
             },
         }
     }
@@ -706,10 +718,12 @@ def test_radiance_eval_rejects_nested_metric_evaluation(
                 "radiance_field_id": "rf-provider",
                 "evaluation_id": "ev-provider",
                 "metrics": {"psnr": 31.0},
-                "evaluations": [{
-                    "evaluation_id": "ev-task",
-                    "metrics": {"psnr": 29.0},
-                }],
+                "evaluations": [
+                    {
+                        "evaluation_id": "ev-task",
+                        "metrics": {"psnr": 29.0},
+                    }
+                ],
             },
         }
     }

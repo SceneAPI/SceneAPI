@@ -18,7 +18,6 @@ from app.scaffolding import (
     validate_plugin_id,
 )
 
-
 # ---- naming validation -----------------------------------------------------
 
 
@@ -38,8 +37,8 @@ def test_validate_plugin_id_accepts_canonical_shape(plugin_id: str) -> None:
         "with-hyphen",  # hyphens rejected (module suffix can't have them)
         "with.dot",  # dots rejected
         "trailing_",  # trailing underscore is fine on the regex, but
-                     # this row exists to document the regex shape;
-                     # update if behavior changes (it currently passes).
+        # this row exists to document the regex shape;
+        # update if behavior changes (it currently passes).
     ],
 )
 def test_validate_plugin_id_rejects_bad_shapes(plugin_id: str) -> None:
@@ -129,9 +128,7 @@ def test_scaffold_refuses_to_overwrite_by_default(tmp_path: Path) -> None:
 
 def test_scaffold_overwrite_flag_replaces_files(tmp_path: Path) -> None:
     scaffold_plugin("demo", output_dir=tmp_path, description="first")
-    second = scaffold_plugin(
-        "demo", output_dir=tmp_path, description="second", overwrite=True
-    )
+    second = scaffold_plugin("demo", output_dir=tmp_path, description="second", overwrite=True)
     pyproject = (tmp_path / "sfmapi_demo" / "pyproject.toml").read_text(encoding="utf-8")
     assert "second" in pyproject
     assert "first" not in pyproject
@@ -194,7 +191,8 @@ def _load_module(path: Path, name: str):
     import importlib.util
 
     spec = importlib.util.spec_from_file_location(name, path)
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -209,11 +207,11 @@ def test_scaffold_contract_writes_module_and_test(tmp_path: Path) -> None:
     paths = {f.path for f in written}
     assert paths == {core / "demo_std.py", tests / "test_demo_std_contract.py"}
     for f in written:
-        assert f.path.exists() and f.bytes_written == f.path.stat().st_size
+        assert f.path.exists()
+        assert f.bytes_written == f.path.stat().st_size
 
 
 def test_scaffolded_contract_module_satisfies_the_protocol(tmp_path: Path) -> None:
-    import json
 
     from app.scaffolding import scaffold_contract
 
@@ -242,7 +240,5 @@ def test_scaffold_contract_overwrite_semantics(tmp_path: Path) -> None:
     with pytest.raises(FileExistsError, match="refusing to overwrite"):
         scaffold_contract("demo_std", core_dir=tmp_path, tests_dir=tmp_path)
     # overwrite=True succeeds
-    again = scaffold_contract(
-        "demo_std", core_dir=tmp_path, tests_dir=tmp_path, overwrite=True
-    )
+    again = scaffold_contract("demo_std", core_dir=tmp_path, tests_dir=tmp_path, overwrite=True)
     assert len(again) == 2

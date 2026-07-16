@@ -119,9 +119,6 @@ def test_feature_extractors_align_across_capabilities_schema_and_processors() ->
         if cap.startswith("features.extract.")
     }
     processor_types = {
-        str(value)
-        for attr in FEATURE_ATTRIBUTES
-        if attr.name == "type"
-        for value in attr.enum
+        str(value) for attr in FEATURE_ATTRIBUTES if attr.name == "type" for value in attr.enum
     }
     assert feature_types == capability_types == processor_types

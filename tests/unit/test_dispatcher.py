@@ -79,10 +79,13 @@ def test_worker_id_is_set() -> None:
 
 
 def test_skipped_dependency_counts_as_ready() -> None:
-    assert _dependency_state_from_statuses(
-        ["a", "b"],
-        {"a": "succeeded", "b": "skipped"},
-    ) == "ready"
+    assert (
+        _dependency_state_from_statuses(
+            ["a", "b"],
+            {"a": "succeeded", "b": "skipped"},
+        )
+        == "ready"
+    )
 
 
 def test_worker_output_contract_rejects_malformed_artifacts() -> None:

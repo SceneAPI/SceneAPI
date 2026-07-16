@@ -171,9 +171,7 @@ def _effective_registry_or_error() -> dataflow_registry_service.EffectiveDataflo
     try:
         return dataflow_registry_service.effective_registry()
     except ValueError as exc:
-        raise ValidationError(
-            f"invalid active plugin dataflow registry: {exc}"
-        ) from exc
+        raise ValidationError(f"invalid active plugin dataflow registry: {exc}") from exc
 
 
 def _validated_json(model: type[BaseModel], payload: Any) -> JSONResponse:
@@ -428,9 +426,7 @@ async def validate_pipeline(body: PipelineValidateRequest) -> PipelineValidateRe
     explicit wire.
     """
     registry = _effective_registry_or_error()
-    initial_inputs = tuple(
-        registry.canonical_datatype(type_id) for type_id in body.initial_inputs
-    )
+    initial_inputs = tuple(registry.canonical_datatype(type_id) for type_id in body.initial_inputs)
     input_errors = _initial_input_errors(
         initial_inputs,
         datatype_lookup=registry.has_datatype,
@@ -472,8 +468,7 @@ async def validate_pipeline(body: PipelineValidateRequest) -> PipelineValidateRe
             processor_lookup=registry.processor_for,
         )
         errors.extend(
-            error for error in validation_errors
-            if error.reason != "duplicate_initial_input"
+            error for error in validation_errors if error.reason != "duplicate_initial_input"
         )
     if use_legacy_validation and not executable_legacy_sfm:
         errors.extend(provider_errors(body.steps))

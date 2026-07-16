@@ -7,14 +7,13 @@ Operation registry; app.core.operations remains as a compatibility projection.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import re
+from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.attributes import Attribute, AttributeSet
 from app.core.config_stages import VALID_CONFIG_STAGES
 from app.core.datatypes import is_data_type
-
 
 _ROLE_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -70,21 +69,16 @@ class Processor:
             "processor_id": self.processor_id,
             "title": self.title,
             "consumer": {
-                role: port.contract_dict()
-                for role, port in sorted(self.consumer.items())
+                role: port.contract_dict() for role, port in sorted(self.consumer.items())
             },
             "supplier": {
-                role: port.contract_dict()
-                for role, port in sorted(self.supplier.items())
+                role: port.contract_dict() for role, port in sorted(self.supplier.items())
             },
             "attributes": [attr.contract_dict() for attr in self.attributes],
             "special_inputs": {
-                role: port.contract_dict()
-                for role, port in sorted(self.special_inputs.items())
+                role: port.contract_dict() for role, port in sorted(self.special_inputs.items())
             },
-            "special_attributes": [
-                attr.contract_dict() for attr in self.special_attributes
-            ],
+            "special_attributes": [attr.contract_dict() for attr in self.special_attributes],
             "capabilities": list(self.capabilities),
             "config_stage": self.config_stage,
             "aliases": list(self.aliases),
@@ -104,8 +98,9 @@ class Processor:
         }
 
 
-def _port(datatype: str, description: str, *, required: bool = True,
-          multiple: bool = False) -> PortSpec:
+def _port(
+    datatype: str, description: str, *, required: bool = True, multiple: bool = False
+) -> PortSpec:
     return PortSpec(
         datatype=datatype,
         required=required,
@@ -140,66 +135,134 @@ def _attr(
 
 
 FEATURE_ATTRIBUTES: AttributeSet = (
-    _attr("type", "enum", "Feature extractor family.",
-          default="sift", has_default=True,
-          enum=("sift", "superpoint", "aliked", "disk", "r2d2", "d2net", "sosnet")),
-    _attr("max_num_features", "int", "Maximum features per image.",
-          default=8192, has_default=True, min=0),
-    _attr("use_gpu", "bool", "Whether GPU acceleration may be used.",
-          default=True, has_default=True),
-    _attr("seed", "int", "Deterministic seed.",
-          default=0, has_default=True),
+    _attr(
+        "type",
+        "enum",
+        "Feature extractor family.",
+        default="sift",
+        has_default=True,
+        enum=("sift", "superpoint", "aliked", "disk", "r2d2", "d2net", "sosnet"),
+    ),
+    _attr(
+        "max_num_features",
+        "int",
+        "Maximum features per image.",
+        default=8192,
+        has_default=True,
+        min=0,
+    ),
+    _attr(
+        "use_gpu", "bool", "Whether GPU acceleration may be used.", default=True, has_default=True
+    ),
+    _attr("seed", "int", "Deterministic seed.", default=0, has_default=True),
 )
 
 PAIR_ATTRIBUTES: AttributeSet = (
-    _attr("strategy", "enum", "Image pair selection strategy.",
-          default="exhaustive", has_default=True,
-          enum=("exhaustive", "sequential", "spatial", "vocabtree",
-                "retrieval", "from_poses", "explicit")),
-    _attr("overlap", "int", "Sequential overlap window.",
-          default=10, has_default=True, min=0),
-    _attr("retrieval_k", "int", "Number of retrieval neighbors.",
-          default=20, has_default=True, min=1),
+    _attr(
+        "strategy",
+        "enum",
+        "Image pair selection strategy.",
+        default="exhaustive",
+        has_default=True,
+        enum=(
+            "exhaustive",
+            "sequential",
+            "spatial",
+            "vocabtree",
+            "retrieval",
+            "from_poses",
+            "explicit",
+        ),
+    ),
+    _attr("overlap", "int", "Sequential overlap window.", default=10, has_default=True, min=0),
+    _attr(
+        "retrieval_k", "int", "Number of retrieval neighbors.", default=20, has_default=True, min=1
+    ),
 )
 
 MATCH_ATTRIBUTES: AttributeSet = (
-    _attr("type", "enum", "Feature matcher family.",
-          default="nn-mutual", has_default=True,
-          enum=("nn-mutual", "nn-ratio", "superglue", "lightglue",
-                "loftr", "mast3r")),
-    _attr("use_gpu", "bool", "Whether GPU acceleration may be used.",
-          default=True, has_default=True),
-    _attr("cross_check", "bool", "Require reciprocal nearest neighbors.",
-          default=True, has_default=True),
-    _attr("max_ratio", "float", "Lowe ratio threshold.",
-          default=0.8, has_default=True, min=0.0, max=1.0),
-    _attr("max_distance", "float", "Descriptor distance threshold.",
-          default=0.7, has_default=True, min=0.0),
+    _attr(
+        "type",
+        "enum",
+        "Feature matcher family.",
+        default="nn-mutual",
+        has_default=True,
+        enum=("nn-mutual", "nn-ratio", "superglue", "lightglue", "loftr", "mast3r"),
+    ),
+    _attr(
+        "use_gpu", "bool", "Whether GPU acceleration may be used.", default=True, has_default=True
+    ),
+    _attr(
+        "cross_check",
+        "bool",
+        "Require reciprocal nearest neighbors.",
+        default=True,
+        has_default=True,
+    ),
+    _attr(
+        "max_ratio",
+        "float",
+        "Lowe ratio threshold.",
+        default=0.8,
+        has_default=True,
+        min=0.0,
+        max=1.0,
+    ),
+    _attr(
+        "max_distance",
+        "float",
+        "Descriptor distance threshold.",
+        default=0.7,
+        has_default=True,
+        min=0.0,
+    ),
 )
 
 VERIFY_ATTRIBUTES: AttributeSet = (
-    _attr("use_gpu", "bool", "Whether GPU acceleration may be used.",
-          default=True, has_default=True),
-    _attr("min_inlier_ratio", "float", "Minimum accepted inlier ratio.",
-          default=0.25, has_default=True, min=0.0, max=1.0),
+    _attr(
+        "use_gpu", "bool", "Whether GPU acceleration may be used.", default=True, has_default=True
+    ),
+    _attr(
+        "min_inlier_ratio",
+        "float",
+        "Minimum accepted inlier ratio.",
+        default=0.25,
+        has_default=True,
+        min=0.0,
+        max=1.0,
+    ),
 )
 
 MAP_ATTRIBUTES: AttributeSet = (
-    _attr("kind", "enum", "Mapping recipe.",
-          default="incremental", has_default=True,
-          enum=("incremental", "global", "hierarchical", "spherical")),
-    _attr("seed", "int", "Deterministic seed.",
-          default=0, has_default=True),
-    _attr("max_runtime_seconds", "int", "Optional runtime budget in seconds.",
-          min=1),
+    _attr(
+        "kind",
+        "enum",
+        "Mapping recipe.",
+        default="incremental",
+        has_default=True,
+        enum=("incremental", "global", "hierarchical", "spherical"),
+    ),
+    _attr("seed", "int", "Deterministic seed.", default=0, has_default=True),
+    _attr("max_runtime_seconds", "int", "Optional runtime budget in seconds.", min=1),
 )
 
 REFINE_ATTRIBUTES: AttributeSet = (
-    _attr("mode", "enum", "Bundle-adjustment mode.",
-          default="standard", has_default=True,
-          enum=("standard", "two_stage", "featuremetric", "rig")),
-    _attr("max_num_iterations", "int", "Maximum solver iterations.",
-          default=100, has_default=True, min=1),
+    _attr(
+        "mode",
+        "enum",
+        "Bundle-adjustment mode.",
+        default="standard",
+        has_default=True,
+        enum=("standard", "two_stage", "featuremetric", "rig"),
+    ),
+    _attr(
+        "max_num_iterations",
+        "int",
+        "Maximum solver iterations.",
+        default=100,
+        has_default=True,
+        min=1,
+    ),
 )
 
 
@@ -363,18 +426,14 @@ def _validate_processor(p: Processor) -> None:
         for role, port in ports.items():
             if not _ROLE_RE.match(role):
                 raise ValueError(
-                    f"processor {p.processor_id!r} has invalid {group_name} "
-                    f"role {role!r}"
+                    f"processor {p.processor_id!r} has invalid {group_name} role {role!r}"
                 )
             if not is_data_type(port.datatype):
                 raise ValueError(
-                    f"processor {p.processor_id!r} references unknown "
-                    f"DataType {port.datatype!r}"
+                    f"processor {p.processor_id!r} references unknown DataType {port.datatype!r}"
                 )
     if set(p.consumer) & set(p.special_inputs):
-        raise ValueError(
-            f"processor {p.processor_id!r} has colliding core/special input roles"
-        )
+        raise ValueError(f"processor {p.processor_id!r} has colliding core/special input roles")
     attr_names = [a.name for a in (*p.attributes, *p.special_attributes)]
     if len(attr_names) != len(set(attr_names)):
         raise ValueError(f"processor {p.processor_id!r} has duplicate attributes")
@@ -438,9 +497,9 @@ def contract_dict() -> dict[str, Any]:
 
 
 __all__ = [
-    "CORE_PROCESSORS",
     "CONTRACT_NAME",
     "CONTRACT_SCHEMA_VERSION",
+    "CORE_PROCESSORS",
     "PROCESSORS_BY_ID",
     "PROCESSOR_ALIASES",
     "PortSpec",

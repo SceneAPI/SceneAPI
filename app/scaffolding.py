@@ -283,9 +283,7 @@ def scaffold_plugin(
         "plugin_id_dash": plugin_id.replace("_", "-"),
         "class_name": class_name,
         "display_name": display_name or class_name,
-        "description": (
-            description or f"sfmapi backend plugin for {display_name or class_name}."
-        ),
+        "description": (description or f"sfmapi backend plugin for {display_name or class_name}."),
         "vendor": vendor,
     }
     plan: list[tuple[Path, str]] = [
@@ -420,16 +418,14 @@ def scaffold_contract(
     subst = {"name": name, "title": title or _to_class_name(name)}
     plan: list[tuple[Path, str]] = [
         (core_dir / f"{name}.py", _CONTRACT_MODULE_TEMPLATE.substitute(subst)),
-        (tests_dir / f"test_{name}_contract.py",
-         _CONTRACT_TEST_TEMPLATE.substitute(subst)),
+        (tests_dir / f"test_{name}_contract.py", _CONTRACT_TEST_TEMPLATE.substitute(subst)),
     ]
     if not overwrite:
         clashes = [p for p, _ in plan if p.exists()]
         if clashes:
             joined = ", ".join(str(p) for p in clashes)
             raise FileExistsError(
-                f"refusing to overwrite existing files: {joined}; "
-                "pass overwrite=True to force"
+                f"refusing to overwrite existing files: {joined}; pass overwrite=True to force"
             )
     written: list[ScaffoldedFile] = []
     for path, body in plan:

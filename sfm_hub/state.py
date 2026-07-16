@@ -26,15 +26,17 @@ ProvisioningStatus = Literal[
     "skipped",
     "failed",
 ]
-ROUTING_ROUTE_KEYS = frozenset({
-    "features",
-    "pairs",
-    "matcher",
-    "verify",
-    "mapping",
-    "radiance",
-    "actions",
-})
+ROUTING_ROUTE_KEYS = frozenset(
+    {
+        "features",
+        "pairs",
+        "matcher",
+        "verify",
+        "mapping",
+        "radiance",
+        "actions",
+    }
+)
 
 
 class InstalledPlugin(BaseModel):
@@ -65,9 +67,7 @@ class RoutingProfile(BaseModel):
     def _routes_are_supported(cls, routes: dict[str, list[str]]) -> dict[str, list[str]]:
         unsupported = sorted(set(routes) - ROUTING_ROUTE_KEYS)
         if unsupported:
-            raise ValueError(
-                "routes contain unsupported route key(s): " + ", ".join(unsupported)
-            )
+            raise ValueError("routes contain unsupported route key(s): " + ", ".join(unsupported))
         return routes
 
 
@@ -288,14 +288,13 @@ def upsert_profile(profile: RoutingProfile, *, path: Path | None = None) -> Plug
             f"routing profile {profile.name!r} references unknown provider id(s): "
             f"{', '.join(unknown)}"
         )
-    ambiguous = sorted(
-        pid for pid in referenced if "@" not in pid and pid in ambiguous_bare
-    )
+    ambiguous = sorted(pid for pid in referenced if "@" not in pid and pid in ambiguous_bare)
     if ambiguous:
         raise KeyError(
             f"routing profile {profile.name!r} references ambiguous provider id(s): "
             f"{', '.join(ambiguous)}; use provider@plugin"
         )
+
     def _update(state: PluginState) -> PluginState:
         state.profiles[profile.name] = profile
         return state
@@ -348,18 +347,14 @@ def set_provider_priority(providers: list[str], *, path: Path | None = None) -> 
     known, ambiguous_bare = _known_provider_ids_and_ambiguous_bare()
     unknown = sorted(set(providers) - known)
     if unknown:
-        raise KeyError(
-            "provider priority references unknown provider id(s): "
-            f"{', '.join(unknown)}"
-        )
-    ambiguous = sorted(
-        pid for pid in set(providers) if "@" not in pid and pid in ambiguous_bare
-    )
+        raise KeyError(f"provider priority references unknown provider id(s): {', '.join(unknown)}")
+    ambiguous = sorted(pid for pid in set(providers) if "@" not in pid and pid in ambiguous_bare)
     if ambiguous:
         raise KeyError(
             "provider priority references ambiguous provider id(s): "
             f"{', '.join(ambiguous)}; use provider@plugin"
         )
+
     def _update(state: PluginState) -> PluginState:
         state.provider_priority = list(providers)
         return state
@@ -375,6 +370,7 @@ def set_project_profile(
 ) -> PluginState:
     if not profile_name:
         raise KeyError("profile name must be non-empty")
+
     def _update(state: PluginState) -> PluginState:
         if profile_name not in state.profiles:
             raise KeyError(f"unknown routing profile {profile_name!r}")
@@ -392,6 +388,7 @@ def set_workspace_profile(
 ) -> PluginState:
     if not profile_name:
         raise KeyError("profile name must be non-empty")
+
     def _update(state: PluginState) -> PluginState:
         if profile_name not in state.profiles:
             raise KeyError(f"unknown routing profile {profile_name!r}")

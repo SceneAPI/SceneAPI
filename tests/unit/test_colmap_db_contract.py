@@ -19,7 +19,7 @@ def test_database_version_number_matches_colmap_mod() -> None:
 
 
 def test_make_version_number_rejects_overflowing_components() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="components must each be < 100"):
         db.make_database_version_number(3, 100, 0, 0)
 
 
@@ -33,30 +33,32 @@ def test_pair_id_encoding_roundtrips_and_orders() -> None:
 
 
 def test_pair_id_rejects_out_of_range_ids() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="image ids must be non-negative"):
         db.image_pair_to_pair_id(-1, 2)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="image id exceeds MAX_NUM_IMAGES"):
         db.image_pair_to_pair_id(db.MAX_NUM_IMAGES, 2)
 
 
 def test_extension_tables_are_exactly_the_fork_additions() -> None:
-    assert db.EXTENSION_TABLES == frozenset(
-        {"videos", "video_frames", "image_qualities", "markers", "marker_projections"}
+    assert (
+        frozenset({"videos", "video_frames", "image_qualities", "markers", "marker_projections"})
+        == db.EXTENSION_TABLES
     )
 
 
 def test_extension_columns_are_4d_time_and_descriptor_type() -> None:
     # Two extension columns on otherwise-upstream tables: the 4D
     # per-image capture tag, and the descriptor extractor type.
-    assert db.EXTENSION_COLUMNS == frozenset(
-        {"images.time_id", "descriptors.type"}
-    )
+    assert frozenset({"images.time_id", "descriptors.type"}) == db.EXTENSION_COLUMNS
 
 
 def test_images_time_id_is_the_canonical_4d_extension() -> None:
     images = db.COLMAP_DB_TABLES_BY_NAME["images"]
     assert [c.name for c in images.columns] == [
-        "image_id", "name", "camera_id", "time_id",
+        "image_id",
+        "name",
+        "camera_id",
+        "time_id",
     ]
     time_id = images.column("time_id")
     assert time_id is not None
@@ -75,8 +77,8 @@ def test_video_frames_also_carries_time_id() -> None:
 
 def test_upstream_and_extension_partition_is_complete() -> None:
     all_tables = {t.name for t in db.COLMAP_DB_TABLES}
-    assert db.UPSTREAM_TABLES | db.EXTENSION_TABLES == all_tables
-    assert db.UPSTREAM_TABLES & db.EXTENSION_TABLES == frozenset()
+    assert all_tables == db.UPSTREAM_TABLES | db.EXTENSION_TABLES
+    assert frozenset() == db.UPSTREAM_TABLES & db.EXTENSION_TABLES
 
 
 def test_known_extractor_types_seed_matches_colmap_mod_enum() -> None:
@@ -150,7 +152,5 @@ def test_core_contract_does_not_import_colmap_plugin() -> None:
     import importlib
 
     importlib.reload(db)
-    leaked = {
-        m for m in (set(sys.modules) - before) if m.startswith("sfmapi_")
-    }
+    leaked = {m for m in (set(sys.modules) - before) if m.startswith("sfmapi_")}
     assert not leaked, f"contract import leaked plugin modules: {leaked}"

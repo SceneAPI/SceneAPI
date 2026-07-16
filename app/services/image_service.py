@@ -33,9 +33,7 @@ async def add_image(
     if source is None:
         raise NotFoundError("dataset source not found")
     if source.kind != source_kind:
-        raise ValidationError(
-            f"{source_kind} images require a {source_kind} dataset source"
-        )
+        raise ValidationError(f"{source_kind} images require a {source_kind} dataset source")
     if source_kind == "upload":
         result = await session.execute(select(Blob).where(Blob.sha256 == content_sha))
         b = result.scalar_one_or_none()

@@ -235,7 +235,9 @@ def test_framework_radiance_train_schema_is_capability_gated() -> None:
     props = by_id["radiance.train"]["option_schema"]["properties"]
     assert {"num_gaussians", "max_resolution", "init", "test_every"} <= set(props)
     # a backend without radiance.train serves nothing from this path.
-    assert backend_config._radiance_config_descriptors(ColmapLikeBackend(), include_schema=True) == []
+    assert (
+        backend_config._radiance_config_descriptors(ColmapLikeBackend(), include_schema=True) == []
+    )
     # regression guard: the radiance.train schema must satisfy the config-schema
     # contract checker (valid stage + additionalProperties:false). This catches
     # the original bug where stage="radiance" was not a valid stage and the

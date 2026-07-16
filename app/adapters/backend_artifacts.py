@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any, Protocol
 from urllib.parse import quote
 
@@ -24,6 +23,7 @@ class BackendArtifactContractProvider(Protocol):
 # adapter keeps the local underscore names for its existing call sites.
 from app.core.config_stages import CONFIG_STAGE_ORDER as _STAGE_ORDER  # noqa: E402
 from app.core.config_stages import VALID_CONFIG_STAGES as _VALID_STAGES  # noqa: E402
+
 # Canonical patterns live in app.core.ids; re-export under the local
 # underscore names to keep existing call sites in this file untouched.
 from app.core.ids import NAMESPACED_ID_RE as _NAMESPACED_ID_RE  # noqa: E402
@@ -294,9 +294,7 @@ def backend_artifact_contract_violations(backend: Any) -> list[str]:
                     and kind_datatype != format_datatypes[str(value)]
                 ]
                 if str(value) not in format_datatypes:
-                    errors.append(
-                        f"{label}: {field} format {value!r} has no declared Data Type"
-                    )
+                    errors.append(f"{label}: {field} format {value!r} has no declared Data Type")
                     continue
                 if incompatible:
                     errors.append(
@@ -403,8 +401,7 @@ def backend_io_formats(
         # kinds) -- so a row that accepts feature formats and emits match
         # formats derives one DataType per side instead of smearing the first
         # row-level DataType across both.
-        for field, kind_field in (("emits_formats", "emits"),
-                                  ("accepts_formats", "accepts")):
+        for field, kind_field in (("emits_formats", "emits"), ("accepts_formats", "accepts")):
             side_datatypes = {
                 datatype
                 for kind in row.get(kind_field, [])
@@ -421,10 +418,7 @@ def backend_io_formats(
             )
             for raw_format in row.get(field) or []:
                 format_id = str(raw_format)
-                if (
-                    format_id in artifact_vocab.CORE_ARTIFACT_FORMATS
-                    or format_id in derived
-                ):
+                if format_id in artifact_vocab.CORE_ARTIFACT_FORMATS or format_id in derived:
                     continue
                 derived[format_id] = artifact_vocab.ArtifactFormatDefinition(
                     format_id=format_id,
@@ -438,9 +432,7 @@ def backend_io_formats(
     return tuple(derived.values())
 
 
-def backend_default_format_for_kind(
-    kind: str, backend: Any | None = None
-) -> str | None:
+def backend_default_format_for_kind(kind: str, backend: Any | None = None) -> str | None:
     """A backend-declared format overriding the core default for ``kind``, else
     None (keep the core default).
 
@@ -463,7 +455,8 @@ def backend_default_format_for_kind(
         type_id, plugin_formats=backend_io_formats(backend)
     )
     overrides = [
-        fmt for fmt in resolved  # plugin overrides come first
+        fmt
+        for fmt in resolved  # plugin overrides come first
         if fmt.format_id not in artifact_vocab.CORE_ARTIFACT_FORMATS
     ]
     kind_specific = next((f for f in overrides if kind in f.serves_kinds), None)

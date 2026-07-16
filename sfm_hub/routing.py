@@ -201,8 +201,7 @@ def resolve_provider(
                 if not any(row.enabled for row in known_matches):
                     raise KeyError(f"provider {requested_provider!r} is disabled")
                 raise KeyError(
-                    f"provider {requested_provider!r} is not enabled for {stage}; "
-                    "candidates: "
+                    f"provider {requested_provider!r} is not enabled for {stage}; candidates: "
                 )
         return requested_provider
 

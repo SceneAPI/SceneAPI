@@ -7,9 +7,9 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.adapters import backend_actions, backend_artifacts, backend_config
-from app.core.config_stages import CONFIG_STAGE_ORDER
 from app.adapters.registry import get_backend, list_backend_providers
 from app.core.config import get_settings
+from app.core.config_stages import CONFIG_STAGE_ORDER
 from app.core.errors import ValidationError
 from app.core.ids import new_id
 from app.orchestrator.dag import TaskNode, hash_inputs, hash_params
@@ -69,7 +69,9 @@ def _single_action_provider_or_raise(
     requested_provider: str | None = None,
 ) -> str:
     if len({(row.provider.provider_id, row.plugin_id) for row in rows}) != 1:
-        raise ProviderAmbiguityError("backend_action", [_action_provider_selector(row) for row in rows])
+        raise ProviderAmbiguityError(
+            "backend_action", [_action_provider_selector(row) for row in rows]
+        )
     if requested_provider and "@" in requested_provider:
         return requested_provider
     registered = set(list_backend_providers())
@@ -81,11 +83,7 @@ def _reject_ambiguous_external_provider(provider: str | None) -> None:
     if not provider or "@" in provider:
         return
     state = load_state()
-    matches = [
-        row
-        for row in provider_records(state=state)
-        if row.provider.provider_id == provider
-    ]
+    matches = [row for row in provider_records(state=state) if row.provider.provider_id == provider]
     if len({(row.provider.provider_id, row.plugin_id) for row in matches}) > 1:
         raise ProviderAmbiguityError(
             "backend",
@@ -105,7 +103,9 @@ def _resolve_action_provider(
         row
         for row in provider_records(state=state)
         if _action_provider_registered(row)
-        and any(_action_pattern_matches(pattern, action_id) for pattern in row.provider.backend_actions)
+        and any(
+            _action_pattern_matches(pattern, action_id) for pattern in row.provider.backend_actions
+        )
     ]
     if not candidates:
         return provider

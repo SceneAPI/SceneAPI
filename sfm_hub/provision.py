@@ -16,11 +16,13 @@ try:
         sanitize_public_outputs,
     )
 except Exception:  # pragma: no cover - standalone hub fallback
+
     def sanitize_public_outputs(value: Any) -> Any:
         return value
 
     def sanitize_public_error_message(value: Any) -> str:
         return str(value or "")
+
 
 SENSITIVE_KEY_PARTS = (
     "TOKEN",

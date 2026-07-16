@@ -40,15 +40,9 @@ router = APIRouter(tags=["reconstructions"])
 _FILE_RESPONSE = {
     200: {
         "content": {
-            "application/octet-stream": {
-                "schema": {"type": "string", "format": "binary"}
-            },
-            "application/x-sfm-points-v1": {
-                "schema": {"type": "string", "format": "binary"}
-            },
-            "application/json": {
-                "schema": {"type": "object", "additionalProperties": True}
-            },
+            "application/octet-stream": {"schema": {"type": "string", "format": "binary"}},
+            "application/x-sfm-points-v1": {"schema": {"type": "string", "format": "binary"}},
+            "application/json": {"schema": {"type": "object", "additionalProperties": True}},
         },
         "description": "Snapshot file bytes or JSON sidecar content.",
     }
@@ -57,12 +51,8 @@ _FILE_RESPONSE = {
 _POINT_TILE_RESPONSE = {
     200: {
         "content": {
-            "application/octet-stream": {
-                "schema": {"type": "string", "format": "binary"}
-            },
-            "application/x-sfm-points-v1": {
-                "schema": {"type": "string", "format": "binary"}
-            }
+            "application/octet-stream": {"schema": {"type": "string", "format": "binary"}},
+            "application/x-sfm-points-v1": {"schema": {"type": "string", "format": "binary"}},
         },
         "description": "Binary point tile bytes.",
     }
@@ -71,9 +61,7 @@ _POINT_TILE_RESPONSE = {
 _JSON_FILE_RESPONSE = {
     200: {
         "content": {
-            "application/json": {
-                "schema": {"type": "object", "additionalProperties": True}
-            }
+            "application/json": {"schema": {"type": "object", "additionalProperties": True}}
         },
         "description": "JSON file content.",
     }

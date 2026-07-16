@@ -202,7 +202,10 @@ def test_non_2xx_responses_are_not_described_as_successful() -> None:
     for path, methods in spec["paths"].items():
         for method, op in methods.items():
             for code, response in op.get("responses", {}).items():
-                if not code.startswith("2") and response.get("description") == "Successful Response":
+                if (
+                    not code.startswith("2")
+                    and response.get("description") == "Successful Response"
+                ):
                     offenders.append(f"{method.upper()} {path} {code}")
     assert offenders == []
 
@@ -274,17 +277,13 @@ def test_routed_provider_surfaces_use_plugin_selector_contract() -> None:
 
     build_op = spec["paths"]["/v1/datasets/{dataset_id}/similarity:build"]["post"]
     build_provider = next(
-        param["schema"]
-        for param in build_op["parameters"]
-        if param["name"] == "provider"
+        param["schema"] for param in build_op["parameters"] if param["name"] == "provider"
     )
     build_provider = _string_schema(build_provider)
     assert build_provider["pattern"] == PROVIDER_SELECTOR_PATTERN
     assert build_provider["maxLength"] == PROVIDER_SELECTOR_MAX_LENGTH
 
-    merge_schema = spec["components"]["schemas"]["MergeRequest"]["properties"][
-        "provider"
-    ]
+    merge_schema = spec["components"]["schemas"]["MergeRequest"]["properties"]["provider"]
     merge_provider = _string_schema(merge_schema)
     assert merge_provider["pattern"] == PROVIDER_SELECTOR_PATTERN
     assert merge_provider["maxLength"] == PROVIDER_SELECTOR_MAX_LENGTH

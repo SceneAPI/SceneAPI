@@ -34,19 +34,19 @@ from app.services import artifact_conversion_service, artifact_service
 router = APIRouter(prefix="/artifacts", tags=["artifacts"])
 
 _BINARY_SCHEMA = {"schema": {"type": "string", "format": "binary"}}
-_ARTIFACT_CONTENT_MEDIA_TYPES = sorted({
-    "application/octet-stream",
-    *(
-        media_type
-        for fmt in artifact_vocab.CORE_ARTIFACT_FORMATS.values()
-        for media_type in fmt.media_types
-    ),
-})
+_ARTIFACT_CONTENT_MEDIA_TYPES = sorted(
+    {
+        "application/octet-stream",
+        *(
+            media_type
+            for fmt in artifact_vocab.CORE_ARTIFACT_FORMATS.values()
+            for media_type in fmt.media_types
+        ),
+    }
+)
 _BINARY_RESPONSE = {
     200: {
-        "content": {
-            media_type: _BINARY_SCHEMA for media_type in _ARTIFACT_CONTENT_MEDIA_TYPES
-        },
+        "content": {media_type: _BINARY_SCHEMA for media_type in _ARTIFACT_CONTENT_MEDIA_TYPES},
         "description": "Artifact content bytes.",
     }
 }
@@ -69,7 +69,12 @@ def _local_artifact_path(uri: str | None) -> Path | None:
         raw_path = unquote(parsed.path)
         if parsed.netloc:
             raw_path = f"//{parsed.netloc}{raw_path}"
-        if len(raw_path) >= 3 and raw_path[0] == "/" and raw_path[1].isalpha() and raw_path[2] == ":":
+        if (
+            len(raw_path) >= 3
+            and raw_path[0] == "/"
+            and raw_path[1].isalpha()
+            and raw_path[2] == ":"
+        ):
             raw_path = raw_path[1:]
         return Path(raw_path)
     elif "://" in uri:

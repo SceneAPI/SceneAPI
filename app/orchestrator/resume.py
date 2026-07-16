@@ -37,9 +37,7 @@ async def resume_job(
     if j is None:
         raise NotFoundError(f"Job {job_id} not found")
     if j.status not in ("failed", "cancelled", "cancelled_dirty"):
-        raise ValidationError(
-            f"Job {job_id} is not resumable from status {j.status!r}"
-        )
+        raise ValidationError(f"Job {job_id} is not resumable from status {j.status!r}")
     # Reset only failed/cancelled tasks; keep succeeded ones to leverage cache.
     tasks = (await session.execute(select(Task).where(Task.job_id == job_id))).scalars().all()
     reset_count = 0
@@ -54,9 +52,7 @@ async def resume_job(
             t.started_at = None
             t.finished_at = None
     if reset_count == 0:
-        raise ValidationError(
-            f"Job {job_id} has no failed or cancelled tasks to resume"
-        )
+        raise ValidationError(f"Job {job_id} has no failed or cancelled tasks to resume")
     j.cancel_requested = False
     j.cancel_force = False
     j.status = "pending"
@@ -70,9 +66,7 @@ async def resume_job(
     use_inline = settings.inline_tasks if inline is None else inline
     status_by_id = {t.task_id: t.status for t in tasks}
     ready_ids = [
-        t.task_id
-        for t in tasks
-        if t.status == "pending" and _dependency_ready(t, status_by_id)
+        t.task_id for t in tasks if t.status == "pending" and _dependency_ready(t, status_by_id)
     ]
     if ready_ids:
         from app.orchestrator.queue import (

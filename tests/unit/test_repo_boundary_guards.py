@@ -27,9 +27,7 @@ def _core_python_files() -> list[Path]:
         root = ROOT / pkg
         if not root.is_dir():
             continue
-        files.extend(
-            p for p in root.rglob("*.py") if "__pycache__" not in p.parts
-        )
+        files.extend(p for p in root.rglob("*.py") if "__pycache__" not in p.parts)
     return files
 
 
@@ -46,11 +44,10 @@ def _imported_modules(tree: ast.AST) -> set[str]:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 names.add(alias.name.split(".", 1)[0])
-        elif isinstance(node, ast.ImportFrom):
-            # Only absolute imports carry a plugin-distribution name;
-            # relative imports (level > 0) are within the core package.
-            if node.level == 0 and node.module:
-                names.add(node.module.split(".", 1)[0])
+        # Only absolute imports carry a plugin-distribution name;
+        # relative imports (level > 0) are within the core package.
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            names.add(node.module.split(".", 1)[0])
     return names
 
 

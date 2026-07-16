@@ -148,8 +148,7 @@ class Plugin:
             # in-process backend factory.
             return
         provider_ids = [
-            str(provider["provider_id"])
-            for provider in self.manifest.get("providers", [])
+            str(provider["provider_id"]) for provider in self.manifest.get("providers", [])
         ]
         try:
             register_backend(
@@ -163,6 +162,7 @@ class Plugin:
 
 
 __all__ = [
+    "COLMAP_STAGE_CONFIGS",
     "ArtifactConversionBackend",
     "Backend",
     "BackendActionProvider",
@@ -170,7 +170,6 @@ __all__ = [
     "BackendConfigSchemaProvider",
     "BackendIdentity",
     "BatchLocalizationBackend",
-    "COLMAP_STAGE_CONFIGS",
     "ExportBackend",
     "FeatureBackend",
     "GeometryBackend",

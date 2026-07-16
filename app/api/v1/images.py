@@ -56,10 +56,8 @@ _BINARY_RESPONSE = {
 _JPEG_RESPONSE = {
     200: {
         "content": {
-            "application/octet-stream": {
-                "schema": {"type": "string", "format": "binary"}
-            },
-            "image/jpeg": {"schema": {"type": "string", "format": "binary"}}
+            "application/octet-stream": {"schema": {"type": "string", "format": "binary"}},
+            "image/jpeg": {"schema": {"type": "string", "format": "binary"}},
         },
         "description": "JPEG image bytes.",
     }

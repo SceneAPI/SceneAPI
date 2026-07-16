@@ -96,7 +96,9 @@ CORE_ARTIFACT_FORMATS: dict[str, ArtifactFormatDefinition] = {
         ),
         schema_version=1,
         media_types=("application/json", "application/x-ndjson", "application/octet-stream"),
-        json_schema=_manifest_schema("sfmapi.features.local.v1", "feature_set", required=("images",)),
+        json_schema=_manifest_schema(
+            "sfmapi.features.local.v1", "feature_set", required=("images",)
+        ),
         examples=(
             {
                 "format_id": "sfmapi.features.local.v1",

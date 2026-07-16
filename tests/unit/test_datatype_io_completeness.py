@@ -27,7 +27,7 @@ def test_datatype_is_the_datatype_id() -> None:
     # The unification gate: there is ONE type axis. CORE_ARTIFACT_TYPES is
     # exactly the artifact DataTypes, and every datatype is a real DataType
     # of kind "artifact" -- no separate artifact-type vocabulary, no bridge.
-    assert artifacts.CORE_ARTIFACT_TYPES == _artifact_datatype_ids()
+    assert _artifact_datatype_ids() == artifacts.CORE_ARTIFACT_TYPES
     for datatype in artifacts.CORE_ARTIFACT_TYPES:
         assert dt.is_data_type(datatype), datatype
         assert dt.CORE_DATA_TYPES_BY_ID[datatype].kind == "artifact"
@@ -76,10 +76,10 @@ def test_plugin_format_overrides_core_io() -> None:
         portable=False,
     )
     resolved = artifacts.resolve_io_formats("feature_set", plugin_formats=(plugin_fmt,))
-    assert resolved[0] is plugin_fmt                      # plugin overrides (first)
-    assert any(f.portable for f in resolved[1:])          # core interchange kept
+    assert resolved[0] is plugin_fmt  # plugin overrides (first)
+    assert any(f.portable for f in resolved[1:])  # core interchange kept
     # A plugin can override but never remove I/O: the core floor is still there.
-    assert artifacts.resolve_io_formats("feature_set")    # non-empty without plugin
+    assert artifacts.resolve_io_formats("feature_set")  # non-empty without plugin
 
 
 def test_scene_inputs_are_ingested_not_formatted() -> None:

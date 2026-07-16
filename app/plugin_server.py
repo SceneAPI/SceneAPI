@@ -161,8 +161,7 @@ def build_plugin_server(
             "schema_version": catalog.schema_version,
             "plugin_id": plugin_id,
             "datatypes": [
-                row.model_dump(mode="json", exclude_none=True)
-                for row in catalog.datatypes
+                row.model_dump(mode="json", exclude_none=True) for row in catalog.datatypes
             ],
         }
 
@@ -174,8 +173,7 @@ def build_plugin_server(
             "schema_version": catalog.schema_version,
             "plugin_id": plugin_id,
             "processors": [
-                row.model_dump(mode="json", exclude_none=True)
-                for row in catalog.processors
+                row.model_dump(mode="json", exclude_none=True) for row in catalog.processors
             ],
             "processor_extensions": [
                 row.model_dump(mode="json", exclude_none=True)
@@ -191,8 +189,7 @@ def build_plugin_server(
             "schema_version": catalog.schema_version,
             "plugin_id": plugin_id,
             "pipelines": [
-                row.model_dump(mode="json", exclude_none=True)
-                for row in catalog.pipelines
+                row.model_dump(mode="json", exclude_none=True) for row in catalog.pipelines
             ],
         }
 
@@ -203,9 +200,7 @@ def build_plugin_server(
 
             result = validate_backend_action(action_id, params or {}, backend)
         except Exception as exc:  # action surface optional
-            return JSONResponse(
-                {"valid": False, "errors": [str(exc)]}, status_code=200
-            )
+            return JSONResponse({"valid": False, "errors": [str(exc)]}, status_code=200)
         return {
             "valid": bool(result.get("valid")),
             "errors": list(result.get("errors") or []),

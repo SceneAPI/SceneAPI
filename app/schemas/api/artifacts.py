@@ -107,7 +107,7 @@ class ArtifactConversionPlanRequest(BaseModel):
             },
             "x-sfmapi-target-requirement": (
                 "at least one of non-null to_format or non-empty accepted_formats is required"
-            )
+            ),
         },
     )
 
