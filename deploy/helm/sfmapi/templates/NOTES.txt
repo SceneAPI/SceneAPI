@@ -4,10 +4,27 @@ Web service:
   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "sfmapi.fullname" . }}-web {{ .Values.web.service.port }}:{{ .Values.web.service.port }}
   curl http://127.0.0.1:{{ .Values.web.service.port }}/healthz
 
-Database URL the web tier sees:
-  {{ include "sfmapi.dbUrl" . }}
-Redis URL:
-  {{ include "sfmapi.redisUrl" . }}
+{{- /* Never render composed connection URLs here: with an inline
+postgresql.auth.password the URL embeds the real credential, and helm
+prints NOTES to stdout on every install/upgrade (and keeps it in
+`helm get notes`) — CI logs and scrollback would capture it. Describe
+the configured source instead. */}}
+Database:
+{{- if .Values.postgresql.enabled }}
+{{- if .Values.postgresql.auth.existingSecret }}
+  bundled postgresql — password from secret {{ .Values.postgresql.auth.existingSecret | quote }}
+{{- else }}
+  bundled postgresql — inline password (dev only; value not shown)
+{{- end }}
+{{- else }}
+  external — SFMAPI_DB_URL supplied via env.extraEnv / env.existingSecret
+{{- end }}
+Redis:
+{{- if .Values.redis.enabled }}
+  bundled at {{ .Release.Name }}-redis-master:6379
+{{- else }}
+  external — SFMAPI_REDIS_URL supplied via env.extraEnv / env.existingSecret
+{{- end }}
 
 {{- if not .Values.worker.enabled }}
 

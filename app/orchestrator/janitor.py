@@ -72,17 +72,24 @@ async def reclaim_expired_leases(session: AsyncSession) -> list[str]:
     so it can be unit-tested without a queue.
     """
     now = now_utc()
-    result = await session.execute(
-        update(Task)
-        .where(
-            Task.status == "running",
-            Task.lease_expires_at.is_not(None),
-            Task.lease_expires_at < now,
-        )
-        .values(status="pending", worker_id=None, lease_expires_at=None)
-        .returning(Task.task_id)
+    # Select-then-update instead of UPDATE..RETURNING: the project bans
+    # RETURNING reliance (SQLite < 3.35 lacks it; see CLAUDE.md "ANSI SQL
+    # only"). The update re-applies the same predicate, so a lease that
+    # revives between the two statements is simply not reset; a lease
+    # that expires between them is caught by the next sweep.
+    expired = (
+        Task.status == "running",
+        Task.lease_expires_at.is_not(None),
+        Task.lease_expires_at < now,
     )
-    reclaimed = [str(task_id) for task_id in result.scalars().all()]
+    ids = (await session.execute(select(Task.task_id).where(*expired))).scalars().all()
+    reclaimed = [str(task_id) for task_id in ids]
+    if reclaimed:
+        await session.execute(
+            update(Task)
+            .where(*expired, Task.task_id.in_(reclaimed))
+            .values(status="pending", worker_id=None, lease_expires_at=None)
+        )
     await session.commit()
     return reclaimed
 
@@ -249,9 +256,25 @@ async def run_janitor_once(session: AsyncSession) -> list[str]:
     and, when ``retention_days`` is set, terminal job records older
     than the retention window. Returns the reclaimed task ids.
     """
-    reclaimed = await reclaim_expired_leases(session)
-    terminal_deps = await propagate_terminal_dependencies(session)
-    ready_pending = await find_ready_pending_tasks(session)
+    # Each phase is fault-isolated: one failing sweep (transient DB
+    # error, dialect quirk) must not take down the others or the tick —
+    # before this guard, a reclaim failure silently disabled dependency
+    # propagation, re-enqueue, and both GC sweeps below it.
+    reclaimed: list[str] = []
+    terminal_deps: list[str] = []
+    ready_pending: list[str] = []
+    try:
+        reclaimed = await reclaim_expired_leases(session)
+    except Exception as exc:
+        _log.warning("janitor.reclaim_failed", error=str(exc))
+    try:
+        terminal_deps = await propagate_terminal_dependencies(session)
+    except Exception as exc:
+        _log.warning("janitor.propagate_failed", error=str(exc))
+    try:
+        ready_pending = await find_ready_pending_tasks(session)
+    except Exception as exc:
+        _log.warning("janitor.find_ready_failed", error=str(exc))
     enqueue_ids = list(dict.fromkeys([*reclaimed, *ready_pending]))
     if enqueue_ids:
         # Shared, process-cached queue — never closed per sweep.
