@@ -8,7 +8,8 @@ Guidance for Claude Code working in this repository.
 It is a generic HTTP/REST API for Structure-from-Motion tasks; backend
 implementations (pycolmap forks, OpenSfM, hloc, custom engines) live in
 **separate packages** and register at startup via
-`app.adapters.registry.register_backend("name", Backend)`.
+`sfmapi.runtime.register_backend("name", Backend)` — the public facade
+(plugins never import the internal `app.*` tree).
 
 The repo ships:
 - A FastAPI web tier with no engine-library imports.
@@ -84,8 +85,10 @@ canonical source for "what is settled here?".
 - **Points serialization**: binary, fixed-width 26 B/point + 44 B header
   (see `app/schemas/points_binary.py`). `Content-Type:
   application/x-sfm-points-v1`. Cursor pagination via HTTP `Range`.
-- **Realtime**: SSE-only for v0 (events + log replay via `Last-Event-ID`).
-  Reserve `/ws/v1/...` route prefix; WebSocket added later.
+- **Realtime**: SSE is the primary progress feed (events + log replay via
+  `Last-Event-ID`). WebSocket ships at `/ws/v1/jobs/{job_id}` (SPEC §8)
+  for browser viewers wanting bidirectional cancel + peek; it is
+  intentionally outside the OpenAPI document. See decisions.md L37.
 
 ## Layout
 
@@ -94,8 +97,9 @@ app/
   main.py                FastAPI app, lifespan, router registration
   api/v1/                HTTP — never imports pycolmap/torch
     health.py            /healthz /readyz /version /metrics
-    projects.py datasets.py images.py masksets.py uploads.py
-    jobs.py reconstructions.py submodels.py pipelines.py
+    projects.py datasets.py images.py uploads.py jobs.py
+    reconstructions.py pipelines.py oneshot.py ws_jobs.py ...
+                         (one router module per resource)
   core/
     config.py            Pydantic Settings (SFMAPI_* env vars)
     tenancy.py           current_tenant() dep, TenantScopedSession
@@ -127,7 +131,10 @@ app/
   orchestrator/
     dag.py               Job→Task DAG construction
     scheduler.py         lease + cache-lookup + enqueue
-    janitor.py           reclaim expired leases + GC expired uploads
+    readiness.py         single-source dependency-readiness vocabulary
+                         ({succeeded, skipped} = ready)
+    janitor.py           lease reclaim, upload GC, opt-in retention sweep
+                         (SFMAPI_RETENTION_DAYS; unset = keep forever)
     queue.py             Queue Protocol (ArqQueue | InlineQueue)
     lease.py resume.py   lease helpers, job resume
   services/              tenant-scoped CRUD; uses sessions + storage/orchestrator
@@ -149,14 +156,13 @@ tests/
   unit/                  fast, no IO
   integration/           hits db + filesystem
   e2e/                   full app
+  contract/              recorded fixtures replayed through the SDKs
+  conformance/           SFMAPI-SPEC.md conformance suite
   conftest.py            shared fixtures (tmp workspace, in-memory db, ...)
 docs/
-  phase_0_skeleton.md
-  phase_1_orchestrator_features_match.md
-  phase_2_incremental_sfm.md
-  phase_3_segmentation.md
-  phase_4_global_spherical.md
-  phase_5_resume_tenancy_s3_obs.md
+  index.md conf.py       Sphinx site (published to sfmapi.github.io)
+  guides/                decisions.md (the register), proposals, audits
+  reference/ sdk/ server/  user-facing reference sections
 alembic/                 migrations (dual-dialect, SQLite + Postgres)
 scripts/                 dev / ops scripts
 ```
@@ -170,8 +176,12 @@ scripts/                 dev / ops scripts
   **sync**.
 - Workers (`app/workers/`) call adapters via `anyio.to_thread.run_sync` or
   via fork-per-task subprocess (the supervisor model).
-- `services/` calls `storage/`, `orchestrator/`, and `db/`. It does **not**
-  import `adapters/` directly.
+- `services/` calls `storage/`, `orchestrator/`, and `db/`. It may import
+  the adapters **public contract layer** only — `backend`, `registry`,
+  `backend_config`, `backend_actions`, `backend_artifacts`; public names,
+  never `_private` symbols. Everything else under `app/adapters/` (stub
+  backend, image adapter, ...) is off-limits to services. AST-enforced by
+  `tests/unit/test_repo_boundary_guards.py`.
 
 ### Database
 - ULIDs as `CHAR(26)` strings. No `BIGSERIAL`.
@@ -200,6 +210,10 @@ scripts/                 dev / ops scripts
 - Domain errors subclass `app.core.errors.SfmApiError`. FastAPI exception
   handler maps to RFC7807 problem+json. Never raise raw `HTTPException` from
   services.
+- A backend that cannot load its engine raises `BackendUnavailableError`
+  (501, engine-neutral). `PycolmapUnavailableError` survives only as a
+  deprecated alias — the class name is serialized task state
+  (`error_class`) until 0.1.0.
 
 ### Tenancy
 - Routes get `tenant_id: str = Depends(current_tenant)`. Services accept
@@ -217,8 +231,8 @@ scripts/                 dev / ops scripts
 ### Testing (TDD)
 - Every change starts with a failing test. Order: unit → integration → e2e.
 - Pytest markers: `unit`, `integration`, `e2e`, `conformance`, `contract`,
-  `needs_pycolmap`, `needs_postgres`. Default run skips `needs_pycolmap`
-  and `needs_postgres` unless those are explicitly available.
+  `needs_postgres`. The SQLite CI lane runs `-m "not needs_postgres"`;
+  the Postgres lane runs the full suite.
 - **Contract tests** (`tests/contract/`) boot the app in ephemeral mode,
   record representative responses to `tests/contract/fixtures/`, and
   replay them through every SDK's typed surface (Pydantic in Python,
@@ -238,13 +252,14 @@ scripts/                 dev / ops scripts
   to `Any` and clients lose all typing for that route. The canonical
   202 envelope for any job-submitting endpoint is
   :class:`app.schemas.api.jobs.JobAcceptedResponse`.
-- The 16 remaining "untyped" routes are intentionally non-JSON:
+- The remaining "untyped" routes are intentionally non-JSON:
   204 deletes, binary file streams (`*.bin`, `bytes`, `thumbnail`),
   the SSE event stream, and large precomputed JSON files served as
   `FileResponse`. The
   :func:`tests.contract.test_c_openapi_typing_guards.test_no_regression_in_untyped_route_count`
-  guard fails if that count grows — when adding a new genuinely
-  non-JSON endpoint, bump the limit; otherwise add `response_model=`.
+  guard pins the count (`untyped <= 17` as of 2026-07) — when adding
+  a new genuinely non-JSON endpoint, bump the limit; otherwise add
+  `response_model=`.
 
 ### Generated SDKs (Python + TypeScript)
 - ``scripts/regen_sdk.py`` is the single entrypoint: dumps the
@@ -260,9 +275,12 @@ scripts/                 dev / ops scripts
   ``supports()`` capability helper, chunked-upload convenience
   (init→patch→finalize → ``blob_sha``), Server-Sent Events
   iterator over ``GET /v1/jobs/{id}/events`` honoring
-  ``Last-Event-ID`` for resume, and pure-stdlib parsers for the three
-  binary wire formats (``application/x-sfm-points-v1``,
-  ``application/x-sfm-depth-v1``, ``application/x-sfm-normal-v1``):
+  ``Last-Event-ID`` for resume, and pure-stdlib parsers for the binary
+  formats — ``application/x-sfm-points-v1`` (the only one on the wire)
+  plus ``application/x-sfm-depth-v1`` / ``application/x-sfm-normal-v1``,
+  which are **SDK-side only** today: no server route emits them; wire
+  adoption is pending lean-audit decision 5.4
+  (``docs/guides/lean_audit_2026.md``):
   - Python: ``../sfmapi-sdk/python/sfmapi_client_gen/_ergonomics.py`` —
     typed exception classes + ``raise_for_status(UnexpectedStatus)``
     + ``buildhttp_error(httpx.Response)`` + ``supports(caps, name)``
@@ -277,10 +295,12 @@ scripts/                 dev / ops scripts
     + ``parsePointsBinary(buf)`` / ``parseDepthMap(buf)`` /
     ``parseNormalMap(buf)``. Re-exported through the
     ``@sfmapi/client/generated`` subpath.
-- Cross-language parity for the binary formats is enforced by
+- Cross-language parity for the points format is enforced by
   Python contract tests that round-trip server-encoded bytes
   through the generated parser and TS contract tests that
-  synthesize equivalent payloads via ``DataView``.
+  synthesize equivalent payloads via ``DataView``. The depth /
+  normal parsers are covered by SDK-local synthesized fixtures
+  only (no server emitter exists — see lean-audit item 5.4).
 - All three SDKs expose a ``wait_for_job`` / ``waitForJob`` /
   ``WaitForJob`` helper that polls ``GET /v1/jobs/{id}`` until the
   job reaches a terminal status (succeeded / failed / cancelled /
@@ -434,8 +454,8 @@ scripts/                 dev / ops scripts
 - Async: `pytest-asyncio` with `asyncio_mode=auto`.
 - HTTP tests use `httpx.AsyncClient(transport=ASGITransport(app))`.
 - Storage / blob tests use `tmp_path` and a fresh in-memory SQLite engine.
-- Fixtures in `tests/conftest.py`. Per-phase fixtures live in
-  `tests/<unit|integration|e2e>/conftest.py`.
+- Fixtures in `tests/conftest.py` (shared). Suite-specific conftests
+  exist only in `tests/conformance/` and `tests/contract/`.
 
 ### Commits
 - Conventional commits (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`,
@@ -453,17 +473,18 @@ uv run alembic upgrade head
 # Run
 uv run uvicorn app.main:app --reload
 
-# Test (default — skips needs_backend / needs_postgres)
+# Test
 uv run pytest -q
 
 # Dual-DB CI runs (must both pass)
-SFMAPI_DB_URL=sqlite+aiosqlite:///./test.db uv run pytest -q
+SFMAPI_DB_URL=sqlite+aiosqlite:///./test.db \
+  uv run pytest -q -m "not needs_postgres"
 SFMAPI_DB_URL=postgresql+psycopg://sfm:sfm@localhost:5432/sfmapi_test \
-  uv run pytest -q -m "not needs_backend"
+  uv run pytest -q
 
-# Ruff stack
-uv run ruff check app sfmapi sfm_hub tests
-uv run ruff format --check app sfmapi sfm_hub tests
+# Ruff stack (same command CI runs)
+uv run ruff check app sfmapi sfm_hub tests scripts
+uv run ruff format --check app sfmapi sfm_hub tests scripts
 ```
 
 ## Backend integration notes
@@ -472,8 +493,18 @@ uv run ruff format --check app sfmapi sfm_hub tests
   that need one return `501 CapabilityUnavailableError`). The
   `StubBackend` ships in this repo for tests + the
   `SFMAPI_EPHEMERAL=true` demo runtime; production deployments install
-  a third-party backend package and call `register_backend()` at
-  startup.
+  a third-party backend package and call
+  `sfmapi.runtime.register_backend()` at startup.
+- Plugins integrate through the public `sfmapi.*` facades only:
+  `sfmapi.backends` (protocols), `sfmapi.runtime` (in-process
+  registration + `create_app`), and `sfmapi.plugin_service` —
+  `build_plugin_server()` / `ManifestBackend` / `PROTOCOL_VERSION`
+  (1.1) — for container-service plugins speaking
+  `sfmapi-plugin-http-v1`. Never hand-roll a plugin server/protocol
+  module, and never import `app.*` from a plugin (internal).
+- The COLMAP scene-database schema contract lives at
+  `sfmapi.contracts.colmap_db` (public). `app.core.colmap_db` is a
+  deprecated re-export shim kept for one release.
 - Backends mutate fast (defaults change frequently). Cache invalidation
   uses the backend-defined `runtime_version_id` opaque string returned
   by `SfmBackend.runtime_versions()` and salted into every cache key.

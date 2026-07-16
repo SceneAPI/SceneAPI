@@ -98,23 +98,25 @@ These are owner calls. Each gets a decision-register row once made.
 
 ## Phase 1 — Stabilize the tree and make CI honest (do first)
 
-- [ ] 1.1 **Land or shelve the 145-file WIP** as reviewable commits;
+- [x] 1.1 **Land or shelve the 145-file WIP** as reviewable commits;
   stop the "land WIP" mega-commit pattern (it defeats the repo's own
-  contract-test machinery). (M)
-- [ ] 1.2 **Green the 3 failing tests** (unknown-field rejection on
+  contract-test machinery). (M) — done 3efe82d
+- [x] 1.2 **Green the 3 failing tests** (unknown-field rejection on
   dataset bodies; radiance public-provider outputs; plugin-server
   capability-id validation — decide whether the new 200 behavior or
-  the pinned 500 is correct and update the loser). (M)
-- [ ] 1.3 **Ruff clean**: `ruff check --fix` + `ruff format` across
+  the pinned 500 is correct and update the loser). (M) — done a538de0
+- [x] 1.3 **Ruff clean**: `ruff check --fix` + `ruff format` across
   `app sfmapi sfm_hub tests scripts`; then fix the **CI lint command**
   (`.github/workflows/ci.yml:37,39`) to cover all four packages, per
   CLAUDE.md. Acceptance: CI lint job runs the same command as docs. (S)
-- [ ] 1.4 **Delete or finish the `real-engine` CI lane**
+  — done 0abfe70 (ruff-clean) + 1e28d08 (CI lint command)
+- [x] 1.4 **Delete or finish the `real-engine` CI lane**
   (`ci.yml:108-149`). If kept: register the marker, decorate real
   tests, implement the install steps. If not: delete the job and the
   `needs_pycolmap` filter mentions (`ci.yml:60,106`), and drop the
-  unused `needs_backend` marker or start using it. (S–M)
-- [ ] 1.5 Add `uploads/` to `.gitignore` (sibling of `workspaces/`). (S)
+  unused `needs_backend` marker or start using it. (S–M) — done
+  1e28d08 (lane deleted; needs_pycolmap/needs_backend markers dropped)
+- [x] 1.5 Add `uploads/` to `.gitignore` (sibling of `workspaces/`). (S) — done 0abfe70
 - [ ] 1.6 **⚠ user-confirm** Delete workspace-root clutter: `brush/`
   (3.6 GB unmodified upstream clone), `SphereSfM_original/` (491 MB),
   `_archive/` (436 KB — contains the old `3dgsapi.bundle`; keep the
@@ -122,79 +124,89 @@ These are owner calls. Each gets a decision-register row once made.
   dirs in `sfmapi/`, `.git.broken-worktree` markers in the 3 colmap
   repos, orphaned `0.2.0` tarballs in plugin `dist/` dirs, stale
   `outputs/` run dumps in `sfmapi_hloc` / `sfmapi_gsplat`. (S)
-- [ ] 1.7 **Helm secrets**: support `existingSecret`/`secretKeyRef`
+- [x] 1.7 **Helm secrets**: support `existingSecret`/`secretKeyRef`
   for DB/Redis/API keys in `web-deployment.yaml`; remove the
   `changeme` default (fail template render if unset instead). (M)
-- [ ] 1.8 **Radiance plugin packaging**: add `sfmapi>=0.0.1,<0.1`
+  — done 1e28d08
+- [x] 1.8 **Radiance plugin packaging**: add `sfmapi>=0.0.1,<0.1`
   dependency + `[tool.uv.sources]` to brush/gsplat/fastergs/lfs/
   spirulae; align `requires-python` (>=3.12,<3.13) and version with
   the rest of the fleet; fix `sfmapi_brush` pyproject (>=3.10) vs its
   own manifest (>=3.12) contradiction. Acceptance: fresh-venv
-  `pip install` of each plugin can import its entry point. (S)
-- [ ] 1.9 Add minimal CI to plugins that have none (at least
-  `sfmapi_brush`: lint + unit tests). (S)
+  `pip install` of each plugin can import its entry point. (S) — done
+  in the 5 radiance plugin repos' commits
+- [x] 1.9 Add minimal CI to plugins that have none (at least
+  `sfmapi_brush`: lint + unit tests). (S) — done in plugin repo commits
 
 ## Phase 2 — Core correctness & efficiency (small diffs, high value)
 
-- [ ] 2.1 **Oneshot off the event loop**: wrap
+- [x] 2.1 **Oneshot off the event loop**: wrap
   `oneshot_service.extract_features_oneshot` / `localize_oneshot`
   calls in `anyio.to_thread.run_sync` (`api/v1/oneshot.py:78,133`).
   Acceptance: a slow oneshot request no longer blocks `/healthz`. (S)
-- [ ] 2.2 **Lazy numpy**: move `storage/vlad.py:29` import into the
+  — done 7a81723
+- [x] 2.2 **Lazy numpy**: move `storage/vlad.py:29` import into the
   functions that use it; extend the existing import-guard test
   (`test_app_does_not_import_pycolmap_or_torch`) to also assert
-  `numpy` is absent after `create_app()`. (S)
-- [ ] 2.3 **Single-source dependency readiness**: one function + one
+  `numpy` is absent after `create_app()`. (S) — done 7a81723
+- [x] 2.3 **Single-source dependency readiness**: one function + one
   vocabulary (`{succeeded, skipped}`) shared by
   `scheduler._dependency_ready`, `dispatcher._dependency_state_from_statuses`,
   and the janitor. Fixes the real bug where a task depending on a
   cache-`skipped` upstream isn't enqueued at submit and waits for a
   janitor sweep. Add a regression test for submit-time enqueue with a
-  skipped dependency. (M)
-- [ ] 2.4 **Janitor queries**: filter in SQL (`status='pending'` for
+  skipped dependency. (M) — done 95a89af (`app/orchestrator/readiness.py`)
+- [x] 2.4 **Janitor queries**: filter in SQL (`status='pending'` for
   readiness; `status='running' AND lease_expires_at < now` already
   filtered) instead of `select(Task)` twice per tick; scope
   `propagate_terminal_dependencies` to jobs with non-terminal tasks.
   Add composite `Index("ix_task_status_lease", "status",
-  "lease_expires_at")` (migration 0012, dialect-neutral). (M)
-- [ ] 2.5 **Retention/GC policy**: settings-driven sweep for terminal
+  "lease_expires_at")` (migration 0012, dialect-neutral). (M) — done 95a89af
+- [x] 2.5 **Retention/GC policy**: settings-driven sweep for terminal
   Jobs/Tasks/events older than N days (+ blob refcount-zero sweep) as
   a janitor stage; without it the Task table and `events.jsonl` grow
   forever and every sweep slows linearly. Write the short proposal doc
-  per the decision-flow, then implement. (M)
-- [ ] 2.6 **Process-level queue reuse**: cache the `Queue` (Redis
+  per the decision-flow, then implement. (M) — done 95a89af (opt-in via
+  `SFMAPI_RETENTION_DAYS`; unset = keep forever)
+- [x] 2.6 **Process-level queue reuse**: cache the `Queue` (Redis
   pool) per process; close it in lifespan shutdown; stop per-call
   `get_queue()`/`close()` churn in `dispatcher._enqueue_task_ids` and
-  the janitor. (S)
-- [ ] 2.7 **Stop swallowing probe errors**: add `log.debug` (or
+  the janitor. (S) — done 95a89af (`get_shared_queue`)
+- [x] 2.7 **Stop swallowing probe errors**: add `log.debug` (or
   `warning`) to the 4 `except Exception: pass` sites in
   `core/capabilities.py` and the bare except in `ws_jobs.py:167`. (S)
-- [ ] 2.8 Move the mid-service `session.commit()`
+  — done 7a81723
+- [x] 2.8 Move the mid-service `session.commit()`
   (`artifact_conversion_service.py:472`) to the caller so services
-  uniformly flush-not-commit. (S)
-- [ ] 2.9 **BA map single source**: define mode→capability once in
+  uniformly flush-not-commit. (S) — done 7a81723
+- [x] 2.9 **BA map single source**: define mode→capability once in
   `schemas/pipeline_spec.py`; import from both
   `sfm_stage_service.py:983` and `workers/tasks/ba.py:24`. (S)
-- [ ] 2.10 **Engine-neutral error**: introduce
+  — done 7a81723 (`BA_MODE_CAPABILITIES`)
+- [x] 2.10 **Engine-neutral error**: introduce
   `BackendUnavailableError`; keep `PycolmapUnavailable` as the wire
   `error_class` alias until 0.1.0 (it is serialized state — note in
   the changelog). Remove pycolmap special-casing from
-  `dispatcher.py:756`. (S–M)
-- [ ] 2.11 Fix the stale `bridge/bridge_worker.py` reference in
+  `dispatcher.py:756`. (S–M) — done 95a89af
+- [x] 2.11 Fix the stale `bridge/bridge_worker.py` reference in
   `orchestrator/queue.py` docstring (points at another repo). (S)
+  — done 95a89af
 
 ## Phase 3 — Core refactors (mechanical; one PR each)
 
-- [ ] 3.1 **`paginate_keyset()` helper** (session, stmt, page_size,
+- [x] 3.1 **`paginate_keyset()` helper** (session, stmt, page_size,
   page_token, pk column) and migrate the **14 sites / 10 files**.
   Acceptance: no `page_size + 1` literal outside the helper. (M)
-- [ ] 3.2 **Dispatcher decomposition**: extract `_finalize_task(...)`
+  — done ea76452 (`app/db/pagination.py`)
+- [x] 3.2 **Dispatcher decomposition**: extract `_finalize_task(...)`
   for the ~7 repeated terminal-transition blocks; register per-kind
   lifecycle hooks (recon/radiance status rollups, success side
   effects) alongside `@task_handler` instead of hardwiring kind
   checks; move `_apply_derived_dataset_outputs` (~250 lines) into
   `dataset_service.register_derived_dataset()`. Target:
   `dispatcher.py` ≤ 400 lines with no domain imports beyond services. (L)
+  — done: 848→519 lines (residual is preserved contract docs), hooks
+  on map/radiance_train/radiance_eval, derived-dataset block moved
 - [ ] 3.3 **Descriptor-registry base** for the `backend_config` /
   `backend_actions` / `backend_artifacts` triplet (~1,687 LOC →
   shared `_normalize/_dedupe/_link` + generic
@@ -203,30 +215,38 @@ These are owner calls. Each gets a decision-register row once made.
   submits (`:990-1119`, ~8 near-identical wrappers → one dict), then
   split the 1,491-line module (dataset stages / recon stages /
   recipes). (M)
-- [ ] 3.5 **Layering rule**: promote the needed adapter helpers to a
+- [x] 3.5 **Layering rule**: promote the needed adapter helpers to a
   public seam (e.g. move option-schema builders into
   `app/schemas/backend_options.py`) so the 6 services stop importing
   `app.adapters.*`; make `_radiance_train_option_schema` public
   wherever it lands; add an import-linter/test guard so the rule is
-  enforced, or consciously amend CLAUDE.md instead. (M)
-- [ ] 3.6 Relocate `core/colmap_db.py` (469 LOC, runtime-unused) to
+  enforced, or consciously amend CLAUDE.md instead. (M) — done ea76452
+  (rule amended to "public contract layer only" + AST guard in
+  `tests/unit/test_repo_boundary_guards.py`; decisions.md L38)
+- [x] 3.6 Relocate `core/colmap_db.py` (469 LOC, runtime-unused) to
   the contracts surface it actually serves (e.g. `sfm_hub/contracts/`
   or `sfmapi.contracts`) and export it publicly if plugins are meant
-  to consume it. (S)
-- [ ] 3.7 Type `BatchLocalizationBackend.localize_batch(**kwargs)`
-  properly (`adapters/backend.py:323`). (S)
+  to consume it. (S) — done ea76452 (`sfmapi.contracts.colmap_db`;
+  `app.core.colmap_db` kept as deprecation shim)
+- [x] 3.7 Type `BatchLocalizationBackend.localize_batch(**kwargs)`
+  properly (`adapters/backend.py:323`). (S) — done ea76452
 - [ ] 3.8 Split `sfm_hub/models.py` (70 KB) into modules; it is now
   lint-covered after 1.3. (M)
 
 ## Phase 4 — Plugin ecosystem consolidation (after D3)
 
-- [ ] 4.1 **Publish the plugin-service kit**: re-export
+- [x] 4.1 **Publish the plugin-service kit**: re-export
   `build_plugin_server`, protocol models, `PROTOCOL_VERSION` under
   `sfmapi.plugin_service`. Plugins only adopt public `sfmapi.*`
-  surfaces — this is why adoption is currently zero. (S)
-- [ ] 4.2 **Adopt the kit** in vismatch + the 5 radiance plugins:
+  surfaces — this is why adoption is currently zero. (S) — done 48f19c5
+  (decisions.md L40)
+- [x] 4.2 **Adopt the kit** in vismatch + the 5 radiance plugins:
   delete hand-rolled `server.py`/`protocol.py` pairs; everyone speaks
   protocol 1.1; drop their redundant fastapi/uvicorn/pydantic deps. (M)
+  — done in the 5 radiance plugin repos (protocol 1.1); partial:
+  vismatch deferred — its `container_service` is a backend-action
+  protocol, not the radiance execute protocol, so claiming 1.1 without
+  kit catalogs would fail `sfm_hub.doctor`
 - [ ] 4.3 **Radiance 5→1** (per D3): one `sfmapi_radiance` repo; the
   1,143-line multi-provider `trainer.py` becomes the engine, each
   provider a ~40-line config (constants + manifest + entry point);
@@ -245,17 +265,20 @@ These are owner calls. Each gets a decision-register row once made.
 - [ ] 4.6 Normalize plugin metadata: shared README template, common
   test template (`test_public_boundary` etc. — vismatch lacks them),
   aligned versions. (M)
-- [ ] 4.7 instantsfm: rename the hand-written `sksparse/cholmod.py`
+- [x] 4.7 instantsfm: rename the hand-written `sksparse/cholmod.py`
   shim so it cannot shadow real `scikit-sparse`; centralize the
-  `PYTHONPATH` injection into a shared helper. (S)
+  `PYTHONPATH` injection into a shared helper. (S) — done in
+  sfmapi_instantsfm commits (`sfmapi_instantsfm/_sksparse_shim`)
 
 ## Phase 5 — SDK consolidation
 
-- [ ] 5.1 **Unblock deprecation**: migrate `sfmapi/bench/` (3 files)
+- [x] 5.1 **Unblock deprecation**: migrate `sfmapi/bench/` (3 files)
   to `sfmapi_client_gen`; root the generated SDK's `SfmApiError` in
   itself (drop the `sfmapi_client.errors` import at
   `_ergonomics.py:31`); port the CLI (the one surface only the
-  deprecated package has) onto the generated client. (M)
+  deprecated package has) onto the generated client. (M) — partial:
+  bench migrated (3839d48) + error hierarchy self-rooted (sfmapi-sdk
+  repo commit); the CLI port onto the generated client remains
 - [ ] 5.2 **Finish the TS migration Python already made**: generate
   the full TS client surface (today a 178-line stub vs the 1,400-line
   hand-rolled primary), flip `package.json` exports so generated is
@@ -272,23 +295,29 @@ These are owner calls. Each gets a decision-register row once made.
   all three SDK parsers but absent from the wire (module deleted,
   stale `.pyc` only). Either restore server-side emitters + routes,
   or delete the parsers/docs until a consumer exists (recommended). (M)
-- [ ] 5.5 Add a version-coherence check: `openapi.json info.version`
+- [x] 5.5 Add a version-coherence check: `openapi.json info.version`
   == server `__version__` == SDK package versions (extend the
   existing `.sdk_codegen.sha256` provenance check). Then actually
   ship **0.0.2** so the L12 deprecation milestone stops being
-  fictional. (S–M)
+  fictional. (S–M) — partial: coherence guard done 3839d48
+  (`tests/contract/test_version_coherence.py`); the 0.0.2 release
+  itself remains
 
 ## Phase 6 — Docs & decision-register reconciliation
 
-- [ ] 6.1 **Register truth**: mark L9 unlocked/superseded (WebSocket
+- [x] 6.1 **Register truth**: mark L9 unlocked/superseded (WebSocket
   shipped, spec'd in §8, wired at `main.py:343`); refresh P5's
-  premise; add rows for D1–D4 outcomes. (S)
-- [ ] 6.2 **CLAUDE.md refresh**: remove phantom `docs/phase_*.md` and
+  premise; add rows for D1–D4 outcomes. (S) — done (docs wave
+  2026-07-16): L9 superseded by L37, P5 refreshed, L37–L40 recorded;
+  D1–D4 rows pending the Phase 0 decisions
+- [x] 6.2 **CLAUDE.md refresh**: remove phantom `docs/phase_*.md` and
   `masksets.py`; fix untyped-route count (11, not 16 — or re-count
   from the guard test); fix the lint command; remove per-tier
   conftest claims; point plugin guidance at `sfmapi.runtime` (public)
   instead of `app.adapters.*`; document the depth/normal outcome from
-  5.4. Same fixes in AGENTS.md. (S)
+  5.4. Same fixes in AGENTS.md. (S) — done (docs wave 2026-07-16);
+  untyped count now cites the guard's `<= 17` limit; depth/normal
+  documented as SDK-side only pending the 5.4 decision
 - [ ] 6.3 **Custom-verb normalization** (pre-1.0 window): rename the
   8 snake_case colon verbs (`:from_archive`, `:from_video`,
   `:import_kapture`, `:project_images`, `:render_cubemap`,
@@ -300,11 +329,13 @@ These are owner calls. Each gets a decision-register row once made.
   audits incl. this one) out of the published Sphinx nav into an
   internal section or `docs/_internal/`; flip `nitpicky=True` once
   the stale `SfmBackend` xrefs are fixed. (M)
-- [ ] 6.5 Add an MCP↔REST parity contract test (the 27-tool MCP
-  surface is hand-mirrored and can drift silently). (M)
-- [ ] 6.6 Note in SPEC/docs that the WebSocket surface is outside
+- [x] 6.5 Add an MCP↔REST parity contract test (the 27-tool MCP
+  surface is hand-mirrored and can drift silently). (M) — done:
+  tests/contract/test_mcp_parity.py (22 tools mapped, shape parity ×7)
+- [x] 6.6 Note in SPEC/docs that the WebSocket surface is outside
   OpenAPI (SDK codegen cannot see it) and where its contract lives
-  (§8 + `test_contract` coverage). (S)
+  (§8 + `test_contract` coverage). (S) — done (docs wave 2026-07-16):
+  normative note added to SPEC §8
 
 ## Phase 7 — Strategic (gated on Phase 0)
 

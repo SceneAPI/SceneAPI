@@ -9,15 +9,15 @@
 - `uv venv` then `uv sync --extra dev`: create the Python 3.12 environment.
 - `uv run alembic upgrade head`: apply database migrations.
 - `uv run uvicorn app.main:app --reload`: run the API locally.
-- `uv run pytest -q -m "not needs_pycolmap and not needs_postgres"`: run the CI SQLite subset.
+- `uv run pytest -q -m "not needs_postgres"`: run the CI SQLite subset.
 - `uv run pytest -q`: run the broader suite when required services/backends exist.
-- `uv run ruff check app sfmapi sfm_hub tests` and `uv run ruff format --check app sfmapi sfm_hub tests`: lint, import-sort, and format-check.
+- `uv run ruff check app sfmapi sfm_hub tests scripts` and `uv run ruff format --check app sfmapi sfm_hub tests scripts`: lint, import-sort, and format-check (same scope as CI).
 - `bash scripts/test_dual_db.sh` or `pwsh scripts/test_dual_db.ps1`: exercise SQLite and Postgres paths.
 - SDK checks from `../sfmapi-sdk`: `uv run --extra dev pytest -q` in `python/`, `npm test`, `npm run lint`, and `npm run build` in `typescript/`, and `cmake -S . -B build -DSFMAPI_CPP_TESTS=ON && cmake --build build && ctest --test-dir build -C Debug` in `cpp/`.
 
 ## Coding Style & Naming Conventions
 
-Python targets 3.12 and uses the Ruff stack with a 100-character line length. Use 4-space indentation, explicit types where they clarify contracts, snake_case for functions/modules, PascalCase for classes, and UPPER_SNAKE_CASE for constants. Keep routes thin: schemas in `app/schemas/api/`, business logic in `app/services/`, and execution in `app/workers/tasks/`. Do not import concrete SfM engines; backends register through `app.adapters.backend.SfmBackend`.
+Python targets 3.12 and uses the Ruff stack with a 100-character line length. Use 4-space indentation, explicit types where they clarify contracts, snake_case for functions/modules, PascalCase for classes, and UPPER_SNAKE_CASE for constants. Keep routes thin: schemas in `app/schemas/api/`, business logic in `app/services/`, and execution in `app/workers/tasks/`. Do not import concrete SfM engines; backends implement the protocols in `sfmapi.backends` and register via `sfmapi.runtime.register_backend` (container-service plugins build on `sfmapi.plugin_service`; the `app.*` tree is internal).
 
 ## Testing Guidelines
 

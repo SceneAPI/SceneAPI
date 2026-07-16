@@ -1846,6 +1846,18 @@ SSE clients **SHOULD** use `Last-Event-ID` to resume.
 Endpoint: `/ws/v1/jobs/{job_id}` (Upgrade: websocket).
 Optional query: `?last_event_id=N`.
 
+> The WebSocket surface is intentionally **not** described by the
+> machine-readable OpenAPI document — OpenAPI cannot express WebSocket
+> operations, so SDK codegen never sees this endpoint and generated
+> clients ship no helper for it. This section is the normative
+> contract for the surface (the reference implementation additionally
+> pins behavior with server-side tests). Clients discover the endpoint
+> via the documented path pattern above, not via the OpenAPI document;
+> the reference implementation also answers a plain HTTP `GET` on the
+> same path with a `{ "kind": "ws_endpoint", "ws_url": ... }` hint for
+> curl-based discoverability. The surface itself remains optional
+> (§10).
+
 Server frames (JSON text):
 
 ```json
