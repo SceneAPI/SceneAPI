@@ -92,6 +92,7 @@ Each of these has a long-form design doc on disk. Status flips to
 | P4 | One-shot streaming endpoints under `/v1/oneshot/...`. Phase a (`oneshot/features`) **shipped as L17**. Phase b (`oneshot/localize`) **shipped as L18**. Phase c (`oneshot/match`) deferred until a real consumer asks. | Phases a + b shipped. | `docs/_internal/oneshot_streaming_proposal.md` | Phase c: defer indefinitely |
 | P5 | Streaming SLAM endpoint at `/ws/v1/slam/sessions/{sid}/frames` with `Session` resource + `SlamBackend` Protocol + OpenVINS reference adapter. WebSocket bidirectional framing, frames in / poses out at ~30 Hz, sparse persistence (keyframes + on-demand map snapshots only). | Phases a-d ready to design; ~40-45h total. **Touches L4 (live map reads)** — would unlock it. (L9 no longer gates this: the WebSocket transport shipped, see L37; the SLAM surface itself is the remaining question.) | `docs/_internal/streaming_slam_proposal.md` | **Confirmed consumer with VIO data** + readiness to unlock L4. Otherwise: track as future architectural reference; recommend `slamapi` sibling service when needed. |
 | P6 | In-memory reconstruction handle for `compute.in_memory` backends. Analysis concludes a non-path `ReconstructionHandle` Protocol is **premature**: fork-per-task + one-Task-one-ARQ-job (L5) + sealed-snapshot-only reads (L4) bound any in-memory handle to within-Task scope, where it is an implementation detail of a not-yet-existing fused-recipe Task kind rather than a wire contract. Recommendation: document `compute.in_memory` as an advisory scheduler hint, keep `MappingInput` as the sole cross-Task serialization format, defer the handle Protocol. | Recommend approving the doc clarification (~30 min); defer the Protocol. | `docs/_internal/in_memory_reconstruction_proposal.md` | Single user `OK` on the doc clarification; the deferred handle Protocol is blocked on a fused-recipe Task kind existing + profiling as I/O-bound. |
+| P7 | Migrate the whole family to the `SceneAPI` GitHub org (staged: A hosting move -> B package rename `sfmapi`->`sceneapi` at 0.1.0 -> C wire identity -> D SFMAPI decommission). Owner intent stated 2026-07-17; gates G1 (repo mapping), G2 (package naming), G3 (wire identity), G4 (timing/PyPI reservation) pending. | Proposal written; Phase A is ~half a day once gated. | `docs/_internal/sceneapi_migration_proposal.md` | Gates G1-G4 |
 
 ## Decision flow
 
@@ -117,7 +118,7 @@ When a new architectural question comes up:
   remediation; L41–L44 record the lean-audit Phase 0 gates D1–D4,
   decided 2026-07-16)
 - Cancelled: 6
-- Proposed: 6 (P4 phases a+b shipped as L17/L18; P1's direction shipped as L27; P2-P3 + P5-P6 still proposed)
+- Proposed: 7 (P7 SceneAPI migration pending gates; P4 phases a+b shipped as L17/L18; P1's direction shipped as L27; P2-P3 + P5-P6 still proposed)
 - **Total tracked decisions: 56**
 
 Counts here exclude per-feature implementation decisions (route
