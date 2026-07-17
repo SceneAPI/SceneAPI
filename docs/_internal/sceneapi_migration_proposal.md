@@ -181,3 +181,13 @@ names, and console-script names unchanged; plugin dists 0.1.0.
   deploy/docs/README org links flipped (wire stay-list untouched).
   SDK regen + drift-table rework: `sfmapi-sdk@be960af`.
 - Remaining: org pushes, SFMAPI "moved" notes, PyPI reservation.
+
+### Post-migration note — 2026-07-17
+
+- The frozen C++ parity repo was renamed `sfmapi-cpp` → **`sceneapi-cpp`**
+  (GitHub `SceneAPI/sceneapi-cpp`, still archived; local dir + git remote
+  updated). Register mentions of `../sfmapi-cpp` / `sfmapi-cpp@9aedf30`
+  refer to that repo's pre-rename identity. SceneBench's conformance
+  default path and `--sceneapi-cpp-root` option follow the new name
+  (`sfmapi-bench@da93d4e`). The core repo's local dir remains `sfmapi`
+  (only the package became `sceneapi`).
