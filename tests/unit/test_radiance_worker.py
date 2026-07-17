@@ -123,7 +123,9 @@ def test_radiance_train_dispatches_installed_container_service_provider(
 
         assert captured["path"] == "/execute"
         assert captured["body"]["protocol"] == "sfmapi-plugin-http-v1"
-        assert captured["body"]["protocol_version"] == "1.0"
+        # Kit-based container plugins speak protocol 1.1 (register L40);
+        # the bundled registry mirrors their manifests since the W9 sweep.
+        assert captured["body"]["protocol_version"] == "1.1"
         assert captured["body"]["task_kind"] == "radiance_train"
         assert captured["body"]["provider"] == "gsplat"
         assert captured["body"]["spec"]["backend_options"] == {"init_type": "sfm"}
