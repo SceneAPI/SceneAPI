@@ -360,8 +360,11 @@ These are owner calls. Each gets a decision-register row once made.
   place — README banner, parity CI workflow_dispatch-only,
   sfmapi-cpp@9aedf30)* (archive + pointer,
   or promotion + Python-surface freeze). (S to archive)
-- [ ] 7.4 (D4) Fold `app/` under the `sfmapi` namespace; keep a
-  temporary `app` shim module for one release if needed. (L)
+- [x] 7.4 (D4) Fold `app/` under the `sfmapi` namespace; keep a
+  temporary `app` shim module for one release if needed. (L) — done
+  c815aee: app -> sfmapi.server, 1,442 rewrites/280 files, identity-
+  preserving deprecation shim until 0.1.0; wire contract unchanged;
+  sfmapi-cpp's 46 app.* imports ride the shim and must migrate
 - [ ] 7.5 (D3, optional) Evaluate monorepo for core + plugins after
   4.3/4.4 land; the repo count may already be tolerable at 11. (—)
 
