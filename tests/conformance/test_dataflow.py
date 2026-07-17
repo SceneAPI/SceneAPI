@@ -1,10 +1,27 @@
-"""Typed Data Type / Processor / Pipeline discovery and validation."""
+"""Typed Data Type / Processor / Pipeline discovery and validation.
+
+SPEC §6.8.2 is Preview tier (§1.3): conforming servers **MAY** omit
+this surface entirely, so a compliance run against an external target
+skips rather than fails when it is absent. The in-process reference
+app always mounts and serves these routes (independently of the
+``expose_preview_apis`` OpenAPI fencing flag), so this suite still
+exercises them fully in CI.
+"""
 
 from __future__ import annotations
 
 import pytest
+import pytest_asyncio
 
 pytestmark = pytest.mark.conformance
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _skip_when_preview_surface_absent(conf_client) -> None:
+    """§1.3 Preview: compliance suites MUST NOT require this surface."""
+    resp = await conf_client.get("/v1/datatypes")
+    if resp.status_code in (404, 405, 501):
+        pytest.skip("typed-dataflow surface not implemented (SPEC §6.8.2 [Preview])")
 
 
 async def test_dataflow_contract_endpoints_are_present(conf_client) -> None:

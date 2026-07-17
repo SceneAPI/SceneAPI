@@ -37,12 +37,10 @@ def test_app_openapi_3_1_with_expected_paths() -> None:
         "/v1/artifacts/{artifact_id}:convert",
         "/v1/artifacts/{artifact_id}:validate",
         "/v1/artifacts/{artifact_id}/content",
-        "/v1/datatypes",
-        "/v1/attributes",
-        "/v1/operations",
-        "/v1/processors",
-        "/v1/pipelines",
-        "/v1/pipelines:validate",
+        # The typed-dataflow discovery endpoints (/v1/datatypes,
+        # /v1/attributes, /v1/operations, /v1/processors, /v1/pipelines,
+        # /v1/pipelines:validate) are Preview tier (SPEC §1.3) and fenced
+        # out of the default document — see tests/unit/test_preview_fencing.py.
         "/v1/datasets/{dataset_id}/features",
         "/v1/datasets/{dataset_id}/matches",
         "/v1/datasets/{dataset_id}/verify",

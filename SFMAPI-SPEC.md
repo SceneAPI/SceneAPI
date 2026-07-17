@@ -65,6 +65,16 @@ Every endpoint in this spec belongs to exactly one conformance level:
   capabilities named by the endpoint, such as `map.incremental`,
   `features.extract.sift`, or `localize.from_memory`, rather than a
   single umbrella capability.
+- **Preview** — Shipped and always served by the reference
+  implementation, but not yet stable and not part of the default
+  contract: the reference server omits these operations from its
+  OpenAPI document (and therefore from generated SDKs and the pinned
+  `openapi.json`) unless the deployment opts in via
+  `SFMAPI_EXPOSE_PREVIEW_APIS=true`. When exposed, each preview
+  operation carries `x-sfmapi-conformance: preview`. Wire shapes here
+  **MAY** change without a major version bump; other implementations
+  **MAY** omit these endpoints entirely, and compliance test suites
+  **MUST NOT** require them.
 - **Reference-implementation-only** — Ships in the reference
   `sfmapi/sfmapi` repository for operator convenience but is **not**
   part of the standard. Other backends **MAY** omit these endpoints
@@ -74,7 +84,8 @@ Every endpoint in this spec belongs to exactly one conformance level:
 Each subsection in Section 6 is tagged. `[Core]` marks required core surfaces.
 `[Standard extension: <capability>]` marks a single capability-flagged
 surface, `[Standard extension: capability-composed]` marks a surface
-gated by the capabilities named in that subsection, and
+gated by the capabilities named in that subsection, `[Preview]` marks
+preview surfaces fenced out of the default OpenAPI document, and
 `[Reference-only]` items are explicitly marked.
 
 ---
@@ -767,7 +778,7 @@ One-shot feature extraction is gated by the requested
 `features.extract.<type>` capability. One-shot localization is gated by
 `localize.from_memory`. There is no umbrella `oneshot` capability.
 
-### 6.8.2 Typed dataflow discovery [Core]
+### 6.8.2 Typed dataflow discovery [Preview]
 
 | Method | Path                                      | Returns                    |
 |--------|-------------------------------------------|----------------------------|
@@ -836,9 +847,11 @@ selectors used by the bridge-era scheduler. The P6 contract split will expose
 capability-family metadata separately from provider/runtime requirements.
 
 `/v1/datatypes`, `/v1/attributes`, `/v1/operations`, `/v1/processors`,
-`/v1/pipelines`, `/v1/pipelines:validate`, and
-`/v1/projects/{pid}/pipelines:run` are Core discovery, validation, and
-preflight endpoints. `/v1/projects/{pid}/pipelines:run` also preserves the
+`/v1/pipelines`, and `/v1/pipelines:validate` are Preview discovery and
+validation endpoints (§1.3): the reference server always serves them but
+omits them from the default OpenAPI document unless
+`SFMAPI_EXPOSE_PREVIEW_APIS=true`. `POST /v1/projects/{pid}/pipelines:run`
+remains **Core** and preserves the
 legacy v1 flat SfM operation chain (`features -> pairs -> matches -> verify ->
 map`) as an executable 202 job-submission shape. Actual custom typed Processor
 DAG execution is optional and gated by `pipelines.custom_execution`; servers
@@ -959,10 +972,12 @@ Visibility payload (per point):
 If the underlying snapshot has no observations sidecar (the worker
 did not emit one), the server **MUST** return 404.
 
-#### 6.9.3 Image similarity (optional)
+#### 6.9.3 Image similarity [Preview]
 
 For "show me images that look like this one" UX (clustering,
-deduplication, sequential matching primer):
+deduplication, sequential matching primer). This surface is Preview
+(§1.3): the reference server always serves it but omits it from the
+default OpenAPI document unless `SFMAPI_EXPOSE_PREVIEW_APIS=true`.
 
 | Method | Path                                          | Returns                                    |
 |--------|-----------------------------------------------|--------------------------------------------|
@@ -1446,6 +1461,12 @@ suites **MUST NOT** require it.
 | POST    | `/v1/admin/routing/projects/{project_id}` | `{profile}`      | routing state                 |
 | POST    | `/v1/admin/routing/workspaces` | `{profile}`               | routing state                 |
 | POST    | `/v1/admin/routing/provider-priority` | `{providers: [...]}` | routing state                 |
+
+The `/v1/admin/routing/*` rows are additionally **[Preview]** (§1.3):
+the reference server always serves them but omits them from its
+OpenAPI document unless `SFMAPI_EXPOSE_PREVIEW_APIS=true`. The API-key
+and plugin rows stay in the reference server's default OpenAPI
+document (auth and plugin bootstrap are core operator surface).
 
 Plugin installation is an explicit operator action. Public project,
 dataset, pipeline, and job endpoints MUST NOT install plugins
@@ -1946,13 +1967,13 @@ A *conforming server* **MUST** implement at minimum:
 - §6.6 stages (features + matches + verify with at least one
   matching `pairs.strategy`).
 - §6.7 jobs + SSE events. WebSocket optional.
-- §6.8.2 typed dataflow discovery, validation, and the custom typed
-  execution preflight route. This includes
-  `POST /v1/projects/{pid}/pipelines:run` with the current split behavior:
+- §6.8.2 `POST /v1/projects/{pid}/pipelines:run` (the custom typed
+  execution preflight route) with the current split behavior:
   the legacy flat SfM chain (`features -> pairs -> matches -> verify -> map`)
   returns 202, while a server that does not advertise
   `pipelines.custom_execution` returns 501 for type-valid native typed
-  Processor DAGs.
+  Processor DAGs. The rest of §6.8.2 — the typed dataflow discovery and
+  validation endpoints — is Preview (§1.3) and **MUST NOT** be required.
 - §6.9 reconstruction reads + sealed snapshot reads.
 - §7.1 binary points format.
 - §7.3 `ProgressEvent` v1 schema.
@@ -1965,8 +1986,10 @@ A *conforming server* **MAY** additionally implement:
   (`POST /v1/projects/{pid}/pipelines/{recipe}`); this optional item does not
   weaken the Core legacy flat `/pipelines:run` 202 compatibility shape above.
 - §6.8.1 one-shot endpoints.
+- §6.8.2 typed dataflow discovery + validation (Preview, §1.3).
 - §6.8.2 actual typed dataflow job execution behind
   `pipelines.custom_execution`.
+- §6.9.3 image similarity (Preview, §1.3).
 - §6.8.3 radiance fields / 3D Gaussian Splatting.
 - §6.10 backend actions and backend config schemas.
 - §6.11 admin / api-keys / plugin hub.

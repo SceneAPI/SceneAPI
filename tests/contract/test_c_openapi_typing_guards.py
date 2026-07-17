@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.core.config import reset_settings_for_tests
 from app.main import create_app
 from app.schemas.pipeline_spec import (
     PROVIDER_SELECTOR_MAX_LENGTH,
@@ -19,6 +20,20 @@ from app.schemas.pipeline_spec import (
 )
 
 pytestmark = pytest.mark.contract
+
+
+def _preview_exposed_app():
+    """App with the Preview tier included in the OpenAPI document.
+
+    Preview operations (SPEC §1.3: typed dataflow, similarity, admin
+    routing) are fenced out of the default document, so SDK codegen
+    only ever sees them when ``expose_preview_apis`` is set. Guards on
+    their typed shapes therefore evaluate the exposed contract — the
+    invariant guarded (typed response models, closed components) is
+    unchanged.
+    """
+    reset_settings_for_tests(expose_preview_apis=True)
+    return create_app()
 
 
 def _typed_response_schema_ref(spec: dict, path: str, method: str) -> str | None:
@@ -136,7 +151,9 @@ def test_pipeline_run_documents_legacy_success_and_typed_executor_gate() -> None
 
 
 def test_dataflow_contract_components_are_closed() -> None:
-    app = create_app()
+    # Dataflow discovery is Preview tier; its components only appear in
+    # the exposed contract, which is exactly what codegen consumes then.
+    app = _preview_exposed_app()
     spec = app.openapi()
     for name in (
         "DataTypeOut",
@@ -264,7 +281,9 @@ def test_image_observations_has_typed_response() -> None:
 
 
 def test_similarity_endpoints_typed() -> None:
-    app = create_app()
+    # Similarity is Preview tier — typed-shape guard runs against the
+    # exposed contract (the only document that carries the route).
+    app = _preview_exposed_app()
     spec = app.openapi()
     ref = _typed_response_schema_ref(spec, "/v1/datasets/{dataset_id}/similarity", "get")
     assert ref is not None
@@ -272,7 +291,9 @@ def test_similarity_endpoints_typed() -> None:
 
 
 def test_routed_provider_surfaces_use_plugin_selector_contract() -> None:
-    app = create_app()
+    # similarity:build is Preview tier (MergeRequest is kernel and
+    # identical in both documents) — evaluate the exposed contract.
+    app = _preview_exposed_app()
     spec = app.openapi()
 
     build_op = spec["paths"]["/v1/datasets/{dataset_id}/similarity:build"]["post"]

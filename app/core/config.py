@@ -106,6 +106,20 @@ class Settings(BaseSettings):
     # the field entirely from ``GET /spec`` responses).
     spec_url: str | None = "https://sfmapi.github.io/spec"
 
+    # Preview conformance tier (SPEC §1.3 [Preview]; lean audit D1/7.1).
+    # The preview surfaces — admin routing profiles
+    # (``/v1/admin/routing/*``), typed-dataflow discovery
+    # (``/v1/datatypes`` ``/v1/attributes`` ``/v1/operations``
+    # ``/v1/processors`` ``/v1/pipelines`` ``/v1/pipelines:validate``),
+    # and image similarity (``/v1/datasets/{id}/similarity*``) — are
+    # ALWAYS mounted and served regardless of this flag. The flag only
+    # controls their visibility in the OpenAPI document, i.e. whether
+    # they are part of the default (kernel) contract that SDK codegen
+    # and the pinned ``docs/_static/openapi.json`` snapshot see. When
+    # exposed, each preview operation carries
+    # ``x-sfmapi-conformance: preview`` so the tier is machine-visible.
+    expose_preview_apis: bool = False
+
     # Request profiling. Disabled by default because cProfile adds
     # overhead. When enabled, responses get a Server-Timing header and
     # requests at/above `profile_min_ms` emit a structured profile log.

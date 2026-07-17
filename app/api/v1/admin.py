@@ -4,6 +4,16 @@ Mounted at `/v1/admin/...`. These are operator endpoints, not
 tenant-scoped API endpoints, and are not protected by sfmapi's tenant
 API-key dependency. Production deployments must front this namespace
 with an admin-only auth layer.
+
+Two routers live here so the areas can be fenced independently
+(SPEC §1.3, lean audit D1/7.1):
+
+* ``router`` — API-key + plugin operator endpoints; part of the
+  default OpenAPI contract.
+* ``routing_router`` — provider routing-profile endpoints
+  (``/v1/admin/routing/*``); Preview tier, excluded from the default
+  OpenAPI document unless ``settings.expose_preview_apis`` is set.
+  The routes serve identically either way.
 """
 
 from __future__ import annotations
@@ -37,6 +47,11 @@ from app.schemas.api.plugins import (
 from app.services import api_key_service, plugin_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+# Preview tier (SPEC §1.3 [Preview]): mounted unconditionally in
+# app.main, but only included in the OpenAPI document when
+# ``settings.expose_preview_apis`` is true.
+routing_router = APIRouter(prefix="/admin/routing", tags=["admin"])
 
 
 class IssueKeyBody(BaseModel):
@@ -225,25 +240,25 @@ async def doctor_plugin(plugin_id: str) -> PluginDoctorOut:
     return PluginDoctorOut.model_validate(plugin_service.doctor_plugin(plugin_id))
 
 
-@router.post("/routing/profiles", response_model=RoutingOut)
+@routing_router.post("/profiles", response_model=RoutingOut)
 async def create_routing_profile(body: RoutingProfileRequest) -> RoutingOut:
     """Create or replace a named provider routing profile."""
     return RoutingOut.model_validate(plugin_service.create_profile(body.name, body.routes))
 
 
-@router.post("/routing/default", response_model=RoutingOut)
+@routing_router.post("/default", response_model=RoutingOut)
 async def set_default_routing_profile(body: RoutingProfileAssignmentRequest) -> RoutingOut:
     """Set the default provider routing profile for this sfmapi process."""
     return RoutingOut.model_validate(plugin_service.use_default_profile(body.profile))
 
 
-@router.post("/routing/provider-priority", response_model=RoutingOut)
+@routing_router.post("/provider-priority", response_model=RoutingOut)
 async def set_provider_priority(body: ProviderPriorityRequest) -> RoutingOut:
     """Set fallback provider order for unpinned routed stages."""
     return RoutingOut.model_validate(plugin_service.use_provider_priority(body.providers))
 
 
-@router.post("/routing/projects/{project_id}", response_model=RoutingOut)
+@routing_router.post("/projects/{project_id}", response_model=RoutingOut)
 async def set_project_routing_profile(
     project_id: str,
     body: RoutingProfileAssignmentRequest,
@@ -254,7 +269,7 @@ async def set_project_routing_profile(
     )
 
 
-@router.post("/routing/workspaces", response_model=RoutingOut)
+@routing_router.post("/workspaces", response_model=RoutingOut)
 async def set_workspace_routing_profile(body: RoutingProfileAssignmentRequest) -> RoutingOut:
     """Assign a provider routing profile to the current workspace root."""
     from app.core.config import get_settings

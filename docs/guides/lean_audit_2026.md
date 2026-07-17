@@ -69,7 +69,8 @@ test (C3), checkpoint unification (C4), snapshot-on-S3 alternatives
 
 These are owner calls. Each gets a decision-register row once made.
 
-- [ ] **D1 — Define the v0 kernel.** Recommendation: kernel =
+- [x] **D1 — Define the v0 kernel.** *(decided 2026-07-16: fence as
+  preview — register L41; implemented, see 7.1)* Recommendation: kernel =
   projects → uploads → datasets → images → SfM stages → jobs/events →
   reconstructions → artifacts + backend discovery. Fence
   **admin routing profiles (5 ops of the 16 admin ops), dataflow/
@@ -78,16 +79,19 @@ These are owner calls. Each gets a decision-register row once made.
   a settings flag that drops them from the default OpenAPI. Radiance
   stays (it has 5 working plugins) but as a labeled extension.
   Target: ~100 ops in the default contract. **Gates 7.1.**
-- [ ] **D2 — Decide `sfmapi-cpp`'s status.** Recommendation: freeze
+- [x] **D2 — Decide `sfmapi-cpp`'s status.** *(decided 2026-07-16:
+  frozen/archived — register L42; executed, see 7.3)* Recommendation: freeze
   (archive branch, README pointer, stop parity CI) until the Python
   surface stops moving; the 25.8k-line parity harness re-verifies a
   moving target. Alternative: declare it the product and freeze the
   Python surface instead. **Gates 7.3.**
-- [ ] **D3 — Repo topology.** Recommendation: merge the 5 radiance
+- [x] **D3 — Repo topology.** *(decided 2026-07-16: merge both
+  families — register L43; radiance merged, COLMAP scheduled)* Recommendation: merge the 5 radiance
   repos into one `sfmapi_radiance` (5 providers, per-provider extras),
   and the 3 COLMAP repos into one `sfmapi_colmap` (3 providers).
   17 → 11 repos without a monorepo migration. **Gates 4.3/4.4.**
-- [ ] **D4 — Top-level `app` package.** Recommendation: fold `app/`
+- [x] **D4 — Top-level `app` package.** *(decided 2026-07-16: fold
+  before release — register L44; scheduled as a dedicated change)* Recommendation: fold `app/`
   into `sfmapi/` (e.g. `sfmapi._app` or `sfmapi.server`) **before any
   external consumer exists**; shipping a wheel that owns the global
   `app` name is a permanent collision hazard and is the root cause of
@@ -247,7 +251,11 @@ These are owner calls. Each gets a decision-register row once made.
   vismatch deferred — its `container_service` is a backend-action
   protocol, not the radiance execute protocol, so claiming 1.1 without
   kit catalogs would fail `sfm_hub.doctor`
-- [ ] 4.3 **Radiance 5→1** (per D3): one `sfmapi_radiance` repo; the
+- [x] 4.3 **Radiance 5→1** (per D3) *(done: new sfmapi_radiance repo
+  c9c8283 — src 6,624→3,031 LOC, 59 parametrized test cases green,
+  five entry points keep their old names; old repos left for owner to
+  archive; container-image manifests still point at old repo
+  coordinates — follow-up)*: one `sfmapi_radiance` repo; the
   1,143-line multi-provider `trainer.py` becomes the engine, each
   provider a ~40-line config (constants + manifest + entry point);
   gsplat keeps its genuinely different CUDA trainer as a module.
@@ -339,13 +347,18 @@ These are owner calls. Each gets a decision-register row once made.
 
 ## Phase 7 — Strategic (gated on Phase 0)
 
-- [ ] 7.1 (D1) Implement kernel fencing: conformance-level tags in
+- [x] 7.1 (D1) Implement kernel fencing *(done: SFMAPI_EXPOSE_PREVIEW_APIS,
+  default contract 136→123 ops, spec §1.3/§6.8.2/§6.9.3/§6.11/§10
+  preview labels, guards rescoped, snapshot regenerated; SDK regen is
+  the documented follow-up)*: conformance-level tags in
   the spec + settings-driven `include_in_schema` for preview routers;
   default contract ≈ 100 ops; conformance tests assert the split. (M)
 - [ ] 7.2 Retire one of operations-vs-processors: keep the Processor
   registry, delete the legacy Operation projection and
   `/v1/operations` (or keep it fenced as deprecated for one release). (M)
-- [ ] 7.3 (D2) Execute the `sfmapi-cpp` decision (archive + pointer,
+- [x] 7.3 (D2) Execute the `sfmapi-cpp` decision *(done: frozen in
+  place — README banner, parity CI workflow_dispatch-only,
+  sfmapi-cpp@9aedf30)* (archive + pointer,
   or promotion + Python-surface freeze). (S to archive)
 - [ ] 7.4 (D4) Fold `app/` under the `sfmapi` namespace; keep a
   temporary `app` shim module for one release if needed. (L)

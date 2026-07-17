@@ -13,11 +13,12 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse, Response
+from fastapi.routing import APIRoute
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app import __version__
@@ -30,6 +31,27 @@ from app.core.profiling import RequestProfilingMiddleware
 from app.core.public_outputs import sanitize_public_outputs
 
 REQUEST_ID_HEADER = "X-Request-ID"
+
+# OpenAPI extension stamped on every preview-tier operation so the
+# conformance level (SPEC §1.3 [Preview]) is machine-visible whenever
+# those operations are exposed via ``settings.expose_preview_apis``.
+PREVIEW_CONFORMANCE_KEY = "x-sfmapi-conformance"
+PREVIEW_CONFORMANCE_VALUE = "preview"
+
+
+def _stamp_preview_conformance(*routers: APIRouter) -> None:
+    """Mark every operation on the given routers as Preview tier.
+
+    Mutates the module-level router objects before inclusion (FastAPI
+    copies ``openapi_extra`` through ``include_router``); idempotent so
+    repeated ``create_app()`` calls are safe.
+    """
+    for router in routers:
+        for route in router.routes:
+            if isinstance(route, APIRoute):
+                extra = route.openapi_extra or {}
+                extra.setdefault(PREVIEW_CONFORMANCE_KEY, PREVIEW_CONFORMANCE_VALUE)
+                route.openapi_extra = extra
 
 
 async def _janitor_loop(settings: Settings) -> None:
@@ -316,6 +338,15 @@ def create_app() -> FastAPI:
         ws_jobs,
     )
 
+    # Preview conformance tier (SPEC §1.3 [Preview]; lean audit D1/7.1).
+    # These routers are ALWAYS mounted — requests keep serving exactly
+    # as before — but they are fenced out of the OpenAPI document (the
+    # default kernel contract) unless ``expose_preview_apis`` is set.
+    # When exposed, every preview operation carries
+    # ``x-sfmapi-conformance: preview``.
+    preview_in_schema = settings.expose_preview_apis
+    _stamp_preview_conformance(dataflow.router, admin.routing_router, similarity.router)
+
     app.include_router(projects.router, prefix="/v1")
     app.include_router(artifacts.router, prefix="/v1")
     app.include_router(backend.router, prefix="/v1")
@@ -332,11 +363,12 @@ def create_app() -> FastAPI:
     app.include_router(reconstructions.router, prefix="/v1")
     app.include_router(recon_stages.router, prefix="/v1")
     app.include_router(pipelines.router, prefix="/v1")
-    app.include_router(dataflow.router, prefix="/v1")
+    app.include_router(dataflow.router, prefix="/v1", include_in_schema=preview_in_schema)
     app.include_router(radiance.router, prefix="/v1")
     app.include_router(resume.router, prefix="/v1")
     app.include_router(admin.router, prefix="/v1")
-    app.include_router(similarity.router, prefix="/v1")
+    app.include_router(admin.routing_router, prefix="/v1", include_in_schema=preview_in_schema)
+    app.include_router(similarity.router, prefix="/v1", include_in_schema=preview_in_schema)
     app.include_router(localize.router, prefix="/v1")
     app.include_router(capabilities.router, prefix="/v1")
     app.include_router(oneshot.router, prefix="/v1")
