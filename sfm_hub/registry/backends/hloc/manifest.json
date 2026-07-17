@@ -74,6 +74,7 @@
   "artifact_contracts": [
     "hloc.features",
     "hloc.matches",
+    "hloc.matches_pairs",
     "hloc.pairs"
   ],
   "licenses": [
