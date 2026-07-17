@@ -3,10 +3,10 @@
   "plugin_id": "hloc",
   "display_name": "Hierarchical Localization",
   "description": "Backend plugin for hloc feature, retrieval, matching, and localization workflows.",
-  "package_name": "sfmapi-hloc",
-  "github_url": "https://github.com/SFMAPI/sfmapi_hloc.git",
+  "package_name": "sceneapi-match",
+  "github_url": "https://github.com/SceneAPI/SceneMatch.git",
   "entry_points": [
-    "sfmapi_hloc.plugin:plugin"
+    "sceneapi_match.hloc.plugin:plugin"
   ],
   "providers": [
     {
@@ -39,9 +39,9 @@
   "runtime_modes": {
     "uv": {
       "source": "git",
-      "url": "https://github.com/SFMAPI/sfmapi_hloc.git",
+      "url": "https://github.com/SceneAPI/SceneMatch.git",
       "ref": "main",
-      "package": "sfmapi-hloc"
+      "package": "sceneapi-match"
     },
     "docker": null
   },

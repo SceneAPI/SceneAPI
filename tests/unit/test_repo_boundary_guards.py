@@ -207,7 +207,8 @@ def test_core_does_not_import_plugin_distributions() -> None:
     COLMAP stage-config table or the COLMAP reconstruction data format)
     is fine -- that's a shared contract the core owns, not a dependency
     on a plugin package. What this guards against is the core actually
-    ``import``-ing an ``sfmapi_<plugin>`` distribution, which would
+    ``import``-ing a ``sceneapi_<plugin>`` (or legacy ``sfmapi_<plugin>``)
+    distribution, which would
     invert the layering and make the API unusable without that plugin
     installed.
     """

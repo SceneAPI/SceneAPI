@@ -17,7 +17,7 @@ keywords:
   - rest-api
 home: https://sfmapi.github.io
 sources:
-  - https://github.com/sfmapi/sfmapi
+  - https://github.com/SceneAPI/SceneAPI
 maintainers:
   - name: opsiclear
     url: https://github.com/opsiclear

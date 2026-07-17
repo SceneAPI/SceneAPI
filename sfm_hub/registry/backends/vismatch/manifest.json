@@ -3,10 +3,10 @@
   "plugin_id": "vismatch",
   "display_name": "Vismatch",
   "description": "Backend plugin for Vismatch pairwise image matching models. The plugin writes COLMAP keypoints/matches for downstream sfmapi verification and mapping; individual model licenses remain upstream model-specific.",
-  "package_name": "sfmapi-vismatch[engine]",
-  "github_url": "https://github.com/SFMAPI/sfmapi_vismatch.git",
+  "package_name": "sceneapi-match[engine]",
+  "github_url": "https://github.com/SceneAPI/SceneMatch.git",
   "entry_points": [
-    "sfmapi_vismatch.plugin:plugin"
+    "sceneapi_match.vismatch.plugin:plugin"
   ],
   "providers": [
     {
@@ -29,13 +29,13 @@
   "runtime_modes": {
     "uv": {
       "source": "git",
-      "url": "https://github.com/SFMAPI/sfmapi_vismatch.git",
+      "url": "https://github.com/SceneAPI/SceneMatch.git",
       "ref": "main",
-      "package": "sfmapi-vismatch[engine]"
+      "package": "sceneapi-match[engine]"
     },
     "docker": {
       "image": null,
-      "build_context": "https://github.com/SFMAPI/sfmapi_vismatch.git"
+      "build_context": "https://github.com/SceneAPI/SceneMatch.git"
     },
     "container_service": {
       "protocol": "sfmapi-plugin-http-v1",
@@ -47,7 +47,7 @@
       "image": {
         "build": {
           "source": "git",
-          "context": "https://github.com/SFMAPI/sfmapi_vismatch.git",
+          "context": "https://github.com/SceneAPI/SceneMatch.git",
           "dockerfile": "Dockerfile",
           "ref": "main",
           "args": {

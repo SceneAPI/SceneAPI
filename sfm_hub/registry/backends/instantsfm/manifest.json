@@ -3,10 +3,10 @@
   "plugin_id": "instantsfm",
   "display_name": "InstantSfM",
   "description": "Wrapper + SDK material is Apache-2.0. Upstream InstantSfM (cre185/InstantSfM) is CC-BY-NC-4.0; that non-commercial term is upstream's and binds whoever runs InstantSfM, not added by sfmapi.",
-  "package_name": "sfmapi-instantsfm",
-  "github_url": "https://github.com/SFMAPI/sfmapi_instantsfm.git",
+  "package_name": "sceneapi-map",
+  "github_url": "https://github.com/SceneAPI/SceneMap.git",
   "entry_points": [
-    "sfmapi_instantsfm.plugin:plugin"
+    "sceneapi_map.instantsfm.plugin:plugin"
   ],
   "providers": [
     {
@@ -24,9 +24,9 @@
   "runtime_modes": {
     "uv": {
       "source": "git",
-      "url": "https://github.com/SFMAPI/sfmapi_instantsfm.git",
+      "url": "https://github.com/SceneAPI/SceneMap.git",
       "ref": "main",
-      "package": "sfmapi-instantsfm"
+      "package": "sceneapi-map"
     },
     "docker": null,
     "container_service": {
@@ -38,7 +38,7 @@
       "image": {
         "build": {
           "source": "git",
-          "context": "https://github.com/SFMAPI/sfmapi_instantsfm.git",
+          "context": "https://github.com/SceneAPI/SceneMap.git",
           "dockerfile": "Dockerfile",
           "ref": "main",
           "args": {
@@ -145,7 +145,7 @@
       "submodule": true,
       "install": "uv pip install --no-deps -e third_party/instantsfm",
       "dependency_overrides": {
-        "scikit-sparse": "local SciPy-backed sksparse.cholmod shim",
+        "scikit-sparse": "plugin-private SciPy-backed sksparse.cholmod shim (PYTHONPATH-injected into worker subprocesses)",
         "pypose @ git+https://github.com/pypose/pypose.git@bae": "bae-kai"
       },
       "optional_groups": {

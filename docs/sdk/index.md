@@ -50,9 +50,9 @@ plan = sync(
     client=client,
     body=PluginInstallRequest(
         method=PluginInstallRequestMethod.UV,
-        github_url="https://github.com/SFMAPI/sfmapi_custom.git",
+        github_url="https://github.com/SceneAPI/sceneapi_custom.git",
         ref="v0.1.0",
-        package_name="sfmapi-custom",
+        package_name="sceneapi-custom",
         dry_run=True,
         provision_runtime=True,
     ),

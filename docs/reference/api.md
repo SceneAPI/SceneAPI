@@ -542,7 +542,7 @@ control-plane layer.
 
 Plugin installation is an operator action. `method="uv"` creates a
 direct-reference command such as
-`uv pip install "sfmapi-colmap-cli @ git+https://github.com/SFMAPI/sfmapi_colmap_cli.git@main"`;
+`uv pip install "sceneapi-map @ git+https://github.com/SceneAPI/SceneMap.git@main"`;
 mutable refs produce warnings. `docker` and `external_tool` modes are planned
 or recorded as runtime choices. `container_service` records an already-running
 plugin service endpoint; when the provider has a configured service URL, the
@@ -564,9 +564,9 @@ Dry-run repo-address install example:
 ```json
 {
   "method": "uv",
-  "github_url": "https://github.com/SFMAPI/sfmapi_custom.git",
+  "github_url": "https://github.com/SceneAPI/sceneapi_custom.git",
   "ref": "v0.1.0",
-  "package_name": "sfmapi-custom",
+  "package_name": "sceneapi-custom",
   "dry_run": true,
   "provision_runtime": true
 }

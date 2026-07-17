@@ -3,10 +3,10 @@
   "plugin_id": "gsplat",
   "display_name": "gsplat",
   "description": "3D Gaussian Splatting plugin for gsplat training, evaluation, and PLY snapshot export through the sfmapi radiance-field contract.",
-  "package_name": "sfmapi-radiance",
-  "github_url": "https://github.com/SFMAPI/sfmapi_radiance.git",
+  "package_name": "sceneapi-3dgs",
+  "github_url": "https://github.com/SceneAPI/3DGS.git",
   "entry_points": [
-    "sfmapi_radiance.providers.gsplat:plugin"
+    "sceneapi_3dgs.providers.gsplat:plugin"
   ],
   "providers": [
     {
@@ -28,17 +28,17 @@
   "runtime_modes": {
     "uv": {
       "source": "git",
-      "url": "https://github.com/SFMAPI/sfmapi_radiance.git",
+      "url": "https://github.com/SceneAPI/3DGS.git",
       "ref": "main",
-      "package": "sfmapi-radiance"
+      "package": "sceneapi-3dgs"
     },
     "docker": {
       "image": null,
-      "build_context": "https://github.com/SFMAPI/sfmapi_radiance.git"
+      "build_context": "https://github.com/SceneAPI/3DGS.git"
     },
     "container_service": {
       "protocol": "sfmapi-plugin-http-v1",
-      "protocol_version": "1.0",
+      "protocol_version": "1.1",
       "service": {
         "default_url": "http://127.0.0.1:8098",
         "url_env": "SFMAPI_GSPLAT_SERVICE_URL"
@@ -46,7 +46,7 @@
       "image": {
         "build": {
           "source": "git",
-          "context": "https://github.com/SFMAPI/sfmapi_radiance.git",
+          "context": "https://github.com/SceneAPI/3DGS.git",
           "dockerfile": "docker/gsplat.Dockerfile",
           "ref": "main",
           "args": {

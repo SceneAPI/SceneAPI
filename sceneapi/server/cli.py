@@ -218,7 +218,7 @@ def _scaffold_plugin(args: argparse.Namespace) -> None:
         vendor=args.vendor,
         overwrite=args.overwrite,
     )
-    root = output_dir / f"sfmapi_{args.plugin_id}"
+    root = output_dir / f"sceneapi_{args.plugin_id}"
     print(f"scaffolded {len(written)} files in {root}")
     for entry in written:
         print(f"  {entry.path.relative_to(output_dir)} ({entry.bytes_written} bytes)")
@@ -433,8 +433,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     scaffold = subcommands.add_parser(
         "scaffold-plugin",
         help=(
-            "Scaffold a minimal sfmapi backend plugin: pyproject.toml + "
-            "src/sfmapi_<id>/{plugin,backend,__init__}.py + tests + README. "
+            "Scaffold a minimal sceneapi backend plugin: pyproject.toml + "
+            "src/sceneapi_<id>/{plugin,backend,__init__}.py + tests + README. "
             "Uses the canonical sceneapi.backends.Plugin class."
         ),
     )
@@ -448,7 +448,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     scaffold.add_argument(
         "--output-dir",
         default=".",
-        help="Directory to create sfmapi_<plugin_id>/ inside. Defaults to cwd.",
+        help="Directory to create sceneapi_<plugin_id>/ inside. Defaults to cwd.",
     )
     scaffold.add_argument(
         "--display-name",

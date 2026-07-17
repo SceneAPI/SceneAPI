@@ -29,12 +29,12 @@ jobs:
       SFMAPI_SDK_REPO: ${{ github.workspace }}/.cache/sfmapi-sdk
       # The backend that will execute the bench is whatever's
       # registered on the runner. Set SCENEAPI_BACKEND to its name.
-      SCENEAPI_BACKEND: "${{ vars.SFMAPI_BENCH_BACKEND || 'colmap_mod' }}"
+      SCENEAPI_BACKEND: "${{ vars.SCENEAPI_BENCH_BACKEND || 'colmap_mod' }}"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: SFMAPI/sfmapi-sdk
+          repository: SceneAPI/SceneSDK
           path: .cache/sfmapi-sdk
       - uses: astral-sh/setup-uv@v7
       - name: Install
@@ -64,7 +64,7 @@ jobs:
       - name: Commit results
         if: success()
         run: |
-          git config user.name  "sfmapi-bench"
+          git config user.name  "sceneapi-bench"
           git config user.email "bench@sfmapi.github.io"
           git checkout -B bench-results
           git add bench/results

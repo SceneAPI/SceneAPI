@@ -3,9 +3,11 @@
   "plugin_id": "colmap_native",
   "display_name": "Native COLMAP backends",
   "description": "COLMAP backend collection with CLI, pycolmap, native C++, and in-memory provider variants.",
-  "package_name": "sfmapi-colmap-unified",
-  "github_url": "https://github.com/SFMAPI/sfmapi_colmap_unified.git",
-  "entry_points": ["sfmapi_colmap_unified.native.plugin:plugin"],
+  "package_name": "sceneapi-map",
+  "github_url": "https://github.com/SceneAPI/SceneMap.git",
+  "entry_points": [
+    "sceneapi_map.colmap.native.plugin:plugin"
+  ],
   "providers": [
     {
       "provider_id": "colmap_cli",
@@ -40,7 +42,9 @@
         "rigs.configure",
         "triangulate.retri"
       ],
-      "backend_actions": ["colmap.*"],
+      "backend_actions": [
+        "colmap.*"
+      ],
       "priority_hint": 25
     },
     {
@@ -78,7 +82,9 @@
         "rigs.configure",
         "triangulate.retri"
       ],
-      "backend_actions": ["colmap.*"],
+      "backend_actions": [
+        "colmap.*"
+      ],
       "priority_hint": 35
     },
     {
@@ -114,7 +120,9 @@
         "rigs.configure",
         "triangulate.retri"
       ],
-      "backend_actions": ["colmap.*"],
+      "backend_actions": [
+        "colmap.*"
+      ],
       "priority_hint": 40
     },
     {
@@ -135,15 +143,24 @@
   "runtime_modes": {
     "uv": {
       "source": "git",
-      "url": "https://github.com/SFMAPI/sfmapi_colmap_unified.git",
+      "url": "https://github.com/SceneAPI/SceneMap.git",
       "ref": "main",
-      "package": "sfmapi-colmap-unified"
+      "package": "sceneapi-map"
     },
     "docker": null,
     "external_tool": {
-      "executable_names": ["colmap", "colmap.exe"],
-      "env_vars": ["SFMAPI_COLMAP_EXECUTABLE", "COLMAP_EXE", "SFMAPI_COLMAP_EXE"],
-      "version_args": ["help"]
+      "executable_names": [
+        "colmap",
+        "colmap.exe"
+      ],
+      "env_vars": [
+        "SFMAPI_COLMAP_EXECUTABLE",
+        "COLMAP_EXE",
+        "SFMAPI_COLMAP_EXE"
+      ],
+      "version_args": [
+        "help"
+      ]
     }
   },
   "capabilities": [
@@ -179,20 +196,43 @@
     "rigs.configure",
     "triangulate.retri"
   ],
-  "backend_actions": ["colmap.*"],
-  "config_schemas": ["colmap.*"],
-  "artifact_contracts": ["colmap.database", "colmap.sparse_model"],
-  "licenses": [{"name": "Apache-2.0"}],
+  "backend_actions": [
+    "colmap.*"
+  ],
+  "config_schemas": [
+    "colmap.*"
+  ],
+  "artifact_contracts": [
+    "colmap.database",
+    "colmap.sparse_model"
+  ],
+  "licenses": [
+    {
+      "name": "Apache-2.0"
+    }
+  ],
   "upstream_projects": [
-    {"name": "COLMAP", "url": "https://github.com/colmap/colmap", "license": "BSD-3-Clause"}
+    {
+      "name": "COLMAP",
+      "url": "https://github.com/colmap/colmap",
+      "license": "BSD-3-Clause"
+    }
   ],
   "compatibility": {
     "sfmapi": ">=0.0.1",
     "python": ">=3.12,<3.13",
-    "os": ["windows", "linux"],
+    "os": [
+      "windows",
+      "linux"
+    ],
     "cuda": "optional",
-    "tool_versions": {"colmap": ">=4.1"}
+    "tool_versions": {
+      "colmap": ">=4.1"
+    }
   },
-  "conformance": {"status": "not_run", "suite": "sfmapi-bench"},
+  "conformance": {
+    "status": "not_run",
+    "suite": "sfmapi-bench"
+  },
   "trust_tier": "official"
 }

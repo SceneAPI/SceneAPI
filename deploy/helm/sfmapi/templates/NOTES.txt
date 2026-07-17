@@ -31,7 +31,7 @@ Redis:
 Worker DaemonSet is disabled. Enable it with:
   helm upgrade --install ... \
     --set worker.enabled=true \
-    --set worker.image.repository=ghcr.io/your-org/sfmapi-worker
+    --set worker.image.repository=ghcr.io/sceneapi/sceneapi-worker
 
 The worker image must contain the colmap_mod / pycolmap wheel built
 against your cluster's CUDA + cuDSS versions. See

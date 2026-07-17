@@ -68,7 +68,7 @@ async def test_plugin_registry_admin_api_and_provider_discovery(client: AsyncCli
         json={"method": "uv", "dry_run": True},
     )
     assert plan.status_code == 200, plan.text
-    assert plan.json()["direct_reference"].startswith("sfmapi-colmap-unified @ git+")
+    assert plan.json()["direct_reference"].startswith("sceneapi-map @ git+")
     assert plan.json()["installed"] is False
     assert plan.json()["provision_runtime"] is True
 

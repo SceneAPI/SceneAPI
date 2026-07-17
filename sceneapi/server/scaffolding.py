@@ -1,4 +1,4 @@
-"""Plugin-scaffolding templates and writer for ``sfmapi scaffold-plugin``.
+"""Plugin-scaffolding templates and writer for ``sceneapi scaffold-plugin``.
 
 Produces the smallest directory tree that pip-installs cleanly, exposes
 a ``[sceneapi.backends]`` entry point, and passes the framework's
@@ -23,17 +23,17 @@ from pathlib import Path
 
 # Same shape sceneapi.server.core.ids.PROVIDER_ID_RE enforces on provider_ids.
 # Reused here for plugin_ids: a plugin_id is also the package suffix
-# (sfmapi_<id>) and the entry-point name, so the same constraints apply.
+# (sceneapi_<id>) and the entry-point name, so the same constraints apply.
 _PLUGIN_ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 def validate_plugin_id(plugin_id: str) -> None:
     """Reject ids that won't survive being used as both a Python module
-    suffix and an sfmapi backend name.
+    suffix and a sceneapi backend name.
 
     Allowed: lowercase letters, digits, underscores; must start with a
     letter. Dots and hyphens are rejected because the result is used
-    inside a module path (``sfmapi_<id>.plugin``).
+    inside a module path (``sceneapi_<id>.plugin``).
     """
     if not _PLUGIN_ID_RE.match(plugin_id):
         raise ValueError(
@@ -53,7 +53,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "sfmapi-${plugin_id_dash}"
+name = "sceneapi-${plugin_id_dash}"
 version = "0.0.0"
 description = "${description}"
 license = { text = "Apache-2.0" }
@@ -63,17 +63,17 @@ dependencies = [
 ]
 
 [project.entry-points."sceneapi.backends"]
-${plugin_id} = "sfmapi_${plugin_id}.plugin:plugin"
+${plugin_id} = "sceneapi_${plugin_id}.plugin:plugin"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/sfmapi_${plugin_id}"]
+packages = ["src/sceneapi_${plugin_id}"]
 """
 )
 
 
 _INIT_TEMPLATE = string.Template(
     '''\
-"""sfmapi_${plugin_id} — ${display_name} backend plugin for sfmapi."""
+"""sceneapi_${plugin_id} — ${display_name} backend plugin for sceneapi."""
 
 from .plugin import plugin
 
@@ -86,7 +86,7 @@ _PLUGIN_TEMPLATE = string.Template(
     '''\
 """Plugin entry point for ${display_name}.
 
-The MANIFEST + Plugin instance below are consumed by sfmapi at
+The MANIFEST + Plugin instance below are consumed by sceneapi at
 discovery and registration time. The framework's check_backend gate
 runs against the backend instance returned by Plugin.backend_factory.
 """
@@ -102,9 +102,9 @@ MANIFEST: dict = {
     "plugin_id": "${plugin_id}",
     "display_name": "${display_name}",
     "description": "${description}",
-    "package_name": "sfmapi-${plugin_id_dash}",
-    "github_url": "https://github.com/OWNER/sfmapi_${plugin_id}",
-    "entry_points": ["sfmapi_${plugin_id}.plugin:plugin"],
+    "package_name": "sceneapi-${plugin_id_dash}",
+    "github_url": "https://github.com/OWNER/sceneapi_${plugin_id}",
+    "entry_points": ["sceneapi_${plugin_id}.plugin:plugin"],
     "providers": [
         {
             "provider_id": "${plugin_id}",
@@ -140,12 +140,12 @@ _BACKEND_TEMPLATE = string.Template(
 """Backend implementation for ${display_name}.
 
 This is a stub: it satisfies the framework's minimal Backend contract
-so the plugin loads, registers, and passes ``sfmapi check-backend``,
+so the plugin loads, registers, and passes ``sceneapi check-backend``,
 but does not implement any capability. Fill in capabilities (e.g.
 ``features.extract.sift``, ``map.global``) and the matching backend
 methods (``extract_features``, ``run_mapping`` etc.) to make the
 plugin actually do work; see ``sceneapi.backends.SfmBackend`` and the
-``sfmapi`` repo's existing plugin examples for the method shapes.
+``sceneapi`` repo's existing plugin examples for the method shapes.
 """
 
 from __future__ import annotations
@@ -173,7 +173,7 @@ class ${class_name}Backend:
 
 _README_TEMPLATE = string.Template(
     """\
-# sfmapi-${plugin_id_dash}
+# sceneapi-${plugin_id_dash}
 
 ${description}
 
@@ -188,10 +188,10 @@ After install, the plugin shows up in:
 ```python
 import importlib.metadata as m
 list(m.entry_points(group="sceneapi.backends"))
-# -> contains EntryPoint(name='${plugin_id}', value='sfmapi_${plugin_id}.plugin:plugin', ...)
+# -> contains EntryPoint(name='${plugin_id}', value='sceneapi_${plugin_id}.plugin:plugin', ...)
 ```
 
-## Wire into sfmapi
+## Wire into sceneapi
 
 ```bash
 SCENEAPI_BACKEND=${plugin_id} SCENEAPI_AUTO_LOAD_BACKEND_PLUGINS=true \\
@@ -200,12 +200,12 @@ SCENEAPI_BACKEND=${plugin_id} SCENEAPI_AUTO_LOAD_BACKEND_PLUGINS=true \\
 
 ## Next steps
 
-1. Edit `src/sfmapi_${plugin_id}/backend.py` to declare real
+1. Edit `src/sceneapi_${plugin_id}/backend.py` to declare real
    capabilities and implement the matching backend methods.
-2. Edit `src/sfmapi_${plugin_id}/plugin.py` to add provider entries,
+2. Edit `src/sceneapi_${plugin_id}/plugin.py` to add provider entries,
    config schemas, backend_actions, and capability declarations to
    `MANIFEST`.
-3. Run `sceneapi check-backend --import sfmapi_${plugin_id}.plugin
+3. Run `sceneapi check-backend --import sceneapi_${plugin_id}.plugin
    --backend ${plugin_id}` to validate the contract.
 """
 )
@@ -213,7 +213,7 @@ SCENEAPI_BACKEND=${plugin_id} SCENEAPI_AUTO_LOAD_BACKEND_PLUGINS=true \\
 
 _TEST_TEMPLATE = string.Template(
     '''\
-"""Smoke tests for the scaffolded sfmapi_${plugin_id} plugin."""
+"""Smoke tests for the scaffolded sceneapi_${plugin_id} plugin."""
 
 from __future__ import annotations
 
@@ -226,15 +226,15 @@ def test_entry_point_registered() -> None:
 
 
 def test_plugin_imports_and_exposes_manifest() -> None:
-    from sfmapi_${plugin_id}.plugin import plugin
+    from sceneapi_${plugin_id}.plugin import plugin
 
     manifest = plugin.get_plugin_manifest()
     assert manifest["plugin_id"] == "${plugin_id}"
-    assert manifest["entry_points"] == ["sfmapi_${plugin_id}.plugin:plugin"]
+    assert manifest["entry_points"] == ["sceneapi_${plugin_id}.plugin:plugin"]
 
 
 def test_backend_factory_produces_a_named_backend() -> None:
-    from sfmapi_${plugin_id}.plugin import plugin
+    from sceneapi_${plugin_id}.plugin import plugin
 
     backend = plugin.backend_factory()
     assert backend.name == "${plugin_id}"
@@ -267,15 +267,15 @@ def scaffold_plugin(
     vendor: str = "unknown",
     overwrite: bool = False,
 ) -> list[ScaffoldedFile]:
-    """Create the scaffold for an sfmapi backend plugin at
-    ``output_dir/sfmapi_<plugin_id>``.
+    """Create the scaffold for a sceneapi backend plugin at
+    ``output_dir/sceneapi_<plugin_id>``.
 
     Raises ``ValueError`` for an invalid plugin_id, or ``FileExistsError``
     if any target file would be overwritten and ``overwrite`` is False.
     """
     validate_plugin_id(plugin_id)
-    root = output_dir / f"sfmapi_{plugin_id}"
-    pkg = root / "src" / f"sfmapi_{plugin_id}"
+    root = output_dir / f"sceneapi_{plugin_id}"
+    pkg = root / "src" / f"sceneapi_{plugin_id}"
     tests = root / "tests"
     class_name = _to_class_name(plugin_id)
     subst = {
@@ -283,7 +283,9 @@ def scaffold_plugin(
         "plugin_id_dash": plugin_id.replace("_", "-"),
         "class_name": class_name,
         "display_name": display_name or class_name,
-        "description": (description or f"sfmapi backend plugin for {display_name or class_name}."),
+        "description": (
+            description or f"sceneapi backend plugin for {display_name or class_name}."
+        ),
         "vendor": vendor,
     }
     plan: list[tuple[Path, str]] = [
@@ -338,7 +340,7 @@ def validate_contract_name(name: str) -> None:
 
 _CONTRACT_MODULE_TEMPLATE = string.Template(
     '''\
-"""${title} — an sfmapi off-wire core contract.
+"""${title} — a sceneapi off-wire core contract.
 
 A repo-owned data standard with no HTTP endpoint. This module is the
 single source of truth; ``tools/gen_contracts.py`` serializes

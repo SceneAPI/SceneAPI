@@ -14,7 +14,8 @@ repositories, satisfy the smallest applicable protocol in
 `sceneapi.runtime.register_backend("name", Backend, providers=["provider_id"])`. A no-op
 `StubBackend` is bundled for tests and `SCENEAPI_EPHEMERAL=true` demos.
 
-Client SDKs now live in the sibling `sfmapi-sdk` repository. This repo owns
+Client SDKs now live in the sibling `SceneSDK` repository
+(`sceneapi-client` on PyPI, `@sceneapi/client` on npm). This repo owns
 the server, OpenAPI contract, plugin hub, and backend interfaces; the SDK repo
 packages the Python, TypeScript, and C++ clients from that contract.
 
@@ -30,14 +31,11 @@ the selected backend advertises a conversion path. Existing artifact
 files can be registered without copying bytes through
 `POST /v1/artifacts:import`.
 
-| Repo | Launcher | Purpose |
-|---|---|---|
-| `sfmapi_colmap_cli` | `sfmapi-colmap-cli-api` | Original COLMAP CLI backend |
-| `sfmapi_pycolmap` | `sfmapi-pycolmap-api` | PyCOLMAP backend with COLMAP CLI fallback |
-| `sfmapi_colmap` | `sfmapi-colmap-api` | Native COLMAP/PyCOLMAP/C++ demo backend |
-| `sfmapi_realityscan` | `sfmapi-realityscan-api` | RealityCapture/RealityScan CLI action backend |
-| `sfmapi_instantsfm` | `sfmapi-instantsfm-api` | InstantSfM Python action backend |
-| `sfmapi_spheresfm` | `sfmapi-spheresfm-api` | SphereSfM spherical action backend |
+| Repo | Distribution | Launchers | Purpose |
+|---|---|---|---|
+| `SceneAPI/SceneMap` | `sceneapi-map` | `sfmapi-colmap-api`, `sfmapi-colmap-cli-api`, `sfmapi-pycolmap-api`, `sfmapi-instantsfm-api`, `sfmapi-spheresfm-api`, `sfmapi-realityscan-api` | SfM mapping family: COLMAP (CLI / PyCOLMAP / native C++), InstantSfM, SphereSfM, RealityScan (console-script names unchanged from the superseded repos) |
+| `SceneAPI/SceneMatch` | `sceneapi-match` | `sfmapi-vismatch-api`, `sfmapi-hloc-api` | Matching family: vismatch + hloc backends |
+| `SceneAPI/3DGS` | `sceneapi-3dgs` | `sfmapi-brush`, `sfmapi-gsplat`, `sfmapi-fastergs`, `sfmapi-lfs`, `sfmapi-spirulae` | 3D Gaussian Splatting training providers |
 
 ## Plugin hub
 
@@ -50,8 +48,8 @@ the API.
 uv run sceneapi plugins list
 uv run sceneapi plugins install colmap_cli --method uv --dry-run
 uv run sceneapi plugins install local_test \
-  --github https://github.com/SFMAPI/sfmapi_custom.git@v0.1.0 \
-  --package sfmapi-custom --dry-run
+  --github https://github.com/SceneAPI/sceneapi_custom.git@v0.1.0 \
+  --package sceneapi-custom --dry-run
 uv run sceneapi plugins entry-points --load
 uv run sceneapi providers list
 uv run sceneapi profiles create hybrid --route features=colmap_cli
@@ -67,7 +65,7 @@ install execution is dry-run by default and requires
 Installed backend packages should expose
 `[project.entry-points."sceneapi.backends"]`. Entry-point auto-loading
 is **on by default** (`SCENEAPI_AUTO_LOAD_BACKEND_PLUGINS=true`) — a
-`pip install sfmapi_<backend>` activates the plugin on the next
+`pip install sceneapi_<backend>` activates the plugin on the next
 process start, matching the standard Python plugin-ecosystem
 expectation. Set it to `false` for explicit-allowlist deployments
 that must not import whatever happens to be on the venv. Loaded
@@ -137,14 +135,14 @@ The MCP endpoint is `http://127.0.0.1:8000/mcp`, with a local status
 page at `http://127.0.0.1:8000/mcp/status`. Register it with Codex:
 
 ```bash
-codex mcp add sfmapi_colmap --url http://127.0.0.1:8000/mcp
+codex mcp add sceneapi_colmap --url http://127.0.0.1:8000/mcp
 codex mcp list
 ```
 
 Or register it with Claude Code:
 
 ```bash
-claude mcp add --transport http sfmapi_colmap http://127.0.0.1:8000/mcp
+claude mcp add --transport http sceneapi_colmap http://127.0.0.1:8000/mcp
 claude mcp list
 ```
 

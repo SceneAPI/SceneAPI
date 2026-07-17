@@ -68,7 +68,7 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=sha-,format=short
           labels: |
-            org.opencontainers.image.title=sfmapi-web
+            org.opencontainers.image.title=sceneapi-web
             org.opencontainers.image.version=${{ needs.resolve.outputs.version }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.licenses=Apache-2.0
@@ -154,7 +154,7 @@ jobs:
           fi
           # Pin a manifest of versions inside the bundle.
           cat > _zip/worker-installer/MANIFEST.txt <<EOF
-          sfmapi-worker-installer
+          sceneapi-worker-installer
           tag:           $TAG
           built-at:      $(date -u +%Y-%m-%dT%H:%M:%SZ)
           contents:
@@ -209,8 +209,8 @@ jobs:
             echo
             echo "Download \`worker-installer-$TAG.zip\`, extract it on the GPU host, then run:"
             echo "\`\`\`powershell"
-            echo "Expand-Archive worker-installer-$TAG.zip -DestinationPath C:\\sfmapi-installer"
-            echo "cd C:\\sfmapi-installer\\worker-installer"
+            echo "Expand-Archive worker-installer-$TAG.zip -DestinationPath C:\\sceneapi-installer"
+            echo "cd C:\\sceneapi-installer\\worker-installer"
             echo ".\\bootstrap-worker.ps1 \`"
             echo "    -DbUrl 'postgresql+psycopg://sfm:secret@db.internal:5432/sfmapi' \`"
             echo "    -RedisUrl 'redis://redis.internal:6379/0' \`"

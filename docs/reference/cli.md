@@ -26,7 +26,7 @@ http`). Defaults read `SCENEAPI_MCP_MODE`.
 ### `sceneapi check-backend`
 
 Validates a backend's capabilities, actions, and config-schema
-contract. `--import sfmapi_my_backend.plugin` registers an entry-point
+contract. `--import sceneapi_my_backend.plugin` registers an entry-point
 package before resolving `SCENEAPI_BACKEND`; `--load-entry-points`
 loads every installed `[sceneapi.backends]` entry point.
 
@@ -40,13 +40,13 @@ hub working checklist.
 ### `sceneapi scaffold-plugin <id>`
 
 Generates the smallest viable sceneapi backend plugin tree at
-`<output-dir>/sfmapi_<id>/`:
+`<output-dir>/sceneapi_<id>/`:
 
 ```
-sfmapi_<id>/
+sceneapi_<id>/
 ├── pyproject.toml          # entry point: [project.entry-points."sceneapi.backends"]
 ├── README.md
-├── src/sfmapi_<id>/
+├── src/sceneapi_<id>/
 │   ├── __init__.py
 │   ├── plugin.py           # uses canonical sceneapi.backends.Plugin
 │   └── backend.py          # stub satisfies the framework contract
@@ -64,14 +64,14 @@ Flags:
 
 | Flag | Purpose |
 |---|---|
-| `--output-dir DIR` | Where to create `sfmapi_<id>/`. Defaults to cwd. |
+| `--output-dir DIR` | Where to create `sceneapi_<id>/`. Defaults to cwd. |
 | `--display-name NAME` | Human-readable name. Defaults to TitleCase of `plugin_id`. |
 | `--description TEXT` | One-line description for the manifest + README. |
 | `--vendor NAME` | Vendor name surfaced in the backend's `runtime_versions`. |
 | `--overwrite` | Replace existing files instead of erroring. |
 
 `plugin_id` must match `[a-z][a-z0-9_]*` -- it becomes the package
-suffix (`sfmapi_<id>`), the entry-point name, and the backend name.
+suffix (`sceneapi_<id>`), the entry-point name, and the backend name.
 
 ### `sceneapi scaffold-contract <name>`
 

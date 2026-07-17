@@ -122,7 +122,7 @@ function Sync-Repo {
 
 # These two URLs are owner-relative — operators using a fork should
 # override via env before running. Defaults match the canonical org.
-$SfmRepoUrl = if ($env:SCENEAPI_REPO_URL) { $env:SCENEAPI_REPO_URL } else { "https://github.com/sfmapi/sfmapi.git" }
+$SfmRepoUrl = if ($env:SCENEAPI_REPO_URL) { $env:SCENEAPI_REPO_URL } else { "https://github.com/SceneAPI/SceneAPI.git" }
 $ColmapRepoUrl = if ($env:COLMAP_MOD_REPO_URL) { $env:COLMAP_MOD_REPO_URL } else { "https://github.com/opsiclear/colmap_mod.git" }
 
 Sync-Repo -Url $SfmRepoUrl -Path $SfmDir -Ref "main"

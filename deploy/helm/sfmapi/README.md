@@ -1,6 +1,6 @@
 # sfmapi Helm chart
 
-Kubernetes-native install of the [sfmapi](https://github.com/sfmapi/sfmapi)
+Kubernetes-native install of the [sceneapi](https://github.com/SceneAPI/SceneAPI)
 web tier, with optional in-cluster GPU workers and bundled
 Postgres/Redis subcharts.
 
@@ -74,7 +74,7 @@ web:
 worker:
   enabled: true
   image:
-    repository: ghcr.io/your-org/sfmapi-worker
+    repository: ghcr.io/sceneapi/sceneapi-worker
     tag: "v0.1.0-cuda12"
   nodeSelector:
     node.sfmapi/gpu: "true"

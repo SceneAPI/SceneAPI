@@ -70,8 +70,8 @@ Example:
 ```bash
 sfmapi plugins install colmap_cli --method uv --dry-run
 sfmapi plugins install local_test \
-  --github https://github.com/SFMAPI/sfmapi_custom.git@v0.1.0 \
-  --package sfmapi-custom --dry-run
+  --github https://github.com/SceneAPI/sceneapi_custom.git@v0.1.0 \
+  --package sceneapi-custom --dry-run
 sfmapi plugins install hloc --method uv --no-provision-runtime
 ```
 
@@ -134,13 +134,13 @@ sfmapi plugins install hloc --method uv --no-provision-runtime
 
 | Plugin id | Providers | GitHub source | Runtime modes |
 |---|---|---|---|
-| `colmap_cli` | `colmap_cli` | `https://github.com/SFMAPI/sfmapi_colmap_cli.git` | `uv`, `external_tool` |
-| `pycolmap` | `colmap_pycolmap` | `https://github.com/SFMAPI/sfmapi_pycolmap.git` | `uv` |
-| `colmap_native` | `colmap_cli`, `colmap_pycolmap`, `colmap_cpp_native`, `colmap_cpp_inmemory` | `https://github.com/SFMAPI/sfmapi_colmap.git` | `uv`, `external_tool` |
-| `realityscan_cli` | `realityscan_cli` | `https://github.com/SFMAPI/sfmapi_realityscan.git` | `uv`, `external_tool` |
-| `hloc` | `hloc` | `https://github.com/SFMAPI/sfmapi_hloc.git` | `uv` |
-| `instantsfm` | `instantsfm` | `https://github.com/SFMAPI/sfmapi_instantsfm.git` | `uv` |
-| `spheresfm` | `spheresfm` | `https://github.com/SFMAPI/sfmapi_spheresfm.git` | `uv`, `external_tool` |
+| `colmap_cli` | `colmap_cli` | `https://github.com/SceneAPI/SceneMap.git` | `uv`, `external_tool` |
+| `pycolmap` | `colmap_pycolmap` | `https://github.com/SceneAPI/SceneMap.git` | `uv` |
+| `colmap_native` | `colmap_cli`, `colmap_pycolmap`, `colmap_cpp_native`, `colmap_cpp_inmemory` | `https://github.com/SceneAPI/SceneMap.git` | `uv`, `external_tool` |
+| `realityscan_cli` | `realityscan_cli` | `https://github.com/SceneAPI/SceneMap.git` | `uv`, `external_tool` |
+| `hloc` | `hloc` | `https://github.com/SceneAPI/SceneMatch.git` | `uv` |
+| `instantsfm` | `instantsfm` | `https://github.com/SceneAPI/SceneMap.git` | `uv`, `container_service` |
+| `spheresfm` | `spheresfm` | `https://github.com/SceneAPI/SceneMap.git` | `uv`, `external_tool` |
 
 ## Backend App Adoption Contract
 

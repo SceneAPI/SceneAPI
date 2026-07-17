@@ -3,10 +3,10 @@
   "plugin_id": "pycolmap",
   "display_name": "pycolmap",
   "description": "Python backend plugin using pycolmap bindings for in-process COLMAP workflows.",
-  "package_name": "sfmapi-colmap-unified",
-  "github_url": "https://github.com/SFMAPI/sfmapi_colmap_unified.git",
+  "package_name": "sceneapi-map",
+  "github_url": "https://github.com/SceneAPI/SceneMap.git",
   "entry_points": [
-    "sfmapi_colmap_unified.pycolmap.plugin:plugin"
+    "sceneapi_map.colmap.pycolmap.plugin:plugin"
   ],
   "providers": [
     {
@@ -55,9 +55,9 @@
   "runtime_modes": {
     "uv": {
       "source": "git",
-      "url": "https://github.com/SFMAPI/sfmapi_colmap_unified.git",
+      "url": "https://github.com/SceneAPI/SceneMap.git",
       "ref": "main",
-      "package": "sfmapi-colmap-unified"
+      "package": "sceneapi-map"
     },
     "docker": null
   },

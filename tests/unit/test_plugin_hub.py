@@ -74,7 +74,7 @@ def test_bundled_manifests_validate_and_include_initial_entries() -> None:
     assert "gaussian_splatting_cuda" not in plugin_ids
 
     for manifest in manifests:
-        assert manifest.github_url.startswith("https://github.com/SFMAPI/")
+        assert manifest.github_url.startswith("https://github.com/SceneAPI/")
         assert manifest.entry_points
         assert manifest.providers
         assert manifest.runtime_mode_names()
@@ -3048,7 +3048,7 @@ def test_manifest_lookup_returns_expected_install_metadata() -> None:
     manifest = get_manifest("colmap_cli")
 
     assert manifest.runtime_modes.uv is not None
-    assert manifest.runtime_modes.uv.package == "sfmapi-colmap-unified"
+    assert manifest.runtime_modes.uv.package == "sceneapi-map"
     assert "colmap_cli" in manifest.provider_ids()
 
 

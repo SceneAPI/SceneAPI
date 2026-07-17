@@ -136,3 +136,48 @@ with the already-planned 0.1.0 removals.
 3. **W9**: coordinate sweep to SceneAPI/<repo> URLs (manifests,
    bundled registry, CI checkout refs, docs), org pushes, SFMAPI
    "moved" notes, PyPI reservation, register rows.
+
+---
+
+## Execution log
+
+### W7 — core package rename (done 2026-07-17, register L45)
+
+- core `6321b2b` — feat!: rename the package identity, sfmapi becomes
+  sceneapi (0.1.0). Import/dist/CLI/env/entry-point group renamed with
+  the one-release shims; `app` shim + hand-rolled-SDK consumers
+  dropped; full suite green.
+- core `aefaf4c` — refactor(sdk-refs): follow the SDK rename
+  (`sceneapi_client_gen`, `@sceneapi/client`).
+
+### W8 — family merges/renames (done 2026-07-17, register L46)
+
+All executed against the renamed core; provider ids, entry-point
+names, and console-script names unchanged; plugin dists 0.1.0.
+
+- SceneMatch (vismatch + hloc → `sceneapi-match`):
+  `SceneMatch@83d2de7`.
+- SceneMap (COLMAP {native,pycolmap,cli} via `sfmapi_colmap_unified`
+  + instantsfm + spheresfm + realityscan → `sceneapi-map`):
+  `SceneMap@15376c4` (scaffold), `05c1817` (merge), `e155968`
+  (suite port).
+- 3DGS (`sfmapi_radiance` → `sceneapi-3dgs`, providers brush /
+  gsplat / fastergs / lfs / spirulae): `sfmapi_radiance@ecd2f41`
+  (manifest re-point), `44ed1e0` (rename), `ffeb521` (format).
+- bench (`sfmapi-bench` → dist `sceneapi-bench`):
+  `sfmapi-bench@4612829`.
+- SDK repo: `sfmapi-sdk@63998fe` (generated Python SDK →
+  `sceneapi_client_gen` / `sceneapi-client`), `2f1d8b0` (hand-rolled
+  Python SDK + CLI removed at 0.1.0 as scheduled, L12), `db8b0b2`
+  (`@sfmapi/client` → `@sceneapi/client`).
+
+### W9 — coordinate sweep (in flight)
+
+- Core bundled registry: all 13 `sfm_hub/registry/backends/*/`
+  manifests re-pointed at the plugin repos' committed manifests
+  (`sceneapi-{map,match,3dgs}` + `SceneAPI/{SceneMap,SceneMatch,3DGS}`
+  coordinates); SceneMap's W8 gate test unskipped
+  (`SceneMap@6f22b81`). CI checkout refs → `SceneAPI/SceneSDK`;
+  deploy/docs/README org links flipped (wire stay-list untouched).
+  SDK regen + drift-table rework: `sfmapi-sdk@be960af`.
+- Remaining: org pushes, SFMAPI "moved" notes, PyPI reservation.

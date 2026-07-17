@@ -1,4 +1,4 @@
-"""Tests for the ``sfmapi scaffold-plugin`` CLI subcommand and the
+"""Tests for the ``sceneapi scaffold-plugin`` CLI subcommand and the
 ``sceneapi.server.scaffolding`` module that powers it.
 """
 
@@ -62,13 +62,13 @@ def test_to_class_name_handles_underscored_ids() -> None:
 
 def test_scaffold_plugin_writes_expected_files(tmp_path: Path) -> None:
     files = scaffold_plugin("demo", output_dir=tmp_path)
-    root = tmp_path / "sfmapi_demo"
+    root = tmp_path / "sceneapi_demo"
     expected = {
         root / "pyproject.toml",
         root / "README.md",
-        root / "src" / "sfmapi_demo" / "__init__.py",
-        root / "src" / "sfmapi_demo" / "plugin.py",
-        root / "src" / "sfmapi_demo" / "backend.py",
+        root / "src" / "sceneapi_demo" / "__init__.py",
+        root / "src" / "sceneapi_demo" / "plugin.py",
+        root / "src" / "sceneapi_demo" / "backend.py",
         root / "tests" / "__init__.py",
         root / "tests" / "test_plugin.py",
     }
@@ -82,14 +82,14 @@ def test_scaffold_plugin_writes_expected_files(tmp_path: Path) -> None:
 
 def test_pyproject_has_entry_point_for_plugin_id(tmp_path: Path) -> None:
     scaffold_plugin("demo", output_dir=tmp_path)
-    text = (tmp_path / "sfmapi_demo" / "pyproject.toml").read_text(encoding="utf-8")
+    text = (tmp_path / "sceneapi_demo" / "pyproject.toml").read_text(encoding="utf-8")
     assert '[project.entry-points."sceneapi.backends"]' in text
-    assert 'demo = "sfmapi_demo.plugin:plugin"' in text
+    assert 'demo = "sceneapi_demo.plugin:plugin"' in text
 
 
 def test_plugin_py_uses_canonical_plugin_class(tmp_path: Path) -> None:
     scaffold_plugin("demo", output_dir=tmp_path)
-    text = (tmp_path / "sfmapi_demo" / "src" / "sfmapi_demo" / "plugin.py").read_text(
+    text = (tmp_path / "sceneapi_demo" / "src" / "sceneapi_demo" / "plugin.py").read_text(
         encoding="utf-8"
     )
     assert "from sceneapi.backends import Plugin" in text
@@ -98,20 +98,20 @@ def test_plugin_py_uses_canonical_plugin_class(tmp_path: Path) -> None:
 
 def test_scaffolded_manifest_passes_pluginmanifest_validation(tmp_path: Path) -> None:
     """The scaffolded MANIFEST dict must validate against the live
-    PluginManifest model — if it doesn't, a fresh `sfmapi check-backend`
+    PluginManifest model — if it doesn't, a fresh `sceneapi check-backend`
     on the new plugin would fail straight out of the gate.
     """
     scaffold_plugin("demo", output_dir=tmp_path)
     # Import the scaffolded plugin module via an isolated import
-    src_root = tmp_path / "sfmapi_demo" / "src"
+    src_root = tmp_path / "sceneapi_demo" / "src"
     sys.path.insert(0, str(src_root))
     try:
         # Reload-safe: ensure we don't pick up a stale module.
         import importlib
 
-        for mod in [m for m in list(sys.modules) if m.startswith("sfmapi_demo")]:
+        for mod in [m for m in list(sys.modules) if m.startswith("sceneapi_demo")]:
             del sys.modules[mod]
-        plugin_mod = importlib.import_module("sfmapi_demo.plugin")
+        plugin_mod = importlib.import_module("sceneapi_demo.plugin")
         manifest = plugin_mod.plugin.get_plugin_manifest()
     finally:
         sys.path.remove(str(src_root))
@@ -129,7 +129,7 @@ def test_scaffold_refuses_to_overwrite_by_default(tmp_path: Path) -> None:
 def test_scaffold_overwrite_flag_replaces_files(tmp_path: Path) -> None:
     scaffold_plugin("demo", output_dir=tmp_path, description="first")
     second = scaffold_plugin("demo", output_dir=tmp_path, description="second", overwrite=True)
-    pyproject = (tmp_path / "sfmapi_demo" / "pyproject.toml").read_text(encoding="utf-8")
+    pyproject = (tmp_path / "sceneapi_demo" / "pyproject.toml").read_text(encoding="utf-8")
     assert "second" in pyproject
     assert "first" not in pyproject
     assert len(second) == 7  # all 7 files rewritten
@@ -167,10 +167,10 @@ def test_cli_scaffold_plugin_creates_files(tmp_path: Path) -> None:
         check=True,
     )
     assert "scaffolded 7 files" in completed.stdout
-    assert (tmp_path / "sfmapi_clitest" / "pyproject.toml").exists()
-    assert (tmp_path / "sfmapi_clitest" / "src" / "sfmapi_clitest" / "plugin.py").exists()
+    assert (tmp_path / "sceneapi_clitest" / "pyproject.toml").exists()
+    assert (tmp_path / "sceneapi_clitest" / "src" / "sceneapi_clitest" / "plugin.py").exists()
     # The description we passed should be in the README.
-    readme = (tmp_path / "sfmapi_clitest" / "README.md").read_text(encoding="utf-8")
+    readme = (tmp_path / "sceneapi_clitest" / "README.md").read_text(encoding="utf-8")
     assert "Verifies the cli wiring." in readme
 
 

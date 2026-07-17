@@ -8,7 +8,7 @@
 
 image:
   registry: ghcr.io
-  repository: sfmapi/sfmapi/web
+  repository: sceneapi/sceneapi/web
   tag: ""                        # defaults to .Chart.AppVersion if empty
   pullPolicy: IfNotPresent
   pullSecrets: []
@@ -91,7 +91,7 @@ worker:
   enabled: false
   image:
     registry: ""
-    repository: ""               # e.g., ghcr.io/your-org/sfmapi-worker
+    repository: ""               # e.g., ghcr.io/sceneapi/sceneapi-worker
     tag: ""
     pullPolicy: IfNotPresent
   replicasPerNode: 1

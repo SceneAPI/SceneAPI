@@ -38,6 +38,28 @@ lands the package-identity rename in the same release
   media types, `https://sfmapi.github.io/errors/*` problem URIs, the
   `/version` response field `sfmapi`, and the `sfmapi-plugin-http-v1`
   container-plugin protocol all stay until migration Phase C).
+- **The plugin and SDK repo family follows the rename** (migration
+  phase W8, decisions L46; provider ids, entry-point names, and
+  console-script names unchanged, all plugin dists 0.1.0):
+  - `sfmapi_vismatch` + `sfmapi_hloc` are superseded by **SceneMatch**
+    (import `sceneapi_match`, dist `sceneapi-match`).
+  - `sfmapi_colmap_unified` (itself the merge of the COLMAP trio) +
+    `sfmapi_instantsfm` + `sfmapi_spheresfm` + `sfmapi_realityscan`
+    are superseded by **SceneMap** (import `sceneapi_map`, dist
+    `sceneapi-map`).
+  - `sfmapi_radiance` is renamed to the **3DGS** family (import
+    `sceneapi_3dgs`, dist `sceneapi-3dgs`; providers brush, gsplat,
+    fastergs, lfs, spirulae).
+  - `sfmapi-bench` becomes dist `sceneapi-bench` (import
+    `sceneapi_bench`; legacy `sfmapi-bench` console alias kept one
+    release).
+  - The generated Python SDK becomes import `sceneapi_client_gen`,
+    dist `sceneapi-client`; the TypeScript package becomes
+    `@sceneapi/client`.
+  - The core bundled plugin registry (`sfm_hub/registry/backends/`)
+    re-points all 13 entries at the new coordinates
+    (`SceneAPI/{SceneMap,SceneMatch,3DGS}` repos, `sceneapi-*`
+    packages, `sceneapi_*` entry points).
 
 ### Deprecated
 - The `sfmapi` import package is now a one-release alias shim over
@@ -59,6 +81,10 @@ lands the package-identity rename in the same release
   package (scheduled L44 removal; never shipped in a tagged release).
   Import `sceneapi.server.*` (internal) or the public `sceneapi.*`
   facades instead.
+- The deprecated hand-rolled Python SDK (`sfmapi_client`) and its
+  `sfmapi-client` CLI, removed from the SDK repo at 0.1.0 as
+  scheduled (L12). Its ergonomics surface lives on in
+  `sceneapi_client_gen._ergonomics` (dist `sceneapi-client`).
 
 ### Added
 - Preview conformance tier: admin routing, dataflow/processor
@@ -177,5 +203,5 @@ lands the package-identity rename in the same release
   `worker-tests.yml` (self-hosted GPU runner, real pycolmap),
   `dependabot.yml`, `renovate.json` (tracks `colmap_mod` ref).
 
-[Unreleased]: https://github.com/sfmapi/sfmapi/compare/v0.0.1...HEAD
-[0.0.1]: https://github.com/sfmapi/sfmapi/releases/tag/v0.0.1
+[Unreleased]: https://github.com/SceneAPI/SceneAPI/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/SceneAPI/SceneAPI/releases/tag/v0.0.1

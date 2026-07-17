@@ -162,5 +162,5 @@ server/workers
 server/adapters
 server/services
 changelog
-GitHub repository <https://github.com/sfmapi/sfmapi>
+GitHub repository <https://github.com/SceneAPI/SceneAPI>
 ```

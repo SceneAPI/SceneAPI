@@ -18,8 +18,8 @@ optional and orthogonal to everything below.
 ## 1. Install
 
 ```bash
-git clone https://github.com/sfmapi/sfmapi
-cd sfmapi
+git clone https://github.com/SceneAPI/SceneAPI
+cd SceneAPI
 uv venv
 uv pip install -e ".[dev]"
 cp .env.example .env
