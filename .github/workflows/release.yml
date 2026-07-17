@@ -113,6 +113,8 @@ jobs:
       - name: Publish to PyPI
         if: github.event_name == 'push'
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
 
   publish-release:
     needs: [resolve, build-and-push, publish-python]
