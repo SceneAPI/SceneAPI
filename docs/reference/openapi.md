@@ -55,6 +55,6 @@ should apply the same artifact-content transform used by
 variants may be emitted as strings instead of byte buffers.
 
 The supported Python and TypeScript SDK surfaces are generated from this
-OpenAPI document (`sfmapi_client_gen` and `@sfmapi/client/generated`).
+OpenAPI document (`sceneapi_client_gen` and `@sceneapi/client/generated`).
 The hand-written compatibility wrappers remain for migration, but the
 OpenAPI document is the source of truth either way.

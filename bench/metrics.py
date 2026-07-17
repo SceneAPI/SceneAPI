@@ -12,13 +12,13 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from sfmapi_client_gen.api.reconstructions import (
+from sceneapi_client_gen.api.reconstructions import (
     list_snapshots_v1_reconstructions_recon_id_snapshots_get as _list_snapshots,
 )
-from sfmapi_client_gen.api.reconstructions import (
+from sceneapi_client_gen.api.reconstructions import (
     read_snapshot_file_v1_reconstructions_recon_id_snapshots_seq_name_get as _read_snapshot_file,
 )
-from sfmapi_client_gen.models import JobDetail
+from sceneapi_client_gen.models import JobDetail
 
 from bench._sdk import ApiClient, call
 

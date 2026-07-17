@@ -69,13 +69,13 @@ All three SDKs accept an `api_key` parameter (or env var):
 
 ```python
 # Python
-from sfmapi_client_gen import Client
+from sceneapi_client_gen import Client
 client = Client(base_url="https://api.example.com", token="sfm_...")
 ```
 
 ```ts
 // TypeScript after building/installing the repository package
-import { createSfmApiClient } from "@sfmapi/client/generated";
+import { createSfmApiClient } from "@sceneapi/client/generated";
 const client = createSfmApiClient({
   baseUrl: "https://api.example.com",
   apiKey: process.env.SCENEAPI_KEY,

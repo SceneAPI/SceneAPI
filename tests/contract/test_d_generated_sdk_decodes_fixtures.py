@@ -1,8 +1,11 @@
-"""Replays the same recorded fixtures through the generated Python SDK.
+"""Replays every recorded fixture through the generated Python SDK.
 
-Adding this layer makes the codegen flip safe: as long as both
-SDKs decode the same fixture set, swapping consumers from the
-hand-rolled to the generated client is a no-op for them.
+This is the only Python-SDK fixture-decode layer: the hand-rolled SDK
+(and its ``test_b`` replay file) was removed at 0.1.0 as scheduled, so
+the page-envelope and problem-envelope coverage that lived there now
+runs here through the generated models. It catches the kind of drift a
+static type-shape diff misses: field renames, default-value changes,
+optional-vs-required flips, discriminator-value drift on tagged unions.
 """
 
 from __future__ import annotations
@@ -21,7 +24,7 @@ pytestmark = pytest.mark.contract
 
 SERVER_ROOT = Path(__file__).resolve().parents[2]
 SDK_ROOT = Path(os.environ.get("SFMAPI_SDK_REPO", SERVER_ROOT.parent / "sfmapi-sdk"))
-GEN_ROOT = SDK_ROOT / "python" / "sfmapi_client_gen"
+GEN_ROOT = SDK_ROOT / "python" / "sceneapi_client_gen"
 
 
 def _load_gen_module(rel: str) -> Any:
@@ -31,7 +34,7 @@ def _load_gen_module(rel: str) -> Any:
     parent = str(GEN_ROOT.parent)
     if parent not in sys.path:
         sys.path.insert(0, parent)
-    name = f"sfmapi_client_gen.{rel}"
+    name = f"sceneapi_client_gen.{rel}"
     if name in sys.modules:
         return sys.modules[name]
     spec = importlib.util.find_spec(name)
@@ -144,3 +147,78 @@ def test_snapshot_list_empty_decodes_through_generated() -> None:
     body = load_fixture("snapshot_list_empty")
     s = mod.SnapshotListResponse.from_dict(body)
     assert list(s.seqs) == []
+
+
+# ---------------------------------------------------------------------
+# Coverage ported from the deleted ``test_b`` (hand-rolled SDK replay):
+# page envelopes + RFC 7807 problem envelopes, now decoded through the
+# generated models instead of the removed ``sfmapi_client`` ones.
+# ---------------------------------------------------------------------
+
+
+def test_project_list_decodes_as_page_through_generated() -> None:
+    _skip_if_not_generated()
+    mod = _load_gen_module("models.page_project_out")
+    body = load_fixture("project_list")
+    page = mod.PageProjectOut.from_dict(body)
+    assert isinstance(page.items, list)
+
+
+def test_page_empty_decodes_through_generated() -> None:
+    _skip_if_not_generated()
+    mod = _load_gen_module("models.page_dataset_out")
+    body = load_fixture("page_empty")
+    page = mod.PageDatasetOut.from_dict(body)
+    assert list(page.items) == []
+
+
+def test_404_error_envelope_decodes_as_problem_response() -> None:
+    _skip_if_not_generated()
+    mod = _load_gen_module("models.problem_response")
+    body = load_fixture("error_404_project_missing")
+    # RFC7807 minimum: title + status are mandatory in the problem
+    # document; sfmapi additionally always sets `type` + `detail`.
+    problem = mod.ProblemResponse.from_dict(body)
+    assert problem.status == 404
+    assert body["status"] == 404
+    assert "title" in body or "detail" in body
+
+
+def test_422_validation_envelope_is_rfc7807_with_errors_list() -> None:
+    """422 validation envelope is RFC 7807 problem+json (consistent
+    with every other sfmapi error). The structured per-field Pydantic
+    errors are preserved under ``errors`` so machine-readable
+    consumers can still surface them; ``detail`` is a human summary.
+
+    Pre-2026-05 fixtures had the FastAPI default shape (top-level
+    ``detail`` was a list); the migration is documented in
+    ``docs/guides/aip_audit_2026.md``.
+    """
+    _skip_if_not_generated()
+    mod = _load_gen_module("models.problem_response")
+    body = load_fixture("error_422_validation")
+    problem = mod.ProblemResponse.from_dict(body)
+    assert problem.status == 422
+    # RFC 7807 envelope: type, title, status, detail, instance.
+    assert "type" in body
+    assert "title" in body
+    # ``detail`` is a human-readable summary string.
+    assert isinstance(body.get("detail"), str)
+    # Per-field Pydantic errors are preserved under ``errors``.
+    errors = body.get("errors")
+    assert isinstance(errors, list)
+    assert errors  # non-empty for the recorded missing-name fixture
+    assert all(isinstance(e, dict) and "loc" in e and "msg" in e for e in errors)
+
+
+def test_404_envelope_is_consistent_across_resource_kinds() -> None:
+    """Two distinct 404s (project + dataset) must share the same
+    problem-json shape — drift here would break SDK error decoding."""
+    _skip_if_not_generated()
+    mod = _load_gen_module("models.problem_response")
+    for name in ("error_404_project_missing", "error_404_dataset_missing"):
+        body = load_fixture(name)
+        problem = mod.ProblemResponse.from_dict(body)
+        assert problem.status == 404
+        assert "title" in body
+        assert "detail" in body

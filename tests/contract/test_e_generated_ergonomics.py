@@ -18,7 +18,7 @@ pytestmark = pytest.mark.contract
 
 SERVER_ROOT = Path(__file__).resolve().parents[2]
 SDK_ROOT = Path(os.environ.get("SFMAPI_SDK_REPO", SERVER_ROOT.parent / "sfmapi-sdk"))
-GEN_ROOT = SDK_ROOT / "python" / "sfmapi_client_gen"
+GEN_ROOT = SDK_ROOT / "python" / "sceneapi_client_gen"
 
 
 def _import_generated() -> tuple[object, object]:
@@ -29,17 +29,17 @@ def _import_generated() -> tuple[object, object]:
     parent = str(GEN_ROOT.parent)
     if parent not in sys.path:
         sys.path.insert(0, parent)
-    erg_spec = importlib.util.find_spec("sfmapi_client_gen._ergonomics")
+    erg_spec = importlib.util.find_spec("sceneapi_client_gen._ergonomics")
     if erg_spec is None:
         pytest.skip("_ergonomics shim missing — was the SDK regenerated?")
     erg = importlib.util.module_from_spec(erg_spec)
-    sys.modules["sfmapi_client_gen._ergonomics"] = erg
+    sys.modules["sceneapi_client_gen._ergonomics"] = erg
     assert erg_spec.loader is not None
     erg_spec.loader.exec_module(erg)
-    caps_spec = importlib.util.find_spec("sfmapi_client_gen.models.capabilities_out")
+    caps_spec = importlib.util.find_spec("sceneapi_client_gen.models.capabilities_out")
     assert caps_spec is not None
     caps_mod = importlib.util.module_from_spec(caps_spec)
-    sys.modules["sfmapi_client_gen.models.capabilities_out"] = caps_mod
+    sys.modules["sceneapi_client_gen.models.capabilities_out"] = caps_mod
     assert caps_spec.loader is not None
     caps_spec.loader.exec_module(caps_mod)
     return erg, caps_mod
@@ -67,7 +67,7 @@ def test_error_hierarchy_present() -> None:
 
 def test_raise_for_status_translates_404() -> None:
     erg, _ = _import_generated()
-    from sfmapi_client_gen.errors import UnexpectedStatus
+    from sceneapi_client_gen.errors import UnexpectedStatus
 
     body = load_fixture("error_404_project_missing")
     raw = UnexpectedStatus(404, str(body).encode("utf-8"))
@@ -85,7 +85,7 @@ def test_raise_for_status_translates_422() -> None:
     erg, _ = _import_generated()
     import json
 
-    from sfmapi_client_gen.errors import UnexpectedStatus
+    from sceneapi_client_gen.errors import UnexpectedStatus
 
     body = load_fixture("error_422_validation")
     raw = UnexpectedStatus(422, json.dumps(body).encode("utf-8"))
@@ -96,7 +96,7 @@ def test_raise_for_status_translates_422() -> None:
 
 def test_raise_for_status_falls_through_to_base() -> None:
     erg, _ = _import_generated()
-    from sfmapi_client_gen.errors import UnexpectedStatus
+    from sceneapi_client_gen.errors import UnexpectedStatus
 
     raw = UnexpectedStatus(418, b"{}")
     with pytest.raises(erg.SfmApiError) as exc_info:
@@ -705,7 +705,7 @@ def test_chained_ergonomics_against_live_server(live_ephemeral_server: str) -> N
     assert detail_b["status"] in erg.TERMINAL_JOB_STATES
 
     # Cross-check via typed JobDetail decoder on the generated SDK.
-    from sfmapi_client_gen.models.job_detail import JobDetail as GenJobDetail
+    from sceneapi_client_gen.models.job_detail import JobDetail as GenJobDetail
 
     with _httpx.Client(base_url=base, timeout=10.0) as c:
         raw = c.get(f"/v1/jobs/{detail_a['job_id']}").json()

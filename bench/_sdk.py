@@ -1,10 +1,10 @@
 """Shared generated-SDK plumbing for the bench harness.
 
-Builds ``sfmapi_client_gen`` clients and translates the generated
+Builds ``sceneapi_client_gen`` clients and translates the generated
 :class:`UnexpectedStatus` into the typed ``SfmApiError`` hierarchy
-from ``sfmapi_client_gen._ergonomics``, so bench failure output keeps
-the same typed error names the deprecated hand-rolled ``sfmapi_client``
-package used to raise.
+from ``sceneapi_client_gen._ergonomics``, so bench failure output keeps
+the same typed error names the hand-rolled ``sfmapi_client`` package
+used to raise (removed at 0.1.0 as scheduled).
 """
 
 from __future__ import annotations
@@ -13,9 +13,9 @@ from collections.abc import Callable
 from typing import Any
 
 import httpx
-from sfmapi_client_gen import AuthenticatedClient, Client
-from sfmapi_client_gen._ergonomics import raise_for_status
-from sfmapi_client_gen.errors import UnexpectedStatus
+from sceneapi_client_gen import AuthenticatedClient, Client
+from sceneapi_client_gen._ergonomics import raise_for_status
+from sceneapi_client_gen.errors import UnexpectedStatus
 
 ApiClient = AuthenticatedClient | Client
 
@@ -41,7 +41,7 @@ def make_client(base_url: str, *, api_key: str | None = None, timeout: float = 1
 def call[T](fn: Callable[..., T], *args: Any, **kwargs: Any) -> T:
     """Invoke a generated endpoint function (``<endpoint>.sync`` or
     ``.sync_detailed``) and re-raise any HTTP error as a typed
-    :class:`sfmapi_client_gen._ergonomics.SfmApiError` subclass."""
+    :class:`sceneapi_client_gen._ergonomics.SfmApiError` subclass."""
     try:
         return fn(*args, **kwargs)
     except UnexpectedStatus as exc:

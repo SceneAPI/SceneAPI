@@ -141,7 +141,7 @@ curl -o points.bin     $BASE/v1/reconstructions/$RECON_ID/snapshots/$SEQ/points.
 curl -o summary.json   $BASE/v1/reconstructions/$RECON_ID/snapshots/$SEQ/summary.json
 
 # Decode points.bin in Python:
-#   from sfmapi_client_gen._ergonomics import parse_points_binary
+#   from sceneapi_client_gen._ergonomics import parse_points_binary
 #   pts = parse_points_binary(open("points.bin","rb").read())
 ```
 

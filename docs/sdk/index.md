@@ -7,7 +7,7 @@ and pluggable HTTP client checked against the same fixtures.
 
 | Language | Current install path | Notes |
 |---|---|---|
-| Python generated SDK | `pip install ../sfmapi-sdk/python/sfmapi_client_gen` | Use `sfmapi_client_gen.Client` plus helpers in `sfmapi_client_gen._ergonomics`. |
+| Python generated SDK | `pip install ../sfmapi-sdk/python/sceneapi_client_gen` | Use `sceneapi_client_gen.Client` plus helpers in `sceneapi_client_gen._ergonomics`. |
 | TypeScript | `cd ../sfmapi-sdk/typescript && npm install && npm run build` | Package metadata is under the SDK repository until the package is published. |
 | C++17 | Add `../sfmapi-sdk/cpp/` as a header-only dependency | Bring your own HTTP transport and JSON parser. |
 
@@ -18,18 +18,18 @@ CI fails.
 ## Python generated SDK
 
 ```bash
-pip install ../sfmapi-sdk/python/sfmapi_client_gen
+pip install ../sfmapi-sdk/python/sceneapi_client_gen
 ```
 
 ```python
-from sfmapi_client_gen import Client
-from sfmapi_client_gen._ergonomics import parse_points_binary, wait_for_job
+from sceneapi_client_gen import Client
+from sceneapi_client_gen._ergonomics import parse_points_binary, wait_for_job
 
 client = Client(base_url="http://localhost:8080")
 ```
 
 The generated package contains endpoint modules under
-`sfmapi_client_gen.api`, typed models under `sfmapi_client_gen.models`,
+`sceneapi_client_gen.api`, typed models under `sceneapi_client_gen.models`,
 and hand-written helpers for chunked upload, SSE event streaming,
 binary point parsing, and job waiting.
 
@@ -39,10 +39,10 @@ Operator plugin routes are generated like the rest of the REST API. Use
 dry-run requests for planning and inspect only redacted provisioning output:
 
 ```python
-from sfmapi_client_gen import Client
-from sfmapi_client_gen.api.admin.install_plugin_v1_admin_plugins_plugin_id_install_post import sync
-from sfmapi_client_gen.models.plugin_install_request import PluginInstallRequest
-from sfmapi_client_gen.models.plugin_install_request_method import PluginInstallRequestMethod
+from sceneapi_client_gen import Client
+from sceneapi_client_gen.api.admin.install_plugin_v1_admin_plugins_plugin_id_install_post import sync
+from sceneapi_client_gen.models.plugin_install_request import PluginInstallRequest
+from sceneapi_client_gen.models.plugin_install_request_method import PluginInstallRequestMethod
 
 client = Client(base_url="http://localhost:8080")
 plan = sync(
@@ -64,9 +64,9 @@ Container-service installs record an already-running service and validate its
 health/version protocol before enabling the provider:
 
 ```python
-from sfmapi_client_gen.api.admin.install_plugin_v1_admin_plugins_plugin_id_install_post import sync
-from sfmapi_client_gen.models.plugin_install_request import PluginInstallRequest
-from sfmapi_client_gen.models.plugin_install_request_method import PluginInstallRequestMethod
+from sceneapi_client_gen.api.admin.install_plugin_v1_admin_plugins_plugin_id_install_post import sync
+from sceneapi_client_gen.models.plugin_install_request import PluginInstallRequest
+from sceneapi_client_gen.models.plugin_install_request_method import PluginInstallRequestMethod
 
 result = sync(
     "instantsfm",
@@ -84,8 +84,8 @@ print(result.provisioning_status)
 When several providers can run a stage, set fallback priority explicitly:
 
 ```python
-from sfmapi_client_gen.api.admin.set_provider_priority_v1_admin_routing_provider_priority_post import sync
-from sfmapi_client_gen.models.provider_priority_request import ProviderPriorityRequest
+from sceneapi_client_gen.api.admin.set_provider_priority_v1_admin_routing_provider_priority_post import sync
+from sceneapi_client_gen.models.provider_priority_request import ProviderPriorityRequest
 
 routing = sync(
     client=client,
@@ -108,7 +108,7 @@ npm run build
 ```
 
 ```ts
-import { createSfmApiClient } from "@sfmapi/client/generated";
+import { createSfmApiClient } from "@sceneapi/client/generated";
 
 const client = createSfmApiClient({ baseUrl: "http://localhost:8080" });
 ```

@@ -43,7 +43,7 @@ jobs:
           uv venv
           uv pip install -e .
           uv pip install -e "$SFMAPI_SDK_REPO/python"
-          uv pip install -e "$SFMAPI_SDK_REPO/python/sfmapi_client_gen"
+          uv pip install -e "$SFMAPI_SDK_REPO/python/sceneapi_client_gen"
           uv pip install -r docs/requirements.txt
       - name: Sphinx build (warning -> error)
         run: |

@@ -7,9 +7,9 @@ projects don't accumulate. It does NOT delete the project on success
 (operators want to inspect the reconstruction); add `--cleanup` in
 the CLI if you need that.
 
-Speaks the supported generated SDK (``sfmapi_client_gen``); the
-hand-rolled ``sfmapi_client`` package is deprecated and no longer
-used here.
+Speaks the supported generated SDK (``sceneapi_client_gen``); the
+hand-rolled ``sfmapi_client`` package was removed at 0.1.0 as
+scheduled.
 """
 
 from __future__ import annotations
@@ -22,20 +22,20 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from sfmapi_client_gen._ergonomics import TERMINAL_JOB_STATES
-from sfmapi_client_gen.api.datasets import (
+from sceneapi_client_gen._ergonomics import TERMINAL_JOB_STATES
+from sceneapi_client_gen.api.datasets import (
     create_v1_projects_project_id_datasets_post as _create_dataset,
 )
-from sfmapi_client_gen.api.health import version_version_get as _get_version
-from sfmapi_client_gen.api.images import (
+from sceneapi_client_gen.api.health import version_version_get as _get_version
+from sceneapi_client_gen.api.images import (
     batch_create_v_1_datasets_dataset_id_images_batch_create_post as _batch_create_images,
 )
-from sfmapi_client_gen.api.jobs import get_v1_jobs_job_id_get as _get_job
-from sfmapi_client_gen.api.pipelines import (
+from sceneapi_client_gen.api.jobs import get_v1_jobs_job_id_get as _get_job
+from sceneapi_client_gen.api.pipelines import (
     run_recipe_v1_projects_project_id_pipelines_recipe_post as _run_recipe,
 )
-from sfmapi_client_gen.api.projects import create_v1_projects_post as _create_project
-from sfmapi_client_gen.models import (
+from sceneapi_client_gen.api.projects import create_v1_projects_post as _create_project
+from sceneapi_client_gen.models import (
     BatchCreateImagesRequest,
     DatasetCreate,
     FeaturesSpec,
@@ -51,10 +51,10 @@ from sfmapi_client_gen.models import (
     VerifySpec,
     VersionResponse,
 )
-from sfmapi_client_gen.models.run_recipe_v1_projects_project_id_pipelines_recipe_post_recipe import (
+from sceneapi_client_gen.models.run_recipe_v1_projects_project_id_pipelines_recipe_post_recipe import (
     RunRecipeV1ProjectsProjectIdPipelinesRecipePostRecipe as _RecipeSlug,
 )
-from sfmapi_client_gen.types import UNSET, Unset
+from sceneapi_client_gen.types import UNSET, Unset
 
 from bench import metrics as bench_metrics
 from bench import store

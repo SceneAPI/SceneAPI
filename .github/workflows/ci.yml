@@ -32,7 +32,7 @@ jobs:
         run: |
           uv sync --extra dev --extra mcp
           uv pip install -e "$SFMAPI_SDK_REPO/python"
-          uv pip install -e "$SFMAPI_SDK_REPO/python/sfmapi_client_gen"
+          uv pip install -e "$SFMAPI_SDK_REPO/python/sceneapi_client_gen"
       - name: Ruff lint
         run: uv run ruff check sceneapi sfm_hub sfmapi tests scripts
       - name: Ruff format check
@@ -55,7 +55,7 @@ jobs:
         run: |
           uv sync --extra dev --extra mcp
           uv pip install -e "$SFMAPI_SDK_REPO/python"
-          uv pip install -e "$SFMAPI_SDK_REPO/python/sfmapi_client_gen"
+          uv pip install -e "$SFMAPI_SDK_REPO/python/sceneapi_client_gen"
       - name: Test (SQLite)
         run: uv run pytest -q -m "not needs_postgres"
 
@@ -90,7 +90,7 @@ jobs:
         run: |
           uv sync --extra dev --extra mcp
           uv pip install -e "$SFMAPI_SDK_REPO/python"
-          uv pip install -e "$SFMAPI_SDK_REPO/python/sfmapi_client_gen"
+          uv pip install -e "$SFMAPI_SDK_REPO/python/sceneapi_client_gen"
       - name: Wait for postgres
         run: |
           for i in {1..30}; do
