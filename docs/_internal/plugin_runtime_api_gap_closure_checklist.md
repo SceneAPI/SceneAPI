@@ -142,7 +142,7 @@ as supported public contracts.
   provisioning, `container_service`, and doctor protocol mismatch.
 - [x] Update `docs/guides/backend_implementations.md` with provisioner return
   shape, redaction rules, and retry expectations.
-- [x] Update `docs/guides/container_plugin_runtime_checklist.md` when each gap
+- [x] Update `docs/_internal/container_plugin_runtime_checklist.md` when each gap
   here is closed.
 
 ## Evidence Log

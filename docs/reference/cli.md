@@ -33,7 +33,8 @@ loads every installed `[sfmapi.backends]` entry point.
 
 Plugin-hub commands (`list`, `search`, `info`, `install`, `enable`,
 `disable`, `doctor`, `detect-tools`, `entry-points`). See
-{doc}`../guides/plugin_hub_checklist`.
+`docs/_internal/plugin_hub_checklist.md` in the repository for the
+hub working checklist.
 
 ### `sfmapi scaffold-plugin <id>`
 

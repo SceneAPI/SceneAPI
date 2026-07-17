@@ -329,5 +329,5 @@ revisit Phase b when a consumer asks.**
 Add as `P4` in `docs/guides/decisions.md`:
 
 ```
-| P4 | One-shot streaming features endpoint at `POST /v1/oneshot/features`. | Ready to ship Phase a (~6h). | docs/guides/oneshot_streaming_proposal.md | Single user `OK` |
+| P4 | One-shot streaming features endpoint at `POST /v1/oneshot/features`. | Ready to ship Phase a (~6h). | docs/_internal/oneshot_streaming_proposal.md | Single user `OK` |
 ```

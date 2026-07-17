@@ -5,7 +5,7 @@ install planning, CLI, operator API, benchmark validation, and
 provider-routing execution contract.
 
 Open runtime API gaps from the latest review are tracked in
-`docs/guides/plugin_runtime_api_gap_closure_checklist.md`.
+`docs/_internal/plugin_runtime_api_gap_closure_checklist.md`.
 
 ## Product Contract
 

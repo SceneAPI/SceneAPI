@@ -6,7 +6,7 @@ modes remain valid, while `container_service` represents an already-running
 plugin service that sfmapi can call over a versioned protocol.
 
 The API-review gap closure plan is tracked separately in
-`docs/guides/plugin_runtime_api_gap_closure_checklist.md`. Close its P0 items
+`docs/_internal/plugin_runtime_api_gap_closure_checklist.md`. Close its P0 items
 before treating `container_service` or plugin provisioning as production-ready.
 
 ## Contract Design

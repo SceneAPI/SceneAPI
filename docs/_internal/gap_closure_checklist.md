@@ -19,7 +19,7 @@ Every box below is ticked. Three items resolved by judgment call rather than
 literal implementation:
 
 - **`compute.in_memory` non-path Protocol** — closed as a design proposal
-  (`docs/guides/in_memory_reconstruction_proposal.md`, decisions.md **P6**), not
+  (`docs/_internal/in_memory_reconstruction_proposal.md`, decisions.md **P6**), not
   code: fork-per-task + one-Task-one-ARQ-job bound any in-memory handle to
   within-Task scope, so the Protocol is premature. Per the original "design
   only" framing.

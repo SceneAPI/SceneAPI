@@ -6,7 +6,7 @@
 
 **Companion**: `docs/guides/decisions.md` (would add `P5`),
 `CLAUDE.md` "Locked Tech Decisions" §SSE-only (touches L9),
-`docs/guides/oneshot_streaming_proposal.md` (P4 — single-frame
+`docs/_internal/oneshot_streaming_proposal.md` (P4 — single-frame
 ergonomics that compose with this).
 
 ---
@@ -304,5 +304,5 @@ locked.
 Add to `docs/guides/decisions.md`:
 
 ```
-| P5 | Streaming SLAM endpoint at `/ws/v1/slam/sessions/{sid}/frames` with `Session` resource + `SlamBackend` Protocol + OpenVINS reference adapter. | Phases a-d ready to design; ~40-45h total. Touches L4 (live map reads) + L9 (WebSocket). | docs/guides/streaming_slam_proposal.md | **Confirmed consumer + readiness to unlock L4 + L9**. Otherwise: track as future architectural reference; recommend `slamapi` sibling service when needed. |
+| P5 | Streaming SLAM endpoint at `/ws/v1/slam/sessions/{sid}/frames` with `Session` resource + `SlamBackend` Protocol + OpenVINS reference adapter. | Phases a-d ready to design; ~40-45h total. Touches L4 (live map reads) + L9 (WebSocket). | docs/_internal/streaming_slam_proposal.md | **Confirmed consumer + readiness to unlock L4 + L9**. Otherwise: track as future architectural reference; recommend `slamapi` sibling service when needed. |
 ```

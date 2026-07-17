@@ -72,18 +72,16 @@ exclude_patterns = [
     "_build",
     "Thumbs.db",
     ".DS_Store",
+    # Internal working documents (proposals, checklists, audits) live in
+    # docs/_internal/ — retained in source, never built into the site.
+    "_internal",
     # Repo-dev notes retained in source, but omitted from the public site.
     "sdk/sync.md",
     "sdk/async.md",
     "sdk/models.md",
     "sdk/errors.md",
     "guides/decisions.md",
-    "guides/aip_audit_2026.md",
-    "guides/oneshot_streaming_proposal.md",
-    "guides/resume_unification_proposal.md",
-    "guides/sealed_snapshots_on_s3_proposal.md",
-    "guides/rls_postgres_tenancy_proposal.md",
-    "guides/streaming_slam_proposal.md",
+    "guides/lean_audit_2026.md",
 ]
 
 # -- HTML output -------------------------------------------------------------
@@ -196,7 +194,18 @@ def _generate_openapi() -> None:
 
 _generate_openapi()
 
-nitpicky = False  # toggle to true once cross-references stabilize
+# TODO(lean-audit 6.4): nitpicky=True still fails — measured 2026-07-17:
+# 682 warnings / 127 distinct unresolved targets. Breakdown: stdlib refs
+# (pathlib.Path x111, datetime.datetime x21) blocked by the deliberate
+# `intersphinx_disabled_reftypes = ["*"]` resilience setting below;
+# sqlalchemy (AsyncSession x87) / annotated_types / pydantic internals
+# with no intersphinx inventory; ~60 distinct sfmapi.server.* classes
+# referenced in autodoc type hints but documented on no page; plus
+# pydantic Field constraint reprs (`pattern='^...'`, `min_length=1`)
+# misparsed as targets. Flipping this on needs: re-enabling intersphinx
+# reftypes (or scoped prefixes), sqlalchemy inventory, and a curated
+# nitpick_ignore(_regex) list — not a small stale-xref fix.
+nitpicky = False
 suppress_warnings = [
     "myst.header",
     # SFMAPI-SPEC.md uses `json` blocks for human-readable schemas
