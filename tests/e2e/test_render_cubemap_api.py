@@ -1,4 +1,4 @@
-"""POST /v1/datasets/{did}:render_cubemap endpoint contract."""
+"""POST /v1/datasets/{did}:renderCubemap endpoint contract."""
 
 from __future__ import annotations
 
@@ -53,34 +53,34 @@ async def test_render_cubemap_returns_501_without_capability(client, monkeypatch
 
     monkeypatch.setattr("sfmapi.server.core.projection_engine.has_projection_engine", lambda: False)
     reset_capabilities_cache()
-    resp = await client.post("/v1/datasets/01HGHOST00000000000000000A:render_cubemap")
+    resp = await client.post("/v1/datasets/01HGHOST00000000000000000A:renderCubemap")
     assert resp.status_code == 501
     assert resp.json()["capability"] == "projection.equirectangular_to_cubemap"
 
 
 async def test_render_cubemap_rejects_pinhole_dataset(client) -> None:
     did = await _make_dataset(client, is_spherical=False)
-    resp = await client.post(f"/v1/datasets/{did}:render_cubemap")
+    resp = await client.post(f"/v1/datasets/{did}:renderCubemap")
     assert resp.status_code == 422
     assert "is_spherical=true" in resp.text
 
 
 async def test_render_cubemap_rejects_face_size_too_large(client) -> None:
     did = await _make_dataset(client, is_spherical=True)
-    resp = await client.post(f"/v1/datasets/{did}:render_cubemap", params={"face_size": 99999})
+    resp = await client.post(f"/v1/datasets/{did}:renderCubemap", params={"face_size": 99999})
     assert resp.status_code == 422
 
 
 async def test_render_cubemap_rejects_face_size_too_small(client) -> None:
     did = await _make_dataset(client, is_spherical=True)
-    resp = await client.post(f"/v1/datasets/{did}:render_cubemap", params={"face_size": 1})
+    resp = await client.post(f"/v1/datasets/{did}:renderCubemap", params={"face_size": 1})
     assert resp.status_code == 422
 
 
 async def test_projection_request_validates_equirectangular_dimensions(client) -> None:
     did = await _make_dataset(client, is_spherical=False)
     resp = await client.post(
-        f"/v1/datasets/{did}:render_equirectangular",
+        f"/v1/datasets/{did}:renderEquirectangular",
         json={"equirectangular": {"width": 1024}},
     )
     assert resp.status_code == 422
@@ -99,7 +99,7 @@ async def test_perspective_projection_requires_spherical_dataset(client) -> None
     reset_capabilities_cache()
     did = await _make_dataset(client, is_spherical=False)
 
-    resp = await client.post(f"/v1/datasets/{did}:render_perspective", json={})
+    resp = await client.post(f"/v1/datasets/{did}:renderPerspective", json={})
 
     assert resp.status_code == 422
     assert "is_spherical=true" in resp.text
@@ -126,7 +126,7 @@ async def test_projection_job_writes_manifest_and_artifact(client) -> None:
     did = await _make_dataset(client, is_spherical=True)
 
     resp = await client.post(
-        f"/v1/datasets/{did}:render_cubemap",
+        f"/v1/datasets/{did}:renderCubemap",
         json={"cubemap": {"face_size": 128, "output": {"dataset_name": "ds"}}},
     )
 

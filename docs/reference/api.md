@@ -171,9 +171,9 @@ Example feature extraction request:
 | GET | `/v1/projects/{pid}` | — | `Project` |
 | PATCH | `/v1/projects/{pid}` | `ProjectPatch` + optional `?update_mask=` | `Project` |
 | DELETE | `/v1/projects/{pid}` | — | 204 |
-| POST | `/v1/projects/{pid}/datasets:from_video` | `VideoFramesRequest` | 202 + `JobAccepted` |
-| POST | `/v1/projects/{pid}/datasets:import_kapture` | `KaptureImportRequest` | 202 + `JobAccepted` |
-| POST | `/v1/projects/{pid}/datasets:from_archive` | `ArchiveImportRequest` | 202 + `JobAccepted` |
+| POST | `/v1/projects/{pid}/datasets:fromVideo` | `VideoFramesRequest` | 202 + `JobAccepted` |
+| POST | `/v1/projects/{pid}/datasets:importKapture` | `KaptureImportRequest` | 202 + `JobAccepted` |
+| POST | `/v1/projects/{pid}/datasets:fromArchive` | `ArchiveImportRequest` | 202 + `JobAccepted` |
 
 PATCH accepts an optional AIP-161 `update_mask` query parameter. Mask
 paths are comma-separated, body-relative, and must also be present in
@@ -198,10 +198,10 @@ present.
 | GET | `/v1/projects/{pid}/datasets/{did}` | — | `Dataset` |
 | PATCH | `/v1/projects/{pid}/datasets/{did}` | `DatasetPatch` + optional `?update_mask=` | `Dataset` |
 | DELETE | `/v1/projects/{pid}/datasets/{did}` | — | 204 |
-| POST | `/v1/datasets/{did}:render_cubemap` | `CubemapProjectionRequest` or `?face_size=` | 202 + `JobAccepted` |
-| POST | `/v1/datasets/{did}:render_equirectangular` | `EquirectangularProjectionRequest` | 202 + `JobAccepted` |
-| POST | `/v1/datasets/{did}:render_perspective` | `PerspectiveProjectionRequest` | 202 + `JobAccepted` |
-| POST | `/v1/datasets/{did}:project_images` | `ProjectionJobRequest` | 202 + `JobAccepted` |
+| POST | `/v1/datasets/{did}:renderCubemap` | `CubemapProjectionRequest` or `?face_size=` | 202 + `JobAccepted` |
+| POST | `/v1/datasets/{did}:renderEquirectangular` | `EquirectangularProjectionRequest` | 202 + `JobAccepted` |
+| POST | `/v1/datasets/{did}:renderPerspective` | `PerspectiveProjectionRequest` | 202 + `JobAccepted` |
+| POST | `/v1/datasets/{did}:projectImages` | `ProjectionJobRequest` | 202 + `JobAccepted` |
 | POST | `/v1/datasets/{did}/images` | `ImageCreate` | `Image` |
 | POST | `/v1/datasets/{did}/images:batchCreate` | `BatchCreateImagesRequest{requests[]}` | `BatchCreateImagesResponse{images[]}` |
 | GET | `/v1/datasets/{did}/images` | `?page_token=&page_size=` | `Page<Image>` |
@@ -433,7 +433,7 @@ points_preview.bin | tiles/index.json`.
 |---|---|---|---|
 | POST | `/v1/reconstructions/{rid}/localize` | `LocalizationRequest{blob_sha, sift?, provider?}` | 202 + `JobAccepted` |
 | POST | `/v1/reconstructions/{rid}/georegister` | `GeoregisterRequest{mode, sim3?, provider?}` | 202 + `JobAccepted` |
-| POST | `/v1/reconstructions/{rid}:to_cubemap` | — | 202 + `JobAccepted` |
+| POST | `/v1/reconstructions/{rid}:toCubemap` | — | 202 + `JobAccepted` |
 | POST | `/v1/reconstructions/{rid}:bundleAdjust` | `BundleAdjustmentSpec` | 202 + `JobAccepted` |
 | POST | `/v1/reconstructions/{rid}:triangulate` | `TriangulateSpec` | 202 + `JobAccepted` |
 | POST | `/v1/reconstructions/{rid}:poseGraphOptimize` | `PoseGraphSpec` | 202 + `JobAccepted` |

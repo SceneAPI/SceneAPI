@@ -722,9 +722,9 @@ for that sfm_hub provider id; when unset, the server **MAY** resolve
 one through routing profiles, and **MUST** raise `ProviderAmbiguityError`
 (422 with `candidates`) if several enabled providers can satisfy the
 stage with no resolution rule. Utility stages (`merge_recons`,
-`georegister`, `:to_cubemap`, `localize`, `:similarity:build`,
-`:render_cubemap`, `:project_images`, `:render_equirectangular`,
-`:render_perspective`) accept the same selector through a request
+`georegister`, `:toCubemap`, `localize`, `:similarity:build`,
+`:renderCubemap`, `:projectImages`, `:renderEquirectangular`,
+`:renderPerspective`) accept the same selector through a request
 body field or query parameter.
 
 ### 6.7 Jobs and progress
@@ -747,11 +747,20 @@ CLIs that prefer polling over holding an SSE connection open.
 
 | Method | Path                                                | Body                                                | Returns |
 |--------|-----------------------------------------------------|-----------------------------------------------------|---------|
-| POST   | `/v1/projects/{pid}/pipelines/{recipe}`             | `{dataset_id, spec, features?, pairs?, matcher?, verify?}` | 202 + LRO |
+| POST   | `/v1/projects/{pid}/pipelines/{recipe}` *(deprecated)* | `{dataset_id, spec, features?, pairs?, matcher?, verify?}` | 202 + LRO |
 
 `recipe ∈ {incremental, global, hierarchical, spherical}` and
 `spec.kind` **MUST** match `recipe` or the request **MUST** be rejected
 with 422.
+
+> **Deprecation note (custom-verb normalization, pre-1.0).** The
+> `/{recipe}` path-segment form is deprecated in favour of the AIP-136
+> custom verb `POST /v1/projects/{pid}/pipelines:run` (§6.8.2), whose
+> legacy flat-chain grammar composes the same
+> `features → matches → verify → map` DAG. Servers **MUST** still
+> serve `/{recipe}` for now (it is marked `deprecated: true` in the
+> OpenAPI document); it will be removed no earlier than the next
+> pre-1.0 breaking window.
 
 Recipe availability is composed from the selected stages and mapping
 kind. For example, an incremental recipe requires the provider-selected
@@ -1069,13 +1078,13 @@ on the source images:
 
 | Method | Path                                                   | Returns      | Operates on    |
 |--------|--------------------------------------------------------|--------------|----------------|
-| POST   | `/v1/reconstructions/{rid}:to_cubemap`                 | 202 + job    | reconstruction |
-| POST   | `/v1/datasets/{did}:render_cubemap?face_size={N}`      | 202 + job    | images only    |
-| POST   | `/v1/datasets/{did}:project_images`                    | 202 + job    | images only    |
-| POST   | `/v1/datasets/{did}:render_equirectangular`            | 202 + job    | images only    |
-| POST   | `/v1/datasets/{did}:render_perspective`                | 202 + job    | images only    |
+| POST   | `/v1/reconstructions/{rid}:toCubemap`                  | 202 + job    | reconstruction |
+| POST   | `/v1/datasets/{did}:renderCubemap?face_size={N}`       | 202 + job    | images only    |
+| POST   | `/v1/datasets/{did}:projectImages`                     | 202 + job    | images only    |
+| POST   | `/v1/datasets/{did}:renderEquirectangular`             | 202 + job    | images only    |
+| POST   | `/v1/datasets/{did}:renderPerspective`                 | 202 + job    | images only    |
 
-`POST :render_cubemap` accepts an optional `face_size` query
+`POST :renderCubemap` accepts an optional `face_size` query
 (64–8192) for the per-face pixel edge length. Output is a directory
 under the dataset's workspace. Servers **MUST** return 422 if the
 dataset is not marked ``is_spherical=true``.
@@ -1095,7 +1104,7 @@ MUST advertise ``projection.cubemap_to_equirectangular`` or
 ``projection.equirectangular_to_perspective`` before those endpoints are
 accepted.
 
-`POST :to_cubemap` operates on the reconstruction:
+`POST :toCubemap` operates on the reconstruction:
 
 Requires the underlying dataset to be marked ``is_spherical=true``;
 servers **MUST** return 422 otherwise. The worker re-projects each
@@ -1231,7 +1240,7 @@ implements `localize.batch` as N independent
 
 #### 6.9.12 Video frame extraction (optional)
 
-`POST /v1/projects/{pid}/datasets:from_video` with body
+`POST /v1/projects/{pid}/datasets:fromVideo` with body
 `{video_path, fps?, max_frames?}` runs ffmpeg on the worker to extract
 keyframes. Result carries `{output_dir, num_frames, fps}` so the
 client can register the output as a `local`-source dataset.
@@ -1240,7 +1249,7 @@ PATH).
 
 #### 6.9.13 Kapture import (optional)
 
-`POST /v1/projects/{pid}/datasets:import_kapture` with body
+`POST /v1/projects/{pid}/datasets:importKapture` with body
 `{archive_path}` parses an extracted Kapture archive's
 `sensors/sensors.txt` and `sensors/records_camera.txt`, returning
 `{sensors, records, image_root}` so the client can `POST` a fresh
@@ -1249,7 +1258,7 @@ PATH).
 
 #### 6.9.13a Image-archive import (optional)
 
-`POST /v1/projects/{pid}/datasets:from_archive` with body
+`POST /v1/projects/{pid}/datasets:fromArchive` with body
 `{blob_sha, name?, camera_model?, intrinsics_mode?, is_spherical?,
 image_prefix?}` registers a dataset from a single uploaded image zip,
 collapsing the N-per-image registration flow to one call. The zip
@@ -1346,6 +1355,13 @@ against the reconstruction's largest sealed snapshot. The task's
 Servers **MUST** return 404 when `recon_id` is unknown and 422 when
 `blob_sha` is missing or the wrong length (must be 64 hex chars).
 
+> **`/localize` vs `:relocalize`.** These are distinct operations on
+> the same resource. `POST .../localize` is a read-style pose query —
+> "where was this image taken?" — and never mutates the
+> reconstruction. `POST .../{rid}:relocalize` (§6.9.18) registers
+> additional images *into* the existing reconstruction. The naming
+> difference is intentional and both spellings are stable.
+
 #### 6.9.18 Portable post-mapping + retrieval stages (optional)
 
 The decomposed pipeline exposes the post-mapping and dataset-prep
@@ -1381,6 +1397,11 @@ name when the resolved backend does not advertise it, 404 when
 `:triangulate` / `:relocalize` / `:undistort` need a local
 `image_root`; servers **MUST** return 422 for upload-source datasets
 the worker cannot materialize on demand.
+
+`:relocalize` (register more images into the model) is not the same
+operation as `POST /v1/reconstructions/{rid}/localize` (§6.9.17),
+which only queries a single image's pose and leaves the model
+untouched; the two names are intentionally distinct.
 
 ### 6.10 Backend extensions [Reference-only]
 

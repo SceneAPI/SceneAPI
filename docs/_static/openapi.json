@@ -1267,14 +1267,14 @@
         }
       }
     },
-    "/v1/projects/{project_id}/datasets:from_video": {
+    "/v1/projects/{project_id}/datasets:fromVideo": {
       "post": {
         "tags": [
           "projects"
         ],
         "summary": "From Video",
         "description": "Extract frames from a worker-local video file. The result carries\nthe output directory; the client follows up with a ``local``-source\ndataset pointing at it.",
-        "operationId": "from_video_v1_projects__project_id__datasets_from_video_post",
+        "operationId": "from_video_v1_projects__project_id__datasets_fromVideo_post",
         "parameters": [
           {
             "name": "project_id",
@@ -1425,14 +1425,14 @@
         }
       }
     },
-    "/v1/projects/{project_id}/datasets:import_kapture": {
+    "/v1/projects/{project_id}/datasets:importKapture": {
       "post": {
         "tags": [
           "projects"
         ],
         "summary": "Import Kapture",
         "description": "Parse a Kapture archive into a sensors+records inventory; the\njob result carries the parsed contents and the recommended\n``image_root`` so the client can register a ``local`` dataset\npointing at it.",
-        "operationId": "import_kapture_v1_projects__project_id__datasets_import_kapture_post",
+        "operationId": "import_kapture_v1_projects__project_id__datasets_importKapture_post",
         "parameters": [
           {
             "name": "project_id",
@@ -1583,14 +1583,14 @@
         }
       }
     },
-    "/v1/projects/{project_id}/datasets:from_archive": {
+    "/v1/projects/{project_id}/datasets:fromArchive": {
       "post": {
         "tags": [
           "projects"
         ],
         "summary": "From Archive",
         "description": "Register a dataset from an already-uploaded image zip.\n\nCollapses the N-per-image registration flow to one call: the worker\ndecodes the finalized zip (``blob_sha``) straight from the blob\nstore, enforces the uncompressed-size cap, extracts the images, and\nthe dispatcher registers the resulting derived dataset. Follow\n``Location`` to the job; the terminal job's task carries\n``num_images`` and the registered ``derived_dataset``.",
-        "operationId": "from_archive_v1_projects__project_id__datasets_from_archive_post",
+        "operationId": "from_archive_v1_projects__project_id__datasets_fromArchive_post",
         "parameters": [
           {
             "name": "project_id",
@@ -6375,14 +6375,14 @@
         }
       }
     },
-    "/v1/datasets/{dataset_id}:render_cubemap": {
+    "/v1/datasets/{dataset_id}:renderCubemap": {
       "post": {
         "tags": [
           "datasets"
         ],
         "summary": "Render Cubemap",
         "description": "Render every spherical panorama in this dataset into 6 cubemap faces.\n\nRequires the dataset to be marked ``is_spherical=true``. The\noutput directory is returned in the task result; clients can then\nregister it as a new ``local`` source for downstream pinhole-only\npipelines.",
-        "operationId": "render_cubemap_v1_datasets__dataset_id__render_cubemap_post",
+        "operationId": "render_cubemap_v1_datasets__dataset_id__renderCubemap_post",
         "parameters": [
           {
             "name": "dataset_id",
@@ -6560,14 +6560,14 @@
         }
       }
     },
-    "/v1/datasets/{dataset_id}:project_images": {
+    "/v1/datasets/{dataset_id}:projectImages": {
       "post": {
         "tags": [
           "datasets"
         ],
         "summary": "Project Images",
         "description": "Run a portable projection transform over the dataset images.",
-        "operationId": "project_images_v1_datasets__dataset_id__project_images_post",
+        "operationId": "project_images_v1_datasets__dataset_id__projectImages_post",
         "parameters": [
           {
             "name": "dataset_id",
@@ -6718,14 +6718,14 @@
         }
       }
     },
-    "/v1/datasets/{dataset_id}:render_equirectangular": {
+    "/v1/datasets/{dataset_id}:renderEquirectangular": {
       "post": {
         "tags": [
           "datasets"
         ],
         "summary": "Render Equirectangular",
         "description": "Render a cubemap dataset back to equirectangular panoramas.",
-        "operationId": "render_equirectangular_v1_datasets__dataset_id__render_equirectangular_post",
+        "operationId": "render_equirectangular_v1_datasets__dataset_id__renderEquirectangular_post",
         "parameters": [
           {
             "name": "dataset_id",
@@ -6883,14 +6883,14 @@
         }
       }
     },
-    "/v1/datasets/{dataset_id}:render_perspective": {
+    "/v1/datasets/{dataset_id}:renderPerspective": {
       "post": {
         "tags": [
           "datasets"
         ],
         "summary": "Render Perspective",
         "description": "Render pinhole perspective views from spherical panoramas.",
-        "operationId": "render_perspective_v1_datasets__dataset_id__render_perspective_post",
+        "operationId": "render_perspective_v1_datasets__dataset_id__renderPerspective_post",
         "parameters": [
           {
             "name": "dataset_id",
@@ -14313,7 +14313,7 @@
           "stages"
         ],
         "summary": "Relocalize",
-        "description": "Register additional images into the existing reconstruction.",
+        "description": "Register additional images into the existing reconstruction.\n\nNot to be confused with ``POST /v1/reconstructions/{rid}/localize``:\n``:relocalize`` mutates the model by registering new images, while\n``/localize`` only queries the pose of a single image and leaves the\nreconstruction untouched.",
         "operationId": "relocalize_v1_reconstructions__recon_id__relocalize_post",
         "parameters": [
           {
@@ -14629,8 +14629,9 @@
           "pipelines"
         ],
         "summary": "Run Recipe",
-        "description": "Run an end-to-end mapping recipe in one POST.\n\nComposes ``features -> matches -> verify -> map`` into a single\njob DAG keyed on ``recipe`` (one of ``incremental``\n| ``global`` | ``hierarchical`` | ``spherical``). The recipe MUST\nmatch ``body.spec.kind`` \u2014 422 ``ValidationError`` if not. Each\nstage spec keeps optional provider selectors\nso mixed deployments can route hloc and COLMAP implementations\nbehind the same portable capability names. Each backend advertises\nwhich mapping stages it implements via the ``map.{kind}``\ncapability flags. Unsupported stage capabilities fail through the\nsubmitted job's task status. Returns 202 + a ``Location`` header\npointing at the parent job.",
+        "description": "Run an end-to-end mapping recipe in one POST.\n\n.. deprecated::\n    Prefer ``POST /v1/projects/{project_id}/pipelines:run`` \u2014 the\n    AIP-136 custom-verb spelling of the same submission surface.\n    This ``/{recipe}`` path segment form remains served for\n    existing clients but is marked deprecated in OpenAPI and will\n    be removed no earlier than the next pre-1.0 breaking window.\n\nComposes ``features -> matches -> verify -> map`` into a single\njob DAG keyed on ``recipe`` (one of ``incremental``\n| ``global`` | ``hierarchical`` | ``spherical``). The recipe MUST\nmatch ``body.spec.kind`` \u2014 422 ``ValidationError`` if not. Each\nstage spec keeps optional provider selectors\nso mixed deployments can route hloc and COLMAP implementations\nbehind the same portable capability names. Each backend advertises\nwhich mapping stages it implements via the ``map.{kind}``\ncapability flags. Unsupported stage capabilities fail through the\nsubmitted job's task status. Returns 202 + a ``Location`` header\npointing at the parent job.",
         "operationId": "run_recipe_v1_projects__project_id__pipelines__recipe__post",
+        "deprecated": true,
         "parameters": [
           {
             "name": "project_id",
@@ -18615,7 +18616,7 @@
           "localize"
         ],
         "summary": "Localize",
-        "description": "Localize a single query image against the reconstruction.\n\nThe job's task carries a :class:`~sfmapi.server.schemas.api.scene.LocalizationResult`-\nshaped payload in its ``outputs_ref`` once finished.",
+        "description": "Localize a single query image against the reconstruction.\n\nThe job's task carries a :class:`~sfmapi.server.schemas.api.scene.LocalizationResult`-\nshaped payload in its ``outputs_ref`` once finished.\n\nNot to be confused with ``POST /v1/reconstructions/{rid}:relocalize``:\n``/localize`` is a read-style pose query \u2014 it answers \"where was this\nimage taken?\" without touching the model \u2014 while ``:relocalize``\nregisters additional images *into* the reconstruction.",
         "operationId": "localize_v1_reconstructions__recon_id__localize_post",
         "parameters": [
           {
@@ -18925,14 +18926,14 @@
         }
       }
     },
-    "/v1/reconstructions/{recon_id}:to_cubemap": {
+    "/v1/reconstructions/{recon_id}:toCubemap": {
       "post": {
         "tags": [
           "localize"
         ],
         "summary": "To Cubemap",
         "description": "Convert a spherical reconstruction to a 6-face cubemap rig.\n\nRequires the dataset to be marked ``is_spherical=true``. The\nworker re-projects each panorama into 6 faces, builds a cubemap\nrig + frames, and seals a fresh snapshot whose ``rigs.json`` and\n``frames.json`` carry the cubemap layout.",
-        "operationId": "to_cubemap_v1_reconstructions__recon_id__to_cubemap_post",
+        "operationId": "to_cubemap_v1_reconstructions__recon_id__toCubemap_post",
         "parameters": [
           {
             "name": "recon_id",
@@ -19774,7 +19775,7 @@
           "blob_sha"
         ],
         "title": "ArchiveImportRequest",
-        "description": "``POST /v1/projects/{pid}/datasets:from_archive`` \u2014 register a\ndataset from an already-uploaded image zip.\n\nUpload the zip through the normal chunked-upload protocol first\n(``POST /v1/uploads`` \u2192 ``PATCH`` \u2192 ``:finalize`` \u2192 ``blob_sha``);\nthis route only enqueues the unpack. The worker decodes the archive\nstraight from the blob store (in memory for the ephemeral backend),\nextracts the image entries, and registers a derived dataset \u2014 one\ncall instead of N per-image registrations."
+        "description": "``POST /v1/projects/{pid}/datasets:fromArchive`` \u2014 register a\ndataset from an already-uploaded image zip.\n\nUpload the zip through the normal chunked-upload protocol first\n(``POST /v1/uploads`` \u2192 ``PATCH`` \u2192 ``:finalize`` \u2192 ``blob_sha``);\nthis route only enqueues the unpack. The worker decodes the archive\nstraight from the blob store (in memory for the ephemeral backend),\nextracts the image entries, and registers a derived dataset \u2014 one\ncall instead of N per-image registrations."
       },
       "ArtifactConversionOut": {
         "properties": {
@@ -24165,7 +24166,7 @@
           "archive_path"
         ],
         "title": "KaptureImportRequest",
-        "description": "``POST /v1/projects/{pid}/datasets:import_kapture``."
+        "description": "``POST /v1/projects/{pid}/datasets:importKapture``."
       },
       "LicenseInfo": {
         "properties": {
@@ -30258,7 +30259,7 @@
           "video_path"
         ],
         "title": "VideoFramesRequest",
-        "description": "``POST /v1/projects/{pid}/datasets:from_video`` \u2014 extract\nkeyframes from a worker-local video file."
+        "description": "``POST /v1/projects/{pid}/datasets:fromVideo`` \u2014 extract\nkeyframes from a worker-local video file."
       },
       "VocabTreeSpec": {
         "properties": {

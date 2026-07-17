@@ -1,4 +1,4 @@
-"""POST /v1/projects/{pid}/datasets:from_archive end-to-end.
+"""POST /v1/projects/{pid}/datasets:fromArchive end-to-end.
 
 Exercises the full one-call dataset-from-zip flow against the inline
 queue + in-memory blob store: build a zip, ride the chunked-upload
@@ -63,7 +63,7 @@ async def test_from_archive_registers_derived_dataset(client) -> None:
     )
 
     submit = await client.post(
-        f"/v1/projects/{pid}/datasets:from_archive",
+        f"/v1/projects/{pid}/datasets:fromArchive",
         json={"blob_sha": sha, "name": "south"},
     )
     assert submit.status_code == 202, submit.text
@@ -106,7 +106,7 @@ async def test_from_archive_honors_image_prefix(client) -> None:
     )
 
     submit = await client.post(
-        f"/v1/projects/{pid}/datasets:from_archive",
+        f"/v1/projects/{pid}/datasets:fromArchive",
         json={"blob_sha": sha, "image_prefix": "capture/images/"},
     )
     assert submit.status_code == 202, submit.text
@@ -122,7 +122,7 @@ async def test_from_archive_rejects_zip_with_no_images(client) -> None:
     pid = (await client.post("/v1/projects", json={"name": "arc3"})).json()["project_id"]
     sha = await _upload(client, _zip({"notes.txt": b"no images here"}))
 
-    submit = await client.post(f"/v1/projects/{pid}/datasets:from_archive", json={"blob_sha": sha})
+    submit = await client.post(f"/v1/projects/{pid}/datasets:fromArchive", json={"blob_sha": sha})
     assert submit.status_code == 202, submit.text
     detail = (await client.get(f"/v1/jobs/{submit.json()['job_id']}")).json()
     assert detail["tasks"][0]["status"] == "failed"
@@ -134,7 +134,7 @@ async def test_from_archive_rejects_non_zip_blob(client) -> None:
     pid = (await client.post("/v1/projects", json={"name": "arc4"})).json()["project_id"]
     sha = await _upload(client, b"this is plainly not a zip archive")
 
-    submit = await client.post(f"/v1/projects/{pid}/datasets:from_archive", json={"blob_sha": sha})
+    submit = await client.post(f"/v1/projects/{pid}/datasets:fromArchive", json={"blob_sha": sha})
     assert submit.status_code == 202, submit.text
     detail = (await client.get(f"/v1/jobs/{submit.json()['job_id']}")).json()
     assert detail["tasks"][0]["status"] == "failed"
@@ -144,7 +144,7 @@ async def test_from_archive_rejects_non_zip_blob(client) -> None:
 async def test_from_archive_rejects_bad_blob_sha_shape(client) -> None:
     pid = (await client.post("/v1/projects", json={"name": "arc5"})).json()["project_id"]
     resp = await client.post(
-        f"/v1/projects/{pid}/datasets:from_archive", json={"blob_sha": "tooshort"}
+        f"/v1/projects/{pid}/datasets:fromArchive", json={"blob_sha": "tooshort"}
     )
     assert resp.status_code == 422
 
@@ -152,7 +152,7 @@ async def test_from_archive_rejects_bad_blob_sha_shape(client) -> None:
 async def test_from_archive_rejects_unknown_field(client) -> None:
     pid = (await client.post("/v1/projects", json={"name": "arc6"})).json()["project_id"]
     resp = await client.post(
-        f"/v1/projects/{pid}/datasets:from_archive",
+        f"/v1/projects/{pid}/datasets:fromArchive",
         json={"blob_sha": "a" * 64, "bogus": 1},
     )
     assert resp.status_code == 422
@@ -163,7 +163,7 @@ async def test_from_archive_unknown_project_is_404_not_orphan_job(client) -> Non
     create an orphan Job under a non-existent project."""
     sha = await _upload(client, _zip({"images/a.jpg": _jpeg((1, 2, 3))}))
     resp = await client.post(
-        "/v1/projects/01HGHOST00000000000000000A/datasets:from_archive",
+        "/v1/projects/01HGHOST00000000000000000A/datasets:fromArchive",
         json={"blob_sha": sha},
     )
     assert resp.status_code == 404, resp.text

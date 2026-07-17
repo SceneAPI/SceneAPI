@@ -84,7 +84,7 @@ async def test_core_request_bodies_reject_unknown_fields(client) -> None:
     assert bad_batch.json()["errors"][0]["type"] == "extra_forbidden"
 
     bad_projection = await client.post(
-        f"/v1/datasets/{did}:project_images",
+        f"/v1/datasets/{did}:projectImages",
         json={"operation": "equirectangular_to_cubemap", "typo": True},
     )
     assert bad_projection.status_code == 422

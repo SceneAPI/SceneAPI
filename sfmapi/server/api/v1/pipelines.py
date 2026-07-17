@@ -97,6 +97,7 @@ _RECIPE_TO_KIND = {
     "/{recipe}",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=JobAcceptedResponse,
+    deprecated=True,
 )
 async def run_recipe(
     project_id: str,
@@ -106,6 +107,13 @@ async def run_recipe(
     session: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     """Run an end-to-end mapping recipe in one POST.
+
+    .. deprecated::
+        Prefer ``POST /v1/projects/{project_id}/pipelines:run`` — the
+        AIP-136 custom-verb spelling of the same submission surface.
+        This ``/{recipe}`` path segment form remains served for
+        existing clients but is marked deprecated in OpenAPI and will
+        be removed no earlier than the next pre-1.0 breaking window.
 
     Composes ``features -> matches -> verify -> map`` into a single
     job DAG keyed on ``recipe`` (one of ``incremental``

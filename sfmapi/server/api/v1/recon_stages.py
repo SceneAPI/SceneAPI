@@ -124,7 +124,12 @@ async def relocalize(
     tenant_id: str = Depends(current_tenant),
     session: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
-    """Register additional images into the existing reconstruction."""
+    """Register additional images into the existing reconstruction.
+
+    Not to be confused with ``POST /v1/reconstructions/{rid}/localize``:
+    ``:relocalize`` mutates the model by registering new images, while
+    ``/localize`` only queries the pose of a single image and leaves the
+    reconstruction untouched."""
     spec = body.model_dump(mode="json")
     job_id, _tasks = await sfm_stage_service.submit_relocalize(
         session, tenant_id=tenant_id, recon_id=recon_id, spec=spec

@@ -37,7 +37,7 @@ def _to_out(p: Project) -> ProjectOut:
 
 
 class VideoFramesRequest(BaseModel):
-    """``POST /v1/projects/{pid}/datasets:from_video`` — extract
+    """``POST /v1/projects/{pid}/datasets:fromVideo`` — extract
     keyframes from a worker-local video file."""
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -48,7 +48,7 @@ class VideoFramesRequest(BaseModel):
 
 
 class KaptureImportRequest(BaseModel):
-    """``POST /v1/projects/{pid}/datasets:import_kapture``."""
+    """``POST /v1/projects/{pid}/datasets:importKapture``."""
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
@@ -56,7 +56,7 @@ class KaptureImportRequest(BaseModel):
 
 
 class ArchiveImportRequest(BaseModel):
-    """``POST /v1/projects/{pid}/datasets:from_archive`` — register a
+    """``POST /v1/projects/{pid}/datasets:fromArchive`` — register a
     dataset from an already-uploaded image zip.
 
     Upload the zip through the normal chunked-upload protocol first
@@ -188,7 +188,7 @@ async def delete(
 
 
 @router.post(
-    "/{project_id}/datasets:from_video",
+    "/{project_id}/datasets:fromVideo",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=JobAcceptedResponse,
 )
@@ -213,7 +213,7 @@ async def from_video(
 
 
 @router.post(
-    "/{project_id}/datasets:import_kapture",
+    "/{project_id}/datasets:importKapture",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=JobAcceptedResponse,
 )
@@ -237,7 +237,7 @@ async def import_kapture(
 
 
 @router.post(
-    "/{project_id}/datasets:from_archive",
+    "/{project_id}/datasets:fromArchive",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=JobAcceptedResponse,
 )

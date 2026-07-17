@@ -40,7 +40,7 @@ async def test_merge_request_rejects_unknown_field(client) -> None:
 
 async def test_video_frames_request_rejects_unknown_field(client) -> None:
     resp = await client.post(
-        f"/v1/projects/{_FAKE_ID}/datasets:from_video",
+        f"/v1/projects/{_FAKE_ID}/datasets:fromVideo",
         json={"video_path": "/tmp/v.mp4", "frames_per_sec": 2},
     )
     assert resp.status_code == 422, resp.text
@@ -48,7 +48,7 @@ async def test_video_frames_request_rejects_unknown_field(client) -> None:
 
 async def test_kapture_import_request_rejects_unknown_field(client) -> None:
     resp = await client.post(
-        f"/v1/projects/{_FAKE_ID}/datasets:import_kapture",
+        f"/v1/projects/{_FAKE_ID}/datasets:importKapture",
         json={"archive_path": "/tmp/k", "extra": True},
     )
     assert resp.status_code == 422, resp.text

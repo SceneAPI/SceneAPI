@@ -80,7 +80,7 @@ registry deterministic.
 | `SFMAPI_SNAPSHOT_KEEP_LAST` | 3 | GC keeps last N + final |
 | `SFMAPI_UPLOAD_CHUNK_MAX_BYTES` | 8 MiB | Max single PATCH chunk |
 | `SFMAPI_UPLOAD_EXPIRY_HOURS` | 24 | Open uploads GC'd after this |
-| `SFMAPI_ARCHIVE_IMPORT_MAX_BYTES` | 5 GiB | `datasets:from_archive` uncompressed image cap (0 disables; checked from the zip central directory before decompression) |
+| `SFMAPI_ARCHIVE_IMPORT_MAX_BYTES` | 5 GiB | `datasets:fromArchive` uncompressed image cap (0 disables; checked from the zip central directory before decompression) |
 | `SFMAPI_BACKEND` | unset | Registered backend name to select at startup |
 | `SFMAPI_AUTO_LOAD_BACKEND_PLUGINS` | true | Load installed backend plugin entry points during API startup (set false for explicit-allowlist deployments) |
 | `SFMAPI_PLUGIN_STATE` | `~/.config/sfmapi/plugins.json` | Local plugin enablement and routing-profile state file |

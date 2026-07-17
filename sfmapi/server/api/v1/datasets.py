@@ -193,13 +193,13 @@ async def patch(
 # ---- spherical → cubemap (image-level) ---------------------------------
 
 # Mounted at the top-level prefix because the action target is
-# `/v1/datasets/{did}:render_cubemap` (no project segment) — siblings
+# `/v1/datasets/{did}:renderCubemap` (no project segment) — siblings
 # of the existing `/v1/datasets/{did}/...` reads in images.py.
 spherical_router = APIRouter(prefix="/datasets/{dataset_id}", tags=["datasets"])
 
 
 @spherical_router.post(
-    ":render_cubemap",
+    ":renderCubemap",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=JobAcceptedResponse,
 )
@@ -235,7 +235,7 @@ async def render_cubemap(
 
 
 @spherical_router.post(
-    ":project_images",
+    ":projectImages",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=JobAcceptedResponse,
 )
@@ -258,7 +258,7 @@ async def project_images(
 
 
 @spherical_router.post(
-    ":render_equirectangular",
+    ":renderEquirectangular",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=JobAcceptedResponse,
 )
@@ -284,7 +284,7 @@ async def render_equirectangular(
 
 
 @spherical_router.post(
-    ":render_perspective",
+    ":renderPerspective",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=JobAcceptedResponse,
 )

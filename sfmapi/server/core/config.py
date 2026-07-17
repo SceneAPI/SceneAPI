@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     # disables the cap.
     oneshot_max_request_bytes: int = 50 * 1024 * 1024
 
-    # ``POST /v1/projects/{pid}/datasets:from_archive`` decodes an
+    # ``POST /v1/projects/{pid}/datasets:fromArchive`` decodes an
     # uploaded image zip on the worker. The cap bounds the *uncompressed*
     # total (summed from the zip central directory before any data is
     # decompressed, so a zip bomb is rejected up front). Generous by
