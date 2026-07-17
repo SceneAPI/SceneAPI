@@ -261,7 +261,12 @@ These are owner calls. Each gets a decision-register row once made.
   gsplat keeps its genuinely different CUDA trainer as a module.
   Removes ~3,400 duplicated lines and the pprint-vs-handwritten
   manifest drift. (L)
-- [ ] 4.4 **COLMAP 3→1** (per D3): one repo, three providers via the
+- [x] 4.4 **COLMAP 3→1** (per D3) *(done: sfmapi_colmap_unified@9674385
+  — one repo, 3 entry points / 4 provider factories, forked
+  pycolmap_backend reconciled (4 deltas, all rejected with rationale in
+  its README), single submodule gitlink, 282 tests green; pybind demo
+  extension stays in the old repo by design; old repos left for owner
+  to archive)*: one repo, three providers via the
   documented `Plugin.register_hook` multi-backend pattern; unify the
   two forked `pycolmap_backend.py` (1,032 drifted lines — diff and
   reconcile deliberately); share `model.py`/`provisioning.py`/
@@ -349,8 +354,9 @@ These are owner calls. Each gets a decision-register row once made.
 
 - [x] 7.1 (D1) Implement kernel fencing *(done: SFMAPI_EXPOSE_PREVIEW_APIS,
   default contract 136→123 ops, spec §1.3/§6.8.2/§6.9.3/§6.11/§10
-  preview labels, guards rescoped, snapshot regenerated; SDK regen is
-  the documented follow-up)*: conformance-level tags in
+  preview labels, guards rescoped, snapshot regenerated; SDK regen done
+  post-fold: sfmapi-sdk@e125f12, 123 endpoint methods, snapshot
+  961→475 KB)*: conformance-level tags in
   the spec + settings-driven `include_in_schema` for preview routers;
   default contract ≈ 100 ops; conformance tests assert the split. (M)
 - [ ] 7.2 Retire one of operations-vs-processors: keep the Processor
