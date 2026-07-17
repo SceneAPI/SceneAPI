@@ -16,4 +16,4 @@ via :func:`sfmapi.runtime.register_backend`. A no-op
 and the ``SFMAPI_EPHEMERAL=true`` demo runtime.
 """
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"

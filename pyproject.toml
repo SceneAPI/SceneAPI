@@ -1,6 +1,6 @@
 [project]
 name = "sfmapi"
-version = "0.0.1"
+version = "0.0.2"
 description = "Generic HTTP/REST API and wire contract for Structure-from-Motion tasks."
 readme = "README.md"
 license = { text = "Apache-2.0" }

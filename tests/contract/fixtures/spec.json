@@ -2,7 +2,7 @@
   "openapi_url": "/openapi.json",
   "server": {
     "name": "sfmapi-reference",
-    "version": "0.0.1"
+    "version": "0.0.2"
   },
   "spec": "sfmapi",
   "spec_url": "https://sfmapi.github.io/spec",

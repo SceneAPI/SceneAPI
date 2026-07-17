@@ -15,6 +15,51 @@ below and a new `Unreleased` block is started.
 
 _Drafted by release-drafter from merged PRs since the last tag._
 
+## [0.0.2] - 2026-07-17
+
+The lean-audit remediation release (see
+`docs/guides/lean_audit_2026.md` for the full ledger and
+`docs/guides/decisions.md` L37-L44 for the decisions).
+
+### Added
+- Preview conformance tier: admin routing, dataflow/processor
+  discovery, and similarity are fenced from the default OpenAPI
+  contract (136 -> 123 ops) behind `SFMAPI_EXPOSE_PREVIEW_APIS`;
+  routes still serve.
+- Opt-in retention GC (`SFMAPI_RETENTION_DAYS`) for terminal job
+  records; composite task index for lease/sweep predicates.
+- `sfmapi.plugin_service`: the supported container-plugin kit
+  (protocol 1.1), adopted by the radiance provider family.
+- `sfmapi.contracts.colmap_db`: the COLMAP schema contract moved to
+  the public namespace (deprecation shim at the old path).
+- Golden-bytes parity fixture + tests for `application/x-sfm-points-v1`
+  across the server and generated SDK parsers.
+
+### Changed
+- **Breaking (pre-1.0):** the 8 snake_case custom verbs renamed to
+  lowerCamel per AIP-136 (`:fromArchive`, `:fromVideo`,
+  `:importKapture`, `:projectImages`, `:renderCubemap`,
+  `:renderEquirectangular`, `:renderPerspective`, `:toCubemap`).
+- **Breaking (internal namespace):** the `app` package moved to
+  `sfmapi.server`; a deprecation shim keeps `app.*` imports working
+  until 0.1.0.
+- `POST /v1/projects/{id}/pipelines/{recipe}` is deprecated; use
+  `pipelines:run`.
+- Oneshot endpoints run engine work off the event loop; the web
+  import graph no longer pulls numpy at startup.
+- Dependency readiness single-sourced ({succeeded, skipped}); janitor
+  sweeps are SQL-scoped and per-phase fault-isolated.
+
+### Deprecated
+- The hand-rolled Python SDK (`sfmapi_client`) is deprecated as of
+  this release (L12); removal at 0.1.0. The `app.*` import namespace
+  is deprecated; removal at 0.1.0.
+
+### Removed
+- Depth/normal binary parsers from the supported generated SDKs (the
+  formats were never on the wire); reintroduction requires a server
+  emitter and spec entry.
+
 ### Added
 - Added `GET /v1/jobs/{id}/progress`, a compact polling snapshot for
   job status, task counts, latest progress event, active task, and
