@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse, Response
 from fastapi.routing import APIRoute
+from sceneapi_io.errors import SceneIoError
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from sceneapi.server import __version__
@@ -273,6 +274,39 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=exc.status_code,
             content=exc.as_problem(instance=request.url.path),
+            media_type="application/problem+json",
+        )
+
+    @app.exception_handler(SceneIoError)
+    async def sceneapi_io_error_handler(request: Request, exc: SceneIoError) -> JSONResponse:
+        """Map errors from the ``sceneapi_io`` I/O contract to problem+json.
+
+        ``StorageError`` (and any other ``SfmApiError`` that also
+        subclasses ``SceneIoError``) precedes ``SfmApiError`` in its MRO,
+        so Starlette resolves this handler first — defer to
+        ``as_problem()`` so a ``StorageError`` renders byte-identically to
+        the plain ``SfmApiError`` handler. A *bare* ``SceneIoError`` raised
+        by a relocated codec (``points_binary`` / ``mapping_input`` /
+        ``blobstore`` sha validation) carries no HTTP metadata of its own;
+        map it to 507 Insufficient Storage — matching the historic
+        ``StorageError`` behaviour — instead of letting it fall through to
+        a generic 500.
+        """
+        if isinstance(exc, SfmApiError):
+            return JSONResponse(
+                status_code=exc.status_code,
+                content=exc.as_problem(instance=request.url.path),
+                media_type="application/problem+json",
+            )
+        return JSONResponse(
+            status_code=507,
+            content={
+                "type": "https://sfmapi.github.io/errors/storage",
+                "title": "Storage error",
+                "status": 507,
+                "detail": str(exc) or "Storage error",
+                "instance": request.url.path,
+            },
             media_type="application/problem+json",
         )
 

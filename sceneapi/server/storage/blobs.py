@@ -28,49 +28,26 @@ import stat
 import tempfile
 from collections.abc import AsyncIterator, Iterable
 from pathlib import Path
-from typing import Any, BinaryIO, Protocol, runtime_checkable
+from typing import Any, BinaryIO
+
+from sceneapi_io.blobstore import BlobStore
+from sceneapi_io.blobstore import validate_sha as _validate_sha
 
 from sceneapi.server.core.config import Settings, get_settings
 from sceneapi.server.core.errors import StorageError
 
-
-@runtime_checkable
-class BlobStore(Protocol):
-    """Sha256-keyed binary store. All methods are sha-addressed; the
-    backend chooses where bytes physically live."""
-
-    def exists(self, sha: str) -> bool: ...
-
-    def put_stream(self, reader: BinaryIO, *, chunk_size: int = ...) -> tuple[str, int]: ...
-
-    def put_bytes(self, data: bytes) -> tuple[str, int]: ...
-
-    def open(self, sha: str) -> BinaryIO: ...
-
-    def aiter_chunks(self, sha: str, *, chunk_size: int = ...) -> AsyncIterator[bytes]: ...
-
-    def delete(self, sha: str) -> None: ...
-
-    def local_path(self, sha: str) -> Path:
-        """Return a local filesystem path for the blob's bytes.
-
-        For filesystem backends this is the canonical storage path.
-        For remote backends (S3) the bytes are downloaded into the
-        local cache on first access; subsequent calls return the
-        cached path. Callers that need to hand a real path to a native
-        library (pycolmap, Pillow, OpenCV) should use this.
-        """
-        ...
+# `BlobStore` (the sha256-keyed store Protocol) and `_validate_sha` (the
+# content-address format check, re-exported here under its historic private
+# name) now live in the `sceneapi_io.blobstore` contract package. The
+# concrete stores below implement `BlobStore`; `validate_sha` raises
+# `SceneIoError`, which core's `StorageError` subclasses — so a malformed
+# sha still surfaces as 507 through the `SceneIoError` handler in
+# `sceneapi.server.main`.
 
 
 # --------------------------------------------------------------------
 #  Filesystem backend
 # --------------------------------------------------------------------
-
-
-def _validate_sha(sha: str) -> None:
-    if len(sha) != 64 or not all(c in "0123456789abcdef" for c in sha):
-        raise StorageError(f"Invalid sha: {sha!r}")
 
 
 class FSBlobStore:

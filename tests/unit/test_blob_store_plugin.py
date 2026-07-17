@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from sceneapi_io.errors import SceneIoError
 
 from sceneapi.server.core.config import Settings
 from sceneapi.server.core.errors import StorageError
@@ -177,7 +178,10 @@ def test_s3_put_idempotent_when_already_in_bucket(tmp_path: Path) -> None:
 
 def test_invalid_sha_rejected(tmp_path: Path) -> None:
     bs = FSBlobStore(_settings(tmp_path))
-    with pytest.raises(StorageError, match="Invalid sha"):
+    # `_validate_sha` now lives in `sceneapi_io.blobstore` and raises the
+    # contract-level `SceneIoError` (which `StorageError` subclasses, and
+    # which still maps to 507 via the core handler).
+    with pytest.raises(SceneIoError, match="Invalid sha"):
         bs.path_for("not-a-sha")
 
 

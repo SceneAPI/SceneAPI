@@ -9,6 +9,7 @@ classifiers = [
 ]
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "sceneapi-io",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "pydantic>=2.9",
@@ -75,6 +76,13 @@ build-backend = "hatchling.build"
 # `sfmapi` is the deprecated one-release compatibility shim over
 # `sceneapi` (removed in 0.2.0).
 packages = ["sceneapi", "sfm_hub", "sfmapi"]
+
+# The I/O contract (wire codecs, storage/source protocols, schema
+# contracts) lives in the sibling `sceneapi-io` package; sceneapi
+# re-exports it from its historic module paths and ships the concrete
+# backends that implement the protocols.
+[tool.uv.sources]
+sceneapi-io = { path = "../SceneIO", editable = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

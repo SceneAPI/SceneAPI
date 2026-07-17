@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from sceneapi_io.errors import SceneIoError
 
-from sceneapi.server.core.errors import StorageError
 from sceneapi.server.storage.mapping_input import (
     gc_checkpoints,
     latest_checkpoint,
@@ -27,7 +27,9 @@ def test_round_trip(tmp_path: Path) -> None:
 
 def test_duplicate_seq_rejected(tmp_path: Path) -> None:
     write_checkpoint(tmp_path, seq=1, payload=b"x")
-    with pytest.raises(StorageError, match="already exists"):
+    # `write_checkpoint` now lives in `sceneapi_io.mapping_input` and raises
+    # the contract-level `SceneIoError` (which `StorageError` subclasses).
+    with pytest.raises(SceneIoError, match="already exists"):
         write_checkpoint(tmp_path, seq=1, payload=b"y")
 
 
