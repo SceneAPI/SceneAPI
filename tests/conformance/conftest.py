@@ -52,7 +52,7 @@ async def conf_client() -> AsyncIterator[AsyncClient]:
         return
     # In-process fallback. Reuse the same db_setup infra as the rest
     # of the test suite (pulled in via tests/conftest.py autouse).
-    from app.main import create_app
+    from sfmapi.server.main import create_app
     from tests.conftest import db_setup as _db_setup  # noqa: F401  (fixture token)
 
     app = create_app()
@@ -73,9 +73,9 @@ async def _db_if_in_process() -> AsyncIterator[None]:
     # Late import + delegate to the existing project-wide db_setup
     # so we get schema creation per-test exactly as the reference
     # tests do.
-    from app.db import models  # noqa: F401
-    from app.db.base import Base
-    from app.db.session import get_engine
+    from sfmapi.server.db import models  # noqa: F401
+    from sfmapi.server.db.base import Base
+    from sfmapi.server.db.session import get_engine
 
     engine = get_engine()
     async with engine.begin() as conn:

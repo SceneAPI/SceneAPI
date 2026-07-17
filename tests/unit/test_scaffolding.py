@@ -1,5 +1,5 @@
 """Tests for the ``sfmapi scaffold-plugin`` CLI subcommand and the
-``app.scaffolding`` module that powers it.
+``sfmapi.server.scaffolding`` module that powers it.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from app.scaffolding import (
+from sfmapi.server.scaffolding import (
     ScaffoldedFile,
     _to_class_name,
     scaffold_plugin,
@@ -144,7 +144,7 @@ def test_scaffold_rejects_bad_plugin_id(tmp_path: Path) -> None:
 
 
 def test_cli_scaffold_plugin_creates_files(tmp_path: Path) -> None:
-    """End-to-end sanity: invoke `python -m app.cli scaffold-plugin <id>`
+    """End-to-end sanity: invoke `python -m sfmapi.server.cli scaffold-plugin <id>`
     and verify it produces the expected tree. Catches argparse wiring,
     path-resolution, and import bugs the unit-level test would miss.
     """
@@ -152,7 +152,7 @@ def test_cli_scaffold_plugin_creates_files(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "app.cli",
+            "sfmapi.server.cli",
             "scaffold-plugin",
             "clitest",
             "--output-dir",
@@ -178,7 +178,7 @@ def test_cli_scaffold_plugin_creates_files(tmp_path: Path) -> None:
 
 
 def test_validate_contract_name_accepts_and_rejects() -> None:
-    from app.scaffolding import validate_contract_name
+    from sfmapi.server.scaffolding import validate_contract_name
 
     validate_contract_name("colmap_db")
     validate_contract_name("a1")
@@ -199,7 +199,7 @@ def _load_module(path: Path, name: str):
 
 
 def test_scaffold_contract_writes_module_and_test(tmp_path: Path) -> None:
-    from app.scaffolding import scaffold_contract
+    from sfmapi.server.scaffolding import scaffold_contract
 
     core = tmp_path / "core"
     tests = tmp_path / "tests"
@@ -213,7 +213,7 @@ def test_scaffold_contract_writes_module_and_test(tmp_path: Path) -> None:
 
 def test_scaffolded_contract_module_satisfies_the_protocol(tmp_path: Path) -> None:
 
-    from app.scaffolding import scaffold_contract
+    from sfmapi.server.scaffolding import scaffold_contract
 
     scaffold_contract("demo_std", core_dir=tmp_path, tests_dir=tmp_path)
     mod = _load_module(tmp_path / "demo_std.py", "demo_std")
@@ -226,7 +226,7 @@ def test_scaffolded_contract_module_satisfies_the_protocol(tmp_path: Path) -> No
 
 
 def test_scaffolded_contract_test_is_valid_python(tmp_path: Path) -> None:
-    from app.scaffolding import scaffold_contract
+    from sfmapi.server.scaffolding import scaffold_contract
 
     scaffold_contract("demo_std", core_dir=tmp_path, tests_dir=tmp_path)
     src = (tmp_path / "test_demo_std_contract.py").read_text(encoding="utf-8")
@@ -234,7 +234,7 @@ def test_scaffolded_contract_test_is_valid_python(tmp_path: Path) -> None:
 
 
 def test_scaffold_contract_overwrite_semantics(tmp_path: Path) -> None:
-    from app.scaffolding import scaffold_contract
+    from sfmapi.server.scaffolding import scaffold_contract
 
     scaffold_contract("demo_std", core_dir=tmp_path, tests_dir=tmp_path)
     with pytest.raises(FileExistsError, match="refusing to overwrite"):

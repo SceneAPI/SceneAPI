@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from app.core.config import Settings
-from app.orchestrator.queue import (
+from sfmapi.server.core.config import Settings
+from sfmapi.server.orchestrator.queue import (
     ArqQueue,
     InlineQueue,
     Queue,
@@ -62,7 +62,7 @@ def test_inline_queue_invokes_run_task(monkeypatch: pytest.MonkeyPatch) -> None:
         seen.append(task_id)
         return {"status": "fake"}
 
-    import app.workers.runner as runner_mod
+    import sfmapi.server.workers.runner as runner_mod
 
     monkeypatch.setattr(runner_mod, "run_task", fake_run_task)
     q = InlineQueue(_settings())

@@ -28,7 +28,7 @@ os.environ.setdefault("SFMAPI_EPHEMERAL", "true")
 
 from httpx import ASGITransport, AsyncClient
 
-from app.main import create_app
+from sfmapi.server.main import create_app
 
 
 def heading(title: str) -> None:
@@ -39,7 +39,7 @@ async def main() -> None:
     app = create_app()
     async with app.router.lifespan_context(app):
         # ---- Layer 1: the in-process registry sees both plugins.
-        from app.adapters.registry import list_backend_providers, list_backends
+        from sfmapi.server.adapters.registry import list_backend_providers, list_backends
 
         heading("Layer 1 — in-process registry")
         backends = list_backends()
@@ -50,7 +50,7 @@ async def main() -> None:
         assert "realityscan_cli" in providers, "realityscan_cli provider not registered"
 
         # ---- Layer 2: get_backend(provider=...) routes to distinct backends.
-        from app.adapters.registry import get_backend
+        from sfmapi.server.adapters.registry import get_backend
 
         heading("Layer 2 — per-provider resolution")
         c = get_backend(provider="colmap_cli")

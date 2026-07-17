@@ -1,12 +1,12 @@
-"""``sfmapi.plugin_service`` -- the public facade over ``app.plugin_server``."""
+"""``sfmapi.plugin_service`` -- the public facade over ``sfmapi.server.plugin_server``."""
 
 from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
 
-import app.plugin_server as kit
 import sfmapi.plugin_service as facade
+import sfmapi.server.plugin_server as kit
 from sfmapi.plugin_service import (
     PROTOCOL,
     PROTOCOL_VERSION,

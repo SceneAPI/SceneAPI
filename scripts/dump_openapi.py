@@ -9,7 +9,7 @@ Usage:
     uv run python scripts/dump_openapi.py [--out PATH] [--format json|yaml]
 
 The script is dialect-neutral: it does not need a database connection
-because importing `app.main` does not touch the engine until lifespan
+because importing `sfmapi.server.main` does not touch the engine until lifespan
 runs (and `app.openapi()` doesn't trigger lifespan).
 """
 
@@ -44,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     # Late import: this module is part of the same process as the app.
-    from app.main import create_app
+    from sfmapi.server.main import create_app
 
     app = create_app()
     spec = app.openapi()

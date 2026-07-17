@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import TypeAdapter
 
-from app.schemas.pipeline_spec import (
+from sfmapi.server.schemas.pipeline_spec import (
     GlobalSpec,
     HierarchicalSpec,
     IncrementalSpec,

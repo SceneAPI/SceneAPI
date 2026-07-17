@@ -1,0 +1,31 @@
+"""Relocalize images into an existing reconstruction."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from sfmapi.server.adapters.backend import require_backend_method
+from sfmapi.server.db.models import Task
+from sfmapi.server.workers._task_io import read_state, stage_output_dir
+from sfmapi.server.workers.backend_resolver import backend_for_stage
+from sfmapi.server.workers.tasks._registry import task_handler
+
+
+@task_handler("relocalize")
+def run(task: Task) -> dict:
+    inputs, spec = read_state(task)
+    backend = backend_for_stage(spec)
+    relocalize = require_backend_method(
+        backend,
+        "relocalize",
+        capability="relocalize.images",
+    )
+    return relocalize(
+        model_path=Path(inputs["model_path"]),
+        database_path=Path(inputs["database_path"]),
+        image_root=Path(inputs["image_root"]),
+        output_path=stage_output_dir(
+            root=inputs["reconstruction_root"], task=task, name="relocalize"
+        ),
+        image_ids=spec.get("image_ids") or [],
+    )

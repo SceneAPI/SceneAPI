@@ -9,18 +9,18 @@ from typing import Any
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.adapters import backend_artifacts
-from app.adapters.registry import register_backend
-from app.adapters.stub_backend import StubBackend
-from app.api.v1.artifacts import artifact_out
-from app.core import artifacts as artifact_vocab
-from app.core.capabilities import detect_capabilities, reset_capabilities_cache
-from app.core.config import reset_settings_for_tests
-from app.core.errors import ValidationError
-from app.core.hashing import content_address
-from app.core.ids import new_id
-from app.db.models import Job, Project, StageArtifact, Task, utcnow
-from app.services import artifact_service
+from sfmapi.server.adapters import backend_artifacts
+from sfmapi.server.adapters.registry import register_backend
+from sfmapi.server.adapters.stub_backend import StubBackend
+from sfmapi.server.api.v1.artifacts import artifact_out
+from sfmapi.server.core import artifacts as artifact_vocab
+from sfmapi.server.core.capabilities import detect_capabilities, reset_capabilities_cache
+from sfmapi.server.core.config import reset_settings_for_tests
+from sfmapi.server.core.errors import ValidationError
+from sfmapi.server.core.hashing import content_address
+from sfmapi.server.core.ids import new_id
+from sfmapi.server.db.models import Job, Project, StageArtifact, Task, utcnow
+from sfmapi.server.services import artifact_service
 
 
 class ArtifactContractBackend(StubBackend):
@@ -83,7 +83,7 @@ def test_task_artifact_reserved_metadata_is_validated(
 
 
 def test_task_artifact_metadata_files_strip_local_paths() -> None:
-    from app.core.public_outputs import sanitize_public_outputs
+    from sfmapi.server.core.public_outputs import sanitize_public_outputs
 
     task = SimpleNamespace(kind="unit-test")
     normalized = artifact_service.normalize_task_outputs(
@@ -146,7 +146,7 @@ def test_task_artifact_metadata_files_strip_local_paths() -> None:
 
 
 def test_task_artifact_metadata_file_uris_strip_local_paths_without_descriptor_files() -> None:
-    from app.core.public_outputs import sanitize_public_outputs
+    from sfmapi.server.core.public_outputs import sanitize_public_outputs
 
     task = SimpleNamespace(kind="unit-test")
     normalized = artifact_service.normalize_task_outputs(
@@ -530,7 +530,7 @@ def test_artifact_out_sanitizes_dirty_stored_summary_and_producer() -> None:
 
 
 def test_public_outputs_omit_private_file_ref_uris() -> None:
-    from app.core.public_outputs import sanitize_public_outputs
+    from sfmapi.server.core.public_outputs import sanitize_public_outputs
 
     sanitized = sanitize_public_outputs(
         {
@@ -563,7 +563,7 @@ def test_public_outputs_omit_private_file_ref_uris() -> None:
 
 
 def test_public_outputs_preserve_safe_remote_artifact_uris_only() -> None:
-    from app.core.public_outputs import sanitize_public_outputs
+    from sfmapi.server.core.public_outputs import sanitize_public_outputs
 
     sanitized = sanitize_public_outputs(
         {
@@ -655,7 +655,10 @@ def test_public_outputs_preserve_safe_remote_artifact_uris_only() -> None:
 
 
 def test_public_artifact_uri_drops_sensitive_fragments() -> None:
-    from app.core.public_outputs import sanitize_public_artifact_uri, sanitize_public_outputs
+    from sfmapi.server.core.public_outputs import (
+        sanitize_public_artifact_uri,
+        sanitize_public_outputs,
+    )
 
     safe_uri = "https://artifacts.example/result.bin#sha256=abc123"
     assert sanitize_public_artifact_uri(safe_uri) == safe_uri
@@ -730,7 +733,7 @@ def test_public_artifact_uri_drops_sensitive_fragments() -> None:
 
 
 def test_generic_public_outputs_redact_signed_remote_uri_strings() -> None:
-    from app.core.public_outputs import sanitize_public_outputs
+    from sfmapi.server.core.public_outputs import sanitize_public_outputs
 
     sanitized = sanitize_public_outputs(
         {
@@ -752,7 +755,7 @@ def test_generic_public_outputs_redact_signed_remote_uri_strings() -> None:
 
 
 def test_generic_public_outputs_reject_double_encoded_signed_path_params() -> None:
-    from app.core.public_outputs import sanitize_public_outputs
+    from sfmapi.server.core.public_outputs import sanitize_public_outputs
 
     sanitized = sanitize_public_outputs(
         {
@@ -771,7 +774,10 @@ def test_generic_public_outputs_reject_double_encoded_signed_path_params() -> No
 
 
 def test_generic_public_outputs_redact_standalone_signed_parameters() -> None:
-    from app.core.public_outputs import sanitize_public_error_message, sanitize_public_outputs
+    from sfmapi.server.core.public_outputs import (
+        sanitize_public_error_message,
+        sanitize_public_outputs,
+    )
 
     sanitized = sanitize_public_outputs(
         {
@@ -797,7 +803,7 @@ def test_generic_public_outputs_redact_standalone_signed_parameters() -> None:
 
 
 def test_file_uri_parser_accepts_windows_drive_file_uri() -> None:
-    from app.services.artifact_conversion_service import _file_uri_to_path
+    from sfmapi.server.services.artifact_conversion_service import _file_uri_to_path
 
     assert (
         str(_file_uri_to_path("file:///C:/sfmapi/file.bin")).replace(
@@ -809,7 +815,7 @@ def test_file_uri_parser_accepts_windows_drive_file_uri() -> None:
 
 
 def test_public_error_message_redacts_urls_paths_and_secrets() -> None:
-    from app.core.public_outputs import sanitize_public_error_message
+    from sfmapi.server.core.public_outputs import sanitize_public_error_message
 
     message = (
         "provider failed at http://127.0.0.1:8080/execute with "
@@ -824,7 +830,7 @@ def test_public_error_message_redacts_urls_paths_and_secrets() -> None:
 
 
 def test_public_error_message_redacts_arbitrary_posix_paths_but_keeps_api_links() -> None:
-    from app.core.public_outputs import sanitize_public_error_message
+    from sfmapi.server.core.public_outputs import sanitize_public_error_message
 
     message = (
         "decode failed at /app/run/image.jpg, /usr/local/bin/tool, "
@@ -841,7 +847,7 @@ def test_public_error_message_redacts_arbitrary_posix_paths_but_keeps_api_links(
 
 
 def test_job_out_sanitizes_public_error_message() -> None:
-    from app.schemas.api.jobs import JobOut
+    from sfmapi.server.schemas.api.jobs import JobOut
 
     now = utcnow()
     job = JobOut.model_validate(
@@ -1060,7 +1066,7 @@ async def test_backend_artifact_contract_catalog_is_discoverable(
     register_backend("artifact_test", ArtifactContractBackend, providers=["artifact_test"])
     reset_settings_for_tests()
     reset_capabilities_cache()
-    from app.main import create_app
+    from sfmapi.server.main import create_app
 
     async with AsyncClient(
         transport=ASGITransport(app=create_app()),
@@ -1265,8 +1271,8 @@ async def test_artifact_conversion_plan_convert_and_validate_api(db_setup, monke
     register_backend("artifact_convert", ArtifactConversionBackend, providers=["artifact_convert"])
     reset_settings_for_tests()
     reset_capabilities_cache()
-    from app.db.session import get_session_factory
-    from app.main import create_app
+    from sfmapi.server.db.session import get_session_factory
+    from sfmapi.server.main import create_app
 
     factory = get_session_factory()
     async with factory() as session:
@@ -1362,8 +1368,8 @@ async def test_artifact_conversion_supports_multihop_paths(db_setup, monkeypatch
     )
     reset_settings_for_tests()
     reset_capabilities_cache()
-    from app.db.session import get_session_factory
-    from app.main import create_app
+    from sfmapi.server.db.session import get_session_factory
+    from sfmapi.server.main import create_app
 
     factory = get_session_factory()
     async with factory() as session:
@@ -1445,8 +1451,8 @@ async def test_artifact_import_and_integrity_validation_api(
     workspace = request.getfixturevalue("_isolate_workspace")
     assert isinstance(workspace, Path)
     reset_settings_for_tests()
-    from app.db.session import get_session_factory
-    from app.main import create_app
+    from sfmapi.server.db.session import get_session_factory
+    from sfmapi.server.main import create_app
 
     artifact_path = workspace / "pairs.json"
     content = (
@@ -1502,8 +1508,8 @@ async def test_artifact_validation_rejects_uppercase_sha_metadata(
     workspace = request.getfixturevalue("_isolate_workspace")
     assert isinstance(workspace, Path)
     reset_settings_for_tests()
-    from app.db.session import get_session_factory
-    from app.main import create_app
+    from sfmapi.server.db.session import get_session_factory
+    from sfmapi.server.main import create_app
 
     file_path = workspace / "artifact.json"
     file_bytes = b'{"format_id":"sfmapi.pairs.image_names.v1","schema_version":1,"pairs":[]}'
@@ -1600,8 +1606,8 @@ async def test_artifact_validation_rejects_uppercase_sha_metadata(
 def test_public_resource_specs_sanitize_backend_options() -> None:
     from datetime import datetime
 
-    from app.schemas.api.radiance import RadianceEvaluationOut, RadianceFieldOut
-    from app.schemas.api.reconstructions import ReconstructionOut
+    from sfmapi.server.schemas.api.radiance import RadianceEvaluationOut, RadianceFieldOut
+    from sfmapi.server.schemas.api.reconstructions import ReconstructionOut
 
     now = datetime.now(UTC)
     recon = ReconstructionOut(
@@ -1730,7 +1736,7 @@ def test_public_resource_specs_sanitize_backend_options() -> None:
 async def test_radiance_metrics_routes_sanitize_persisted_json(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.api.v1 import radiance as radiance_routes
+    from sfmapi.server.api.v1 import radiance as radiance_routes
 
     async def fake_get_radiance_evaluation(*_args: Any, **_kwargs: Any) -> SimpleNamespace:
         return SimpleNamespace(

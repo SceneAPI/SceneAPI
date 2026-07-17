@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-from app.core.hashing import canonical_json, content_address
-from app.core.ids import new_id
-from app.db.models import (
+from sfmapi.server.core.hashing import canonical_json, content_address
+from sfmapi.server.core.ids import new_id
+from sfmapi.server.db.models import (
     Dataset,
     ImageSource,
     Job,
@@ -21,8 +21,8 @@ from app.db.models import (
     SubModel,
     Task,
 )
-from app.orchestrator.dag import TaskNode
-from app.orchestrator.scheduler import submit_job_dag
+from sfmapi.server.orchestrator.dag import TaskNode
+from sfmapi.server.orchestrator.scheduler import submit_job_dag
 
 pytestmark = pytest.mark.integration
 
@@ -148,7 +148,7 @@ async def test_cache_short_circuit(session) -> None:
 
 
 async def test_map_task_persists_submodels(session, monkeypatch) -> None:
-    from app.workers import dispatcher
+    from sfmapi.server.workers import dispatcher
 
     p = Project(tenant_id="default", name="t-map-submodels")
     session.add(p)
@@ -284,7 +284,7 @@ async def test_map_task_persists_submodels(session, monkeypatch) -> None:
 
 
 async def test_failed_radiance_train_marks_evaluation_failed(session, monkeypatch) -> None:
-    from app.workers import dispatcher
+    from sfmapi.server.workers import dispatcher
 
     p = Project(tenant_id="default", name="t-radiance-train-failure")
     session.add(p)

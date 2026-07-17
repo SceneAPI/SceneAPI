@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from app.adapters.backend import (
+from sfmapi.server.adapters.backend import (
     ArtifactConversionBackend,
     Backend,
     BackendIdentity,
@@ -31,7 +31,7 @@ from app.adapters.backend import (
     has_backend_method,
     require_backend_method,
 )
-from app.adapters.backend_actions import (
+from sfmapi.server.adapters.backend_actions import (
     BackendActionProvider,
     assert_backend_action_contract,
     backend_action_contract_violations,
@@ -41,7 +41,7 @@ from app.adapters.backend_actions import (
     run_backend_action,
     validate_backend_action,
 )
-from app.adapters.backend_artifacts import (
+from sfmapi.server.adapters.backend_artifacts import (
     BackendArtifactContractProvider,
     assert_backend_artifact_contract,
     backend_artifact_contract_violations,
@@ -49,7 +49,7 @@ from app.adapters.backend_artifacts import (
     has_backend_artifact_contracts,
     list_backend_artifact_contracts,
 )
-from app.adapters.backend_config import (
+from sfmapi.server.adapters.backend_config import (
     COLMAP_STAGE_CONFIGS,
     BackendConfigSchemaProvider,
     assert_backend_config_contract,
@@ -59,18 +59,18 @@ from app.adapters.backend_config import (
     list_backend_config_schemas,
     validate_backend_options,
 )
-from app.adapters.backend_contract import (
+from sfmapi.server.adapters.backend_contract import (
     assert_backend_contract,
     backend_capability_contract_violations,
     backend_contract_violations,
 )
-from app.adapters.progress import (
+from sfmapi.server.adapters.progress import (
     LogLevel,
     NoopProgressReporter,
     accepts_progress,
     call_with_optional_progress,
 )
-from app.adapters.registry import (
+from sfmapi.server.adapters.registry import (
     get_backend,
     list_backend_providers,
     list_backends,
@@ -87,7 +87,7 @@ class Plugin:
     converged on this exact structure: a manifest dict, a backend name
     in the sfmapi registry, a zero-arg factory that builds the
     backend, and the ``register()`` method that wires the factory in
-    via :func:`app.adapters.registry.register_backend`. Plugin authors
+    via :func:`sfmapi.server.adapters.registry.register_backend`. Plugin authors
     typically instantiated their own dataclass per repo; importing
     :class:`Plugin` removes that boilerplate.
 

@@ -2,9 +2,9 @@
 
 import asyncio
 
-from app.core.capabilities import reset_capabilities_cache
-from app.core.config import Settings, reset_settings_for_tests
-from app.db.session import reset_engine_for_tests
+from sfmapi.server.core.capabilities import reset_capabilities_cache
+from sfmapi.server.core.config import Settings, reset_settings_for_tests
+from sfmapi.server.db.session import reset_engine_for_tests
 
 
 async def reset_runtime_for_tests(**settings_overrides: object) -> Settings:

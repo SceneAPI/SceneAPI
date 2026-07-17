@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.adapters.progress import (
+from sfmapi.server.adapters.progress import (
     NoopProgressReporter,
     accepts_progress,
     call_with_optional_progress,

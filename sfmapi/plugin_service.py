@@ -26,14 +26,14 @@ The returned app serves ``/healthz``, ``/version``, ``/capabilities``,
 ``/actions``, ``/datatypes``, ``/processors``, ``/pipelines``,
 ``/actions/{id}:validate``, and ``/execute`` at :data:`PROTOCOL_VERSION` --
 the contract ``sfm_hub.doctor`` and the sfmapi workers already speak.
-Everything here is a re-export of :mod:`app.plugin_server`; like
+Everything here is a re-export of :mod:`sfmapi.server.plugin_server`; like
 :mod:`sfmapi.runtime`, this module is the public ``sfmapi.*`` surface plugins
 should import.
 """
 
 from __future__ import annotations
 
-from app.plugin_server import (
+from sfmapi.server.plugin_server import (
     PROTOCOL,
     PROTOCOL_VERSION,
     ManifestBackend,

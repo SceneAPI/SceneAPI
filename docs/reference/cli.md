@@ -78,7 +78,7 @@ Scaffolds an **off-wire core contract** -- a repo-owned data standard
 parity-checked across the Python and C++ tiers. Generates two files:
 
 ```
-app/core/<name>.py                    # CONTRACT_NAME + contract_dict()
+sfmapi/server/core/<name>.py                    # CONTRACT_NAME + contract_dict()
 tests/unit/test_<name>_contract.py    # contract test skeleton
 ```
 
@@ -96,7 +96,7 @@ cross-repo action is registering the contract in
 contract is registered, generated into both tiers, and tested -- so a
 new off-wire contract can't be added Python-only.
 
-`name` must match `[a-z][a-z0-9_]*` -- it becomes the `app/core` module
+`name` must match `[a-z][a-z0-9_]*` -- it becomes the `sfmapi/server/core` module
 name, the test/artifact filenames, and the C++ accessor stem.
 
 ## Shell scripts

@@ -20,8 +20,8 @@ async def test_request_profiling_adds_server_timing_and_profile_dump(
     monkeypatch.setenv("SFMAPI_PROFILE_TOP_N", "5")
     monkeypatch.setenv("SFMAPI_PROFILE_DIR", str(profile_dir))
 
-    from app.core.config import reset_settings_for_tests
-    from app.main import create_app
+    from sfmapi.server.core.config import reset_settings_for_tests
+    from sfmapi.server.main import create_app
 
     reset_settings_for_tests()
     app = create_app()
@@ -45,8 +45,8 @@ async def test_request_profiling_does_not_dump_below_threshold(
     monkeypatch.setenv("SFMAPI_PROFILE_MIN_MS", "60000")
     monkeypatch.setenv("SFMAPI_PROFILE_DIR", str(profile_dir))
 
-    from app.core.config import reset_settings_for_tests
-    from app.main import create_app
+    from sfmapi.server.core.config import reset_settings_for_tests
+    from sfmapi.server.main import create_app
 
     reset_settings_for_tests()
     app = create_app()

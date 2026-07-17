@@ -8,15 +8,15 @@ from typing import TYPE_CHECKING, Any, Protocol
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-from app.adapters.backend import Backend
-from app.adapters.registry import (
+from sfm_hub.discovery import load_backend_entry_points
+from sfmapi.server.adapters.backend import Backend
+from sfmapi.server.adapters.registry import (
     get_backend,
     list_backend_providers,
     list_backends,
     register_backend,
     register_backend_provider,
 )
-from sfm_hub.discovery import load_backend_entry_points
 
 BackendFactory = Callable[[], Backend]
 
@@ -42,7 +42,7 @@ def load_installed_plugins() -> list[Any]:
 def create_app() -> FastAPI:
     """Create the FastAPI app without side effects at ``sfmapi.runtime`` import time."""
 
-    from app.main import create_app as _create_app
+    from sfmapi.server.main import create_app as _create_app
 
     return _create_app()
 

@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.config import reset_settings_for_tests
-from app.main import create_app
-from app.schemas.pipeline_spec import (
+from sfmapi.server.core.config import reset_settings_for_tests
+from sfmapi.server.main import create_app
+from sfmapi.server.schemas.pipeline_spec import (
     PROVIDER_SELECTOR_MAX_LENGTH,
     PROVIDER_SELECTOR_PATTERN,
 )

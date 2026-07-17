@@ -15,9 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.core.config import get_settings  # noqa: E402
-from app.db.base import Base  # noqa: E402
-from app.db import models  # noqa: F401, E402  -- ensure models register on metadata
+from sfmapi.server.core.config import get_settings  # noqa: E402
+from sfmapi.server.db import models  # noqa: F401, E402  -- ensure models register on metadata
+from sfmapi.server.db.base import Base  # noqa: E402
 
 config = context.config
 

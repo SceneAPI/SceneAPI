@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.core.projections import CUBEMAP_FACE_AXES, CUBEMAP_FACE_ORDER
-from app.schemas.api.projections import (
+from sfmapi.server.core.projections import CUBEMAP_FACE_AXES, CUBEMAP_FACE_ORDER
+from sfmapi.server.schemas.api.projections import (
     CubemapProjectionSpec,
     EquirectangularProjectionSpec,
     ProjectionJobRequest,

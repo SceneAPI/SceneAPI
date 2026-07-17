@@ -50,7 +50,7 @@ async def _project_with_image(client, name: str = "p-provider") -> tuple[str, st
 
 async def _read_task_spec(session_factory, task_id: str) -> dict[str, Any]:
     """Read the persisted ``task_state_json['spec']`` from the DB."""
-    from app.db.models import Task
+    from sfmapi.server.db.models import Task
 
     async with session_factory() as session:
         row = await session.execute(select(Task).where(Task.task_id == task_id))
@@ -68,9 +68,9 @@ async def test_features_post_persists_provider_into_task_spec(client) -> None:
     the 202 envelope AND on every ``TaskOut`` in ``GET /v1/jobs/{id}`` —
     otherwise a routing-resolved provider would be invisible to clients.
     """
-    from app.adapters.registry import register_backend
-    from app.adapters.stub_backend import StubBackend
-    from app.db.session import get_session_factory
+    from sfmapi.server.adapters.registry import register_backend
+    from sfmapi.server.adapters.stub_backend import StubBackend
+    from sfmapi.server.db.session import get_session_factory
 
     register_backend("features_provider_backend", StubBackend, providers=["stub.features"])
 
@@ -116,13 +116,13 @@ async def test_artifact_convert_persists_provider_into_task_spec(
     regression that drops ``provider`` between the request and the
     task row is caught.
     """
-    from app.adapters.registry import register_backend
-    from app.core.capabilities import reset_capabilities_cache
-    from app.core.config import reset_settings_for_tests
-    from app.core.hashing import content_address
-    from app.core.ids import new_id
-    from app.db.models import Job, Project, StageArtifact, Task
-    from app.db.session import get_session_factory
+    from sfmapi.server.adapters.registry import register_backend
+    from sfmapi.server.core.capabilities import reset_capabilities_cache
+    from sfmapi.server.core.config import reset_settings_for_tests
+    from sfmapi.server.core.hashing import content_address
+    from sfmapi.server.core.ids import new_id
+    from sfmapi.server.db.models import Job, Project, StageArtifact, Task
+    from sfmapi.server.db.session import get_session_factory
     from tests.unit.test_artifact_contracts import (
         ArtifactConversionBackend,
         StubBackend,

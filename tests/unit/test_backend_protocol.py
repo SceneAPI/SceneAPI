@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from app.adapters.backend import Backend, SfmBackend, require_backend_method
-from app.adapters.registry import (
+from sfmapi.server.adapters.backend import Backend, SfmBackend, require_backend_method
+from sfmapi.server.adapters.registry import (
     _PROVIDER_REGISTRY,
     _REGISTRY,
     get_backend,
@@ -22,8 +22,8 @@ from app.adapters.registry import (
     list_backends,
     register_backend,
 )
-from app.adapters.stub_backend import StubBackend
-from app.core.errors import CapabilityUnavailableError
+from sfmapi.server.adapters.stub_backend import StubBackend
+from sfmapi.server.core.errors import CapabilityUnavailableError
 
 pytestmark = pytest.mark.unit
 
@@ -157,7 +157,7 @@ def test_unsupported_capability_raises_501_shaped_error() -> None:
 def test_capabilities_endpoint_picks_up_swapped_backend() -> None:
     """Replacing the default-named backend in the registry changes the
     capability snapshot. Proves swap-is-one-import-change."""
-    from app.core.capabilities import detect_capabilities
+    from sfmapi.server.core.capabilities import detect_capabilities
 
     caps = detect_capabilities()
     assert caps.backend.name == "stub"

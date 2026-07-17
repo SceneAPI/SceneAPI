@@ -23,12 +23,12 @@ before treating `container_service` or plugin provisioning as production-ready.
   log, and artifact-collection specs.
 - [x] Add digest/image provenance, cache policy, and object-store specs.
 - [x] Add protocol compatibility rules for future `sfmapi-plugin-http-v2`
-  (`app.plugin_server.protocol_compatible` -- major-version based; rejects 2.x).
+  (`sfmapi.server.plugin_server.protocol_compatible` -- major-version based; rejects 2.x).
 
 ## Plugin Service Protocol
 
 - [x] Implement a reusable plugin service adapter that exposes one backend
-  object over HTTP (`app/plugin_server.py` `build_plugin_server`; tested in
+  object over HTTP (`sfmapi/server/plugin_server.py` `build_plugin_server`; tested in
   `tests/unit/test_plugin_server.py`).
 - [x] Implement `GET /healthz` returning service health.
 - [x] Implement `GET /version` returning `protocol`,
@@ -119,6 +119,6 @@ before treating `container_service` or plugin provisioning as production-ready.
 
 ```bash
 uv run pytest tests/unit/test_plugin_hub.py tests/unit/test_plugin_api.py tests/unit/test_plugin_cli.py -q
-uv run ruff check sfm_hub app/cli.py app/schemas/api/plugins.py app/services/plugin_service.py tests/unit/test_plugin_hub.py
+uv run ruff check sfm_hub sfmapi/server/cli.py sfmapi/server/schemas/api/plugins.py sfmapi/server/services/plugin_service.py tests/unit/test_plugin_hub.py
 uv run python -m bench.cli plugins
 ```

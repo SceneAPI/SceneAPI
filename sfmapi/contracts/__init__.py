@@ -9,6 +9,6 @@ import surface.
 Current contracts:
 
 - :mod:`sfmapi.contracts.colmap_db` — the extended COLMAP scene-database
-  schema (moved from ``app.core.colmap_db``, which remains as a
+  schema (moved from ``sfmapi.server.core.colmap_db``, which remains as a
   deprecated re-export shim for one release).
 """

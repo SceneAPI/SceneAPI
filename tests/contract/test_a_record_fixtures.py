@@ -186,9 +186,9 @@ async def test_record_merge_submit_envelope(contract_client: AsyncClient) -> Non
     merge-specific fields (``target_recon_id`` / ``source_recon_ids``)
     populated. Locking it as a fixture gives the SDK decoders a
     provider-carrying surface beyond the single-stage shape."""
-    from app.adapters.registry import register_backend
-    from app.adapters.stub_backend import StubBackend
-    from app.core.capabilities import reset_capabilities_cache
+    from sfmapi.server.adapters.registry import register_backend
+    from sfmapi.server.adapters.stub_backend import StubBackend
+    from sfmapi.server.core.capabilities import reset_capabilities_cache
 
     class MergeCapableBackend(StubBackend):
         def capabilities(self) -> set[str]:

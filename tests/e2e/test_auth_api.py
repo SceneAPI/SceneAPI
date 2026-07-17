@@ -12,7 +12,7 @@ async def test_issue_then_use_api_key(client, monkeypatch) -> None:
     api_key_id = issue.json()["api_key_id"]
 
     # Switch into api_key mode for subsequent requests.
-    from app.core.config import get_settings
+    from sfmapi.server.core.config import get_settings
 
     monkeypatch.setattr(get_settings(), "auth_mode", "api_key")
 

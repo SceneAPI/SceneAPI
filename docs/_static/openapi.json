@@ -10140,7 +10140,7 @@
           "jobs"
         ],
         "summary": "Events",
-        "description": "SSE stream of progress events for the given job.\n\nBody\n----\n``Content-Type: text/event-stream``. Each event is one\n:class:`~app.schemas.progress_event.ProgressEvent` JSON-encoded\nin the SSE ``data:`` field, prefixed by an ``id:`` line carrying\nthe monotonic per-job event sequence.\n\nResume (``Last-Event-ID``)\n--------------------------\nClients reconnecting after a transient disconnect SHOULD pass the\nlast event id they observed via the standard ``Last-Event-ID``\nrequest header (browsers do this automatically). The server replays\nevery persisted event with ``event_id > last_event_id`` from the\nring buffer before resuming the live tail. Sending a value larger\nthan any persisted id yields an empty replay and the live tail.\n\nTermination\n-----------\nThe stream closes (server-side EOF) once the job's status reaches\na terminal value (``succeeded`` | ``failed`` | ``cancelled`` |\n``cancelled_dirty``) AND one final drain cycle has shipped any\npending events. Without this exit condition, ``submit_and_stream``\nconsumers would block forever waiting for EOF on a job that\nalready finished. The terminal vocabulary is shared with\n``app/workers/dispatcher.py::_maybe_finalize_job`` (see ``L13``,\n``L14`` in ``decisions.md``).\n\nMid-stream deletion\n-------------------\nIf the underlying job row vanishes while the stream is open\n(e.g., tenant teardown, DB GC), the next poll cycle observes a\n``None`` job and exits as if a terminal state were reached \u2014 the\nstream closes cleanly rather than 500-ing mid-flight. Clients see\nEOF; a follow-up ``GET /v1/jobs/{job_id}`` then returns 404.\n\nPhase 1 implementation tails by polling the DB on a 1s cadence;\nPhase 5 swaps to Redis pub/sub without changing the wire shape.",
+        "description": "SSE stream of progress events for the given job.\n\nBody\n----\n``Content-Type: text/event-stream``. Each event is one\n:class:`~sfmapi.server.schemas.progress_event.ProgressEvent` JSON-encoded\nin the SSE ``data:`` field, prefixed by an ``id:`` line carrying\nthe monotonic per-job event sequence.\n\nResume (``Last-Event-ID``)\n--------------------------\nClients reconnecting after a transient disconnect SHOULD pass the\nlast event id they observed via the standard ``Last-Event-ID``\nrequest header (browsers do this automatically). The server replays\nevery persisted event with ``event_id > last_event_id`` from the\nring buffer before resuming the live tail. Sending a value larger\nthan any persisted id yields an empty replay and the live tail.\n\nTermination\n-----------\nThe stream closes (server-side EOF) once the job's status reaches\na terminal value (``succeeded`` | ``failed`` | ``cancelled`` |\n``cancelled_dirty``) AND one final drain cycle has shipped any\npending events. Without this exit condition, ``submit_and_stream``\nconsumers would block forever waiting for EOF on a job that\nalready finished. The terminal vocabulary is shared with\n``sfmapi/server/workers/dispatcher.py::_maybe_finalize_job`` (see ``L13``,\n``L14`` in ``decisions.md``).\n\nMid-stream deletion\n-------------------\nIf the underlying job row vanishes while the stream is open\n(e.g., tenant teardown, DB GC), the next poll cycle observes a\n``None`` job and exits as if a terminal state were reached \u2014 the\nstream closes cleanly rather than 500-ing mid-flight. Clients see\nEOF; a follow-up ``GET /v1/jobs/{job_id}`` then returns 404.\n\nPhase 1 implementation tails by polling the DB on a 1s cadence;\nPhase 5 swaps to Redis pub/sub without changing the wire shape.",
         "operationId": "events_v1_jobs__job_id__events_get",
         "parameters": [
           {
@@ -18615,7 +18615,7 @@
           "localize"
         ],
         "summary": "Localize",
-        "description": "Localize a single query image against the reconstruction.\n\nThe job's task carries a :class:`~app.schemas.api.scene.LocalizationResult`-\nshaped payload in its ``outputs_ref`` once finished.",
+        "description": "Localize a single query image against the reconstruction.\n\nThe job's task carries a :class:`~sfmapi.server.schemas.api.scene.LocalizationResult`-\nshaped payload in its ``outputs_ref`` once finished.",
         "operationId": "localize_v1_reconstructions__recon_id__localize_post",
         "parameters": [
           {
@@ -24029,7 +24029,7 @@
           "created_at"
         ],
         "title": "JobOut",
-        "description": "Wire shape of a Job row.\n\nA Job is a long-running operation rolled up from N constituent\nTask rows (see :class:`TaskOut`). ``status`` reaches a terminal\nstate (see :data:`JobStatus`) once every Task is terminal; the\nrollup is driven by ``app/workers/dispatcher.py::_maybe_finalize_job``.\n``cancel_requested`` flips when ``POST /v1/jobs/{id}:cancel``\narrives; ``cancel_force`` flips when ``?force=true`` was passed.\n``error_class`` / ``error_message`` are populated only when the\njob ends in ``failed``."
+        "description": "Wire shape of a Job row.\n\nA Job is a long-running operation rolled up from N constituent\nTask rows (see :class:`TaskOut`). ``status`` reaches a terminal\nstate (see :data:`JobStatus`) once every Task is terminal; the\nrollup is driven by ``sfmapi/server/workers/dispatcher.py::_maybe_finalize_job``.\n``cancel_requested`` flips when ``POST /v1/jobs/{id}:cancel``\narrives; ``cancel_force`` flips when ``?force=true`` was passed.\n``error_class`` / ``error_message`` are populated only when the\njob ends in ``failed``."
       },
       "JobProgressOut": {
         "properties": {
@@ -24610,7 +24610,7 @@
           "runtime"
         ],
         "title": "OneShotLocalizeResponse",
-        "description": "``POST /v1/oneshot/localize`` envelope. Single-frame pose\nagainst an existing reconstruction with no DB row, no Job row,\nno upload step. The ``result`` field re-uses the existing\n:class:`~app.schemas.api.scene.LocalizationResult` shape verbatim\nso SDK consumers can re-decode through the typed model."
+        "description": "``POST /v1/oneshot/localize`` envelope. Single-frame pose\nagainst an existing reconstruction with no DB row, no Job row,\nno upload step. The ``result`` field re-uses the existing\n:class:`~sfmapi.server.schemas.api.scene.LocalizationResult` shape verbatim\nso SDK consumers can re-decode through the typed model."
       },
       "OneShotRuntimeInfo": {
         "properties": {

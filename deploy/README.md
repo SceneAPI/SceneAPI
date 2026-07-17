@@ -27,7 +27,7 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
 ```
 
 The web container runs `alembic upgrade head` on start, then serves
-`uvicorn app.main:app` on `:8080`. `/healthz`, `/readyz`, `/version`,
+`uvicorn sfmapi.server.main:app` on `:8080`. `/healthz`, `/readyz`, `/version`,
 `/metrics` are exposed.
 
 Issue an API key (in `api_key` mode):
@@ -43,7 +43,7 @@ curl -sX POST http://localhost:8080/v1/admin/api-keys \
 Workers need:
 
 - The same CUDA / driver stack the backend package was built against.
-- A backend package that satisfies `app.adapters.backend.SfmBackend`
+- A backend package that satisfies `sfmapi.backends.SfmBackend`
   installed in the worker venv (e.g. an editable checkout of your
   pycolmap fork plus a thin `register_backend()` wrapper).
 - `sfmapi` itself, also installed editable.

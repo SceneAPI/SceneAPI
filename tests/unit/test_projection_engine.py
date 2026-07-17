@@ -5,9 +5,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from app.core.errors import CapabilityUnavailableError
-from app.core.errors import ValidationError as SfmValidationError
-from app.core.projection_engine import project_image_directory
+from sfmapi.server.core.errors import CapabilityUnavailableError
+from sfmapi.server.core.errors import ValidationError as SfmValidationError
+from sfmapi.server.core.projection_engine import project_image_directory
 
 PILImage = pytest.importorskip("PIL.Image")
 

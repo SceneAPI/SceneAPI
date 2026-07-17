@@ -6,11 +6,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-# The framework core: the API, the public backend-authoring surface, and
-# the plugin hub. None of these may import a backend *plugin* distribution
-# (sfmapi_colmap, sfmapi_hloc, ...) or the client SDK (sfmapi_client*).
-# The dependency must always flow plugin -> core, never the reverse.
-_CORE_PACKAGES = ("app", "sfmapi", "sfm_hub")
+# The framework core: the API + server tree (sfmapi.server), the public
+# backend-authoring facades (sfmapi.*), and the plugin hub. ``app`` is the
+# deprecated one-release alias shim over ``sfmapi.server`` (removed in
+# 0.1.0) and is held to the same invariant while it ships. None of these
+# may import a backend *plugin* distribution (sfmapi_colmap, sfmapi_hloc,
+# ...) or the client SDK (sfmapi_client*). The dependency must always
+# flow plugin -> core, never the reverse.
+_CORE_PACKAGES = ("sfmapi", "sfm_hub", "app")
 
 # Underscore-suffixed distributions are separate packages (plugins + SDK).
 # The core's own package is bare ``sfmapi`` (no underscore), which is fine.
@@ -69,22 +72,42 @@ def test_workflows_do_not_reference_removed_in_repo_clients() -> None:
 
 
 def test_public_docs_use_public_runtime_entrypoint() -> None:
-    stale = "app.main" + ":app"
+    # Neither the internal module path nor its deprecated pre-rename
+    # alias may appear as a uvicorn target in public docs; the public
+    # entrypoint is ``sfmapi.runtime:create_app``.
+    stale_markers = (
+        "sfmapi.server.main" + ":app",
+        "app.main" + ":app",
+    )
     checked = [ROOT / "README.md", *Path(ROOT / "docs").rglob("*.md")]
     failures = [
-        str(path.relative_to(ROOT))
+        f"{path.relative_to(ROOT)} contains {marker!r}"
         for path in checked
-        if path.is_file() and stale in _read_text(path)
+        if path.is_file()
+        for marker in stale_markers
+        if marker in _read_text(path)
     ]
 
     assert not failures, "\n".join(failures)
+
+
+def test_app_shim_stays_tiny() -> None:
+    """The deprecated ``app`` package is an alias shim over
+    ``sfmapi.server`` and nothing else: exactly one ``__init__.py``, no
+    real modules. Server code belongs under ``sfmapi/server/``; grow
+    this shim and the 0.1.0 removal stops being a delete."""
+    shim = ROOT / "app"
+    entries = sorted(p.name for p in shim.iterdir() if p.name != "__pycache__")
+    assert entries == ["__init__.py"], (
+        f"app/ must contain only __init__.py (the sfmapi.server alias shim), found: {entries}"
+    )
 
 
 # Amended services->adapters layering rule (lean audit 2026-07, 3.5):
 # services MAY import the adapters *contract layer* -- the backend
 # Protocols, the registry, and the three descriptor surfaces -- because
 # those modules are pure contract/registry code (no engine imports).
-# Everything else under ``app.adapters`` (stub backend, image adapter,
+# Everything else under ``sfmapi.server.adapters`` (stub backend, image adapter,
 # ...) and any private leading-underscore symbol stays off-limits.
 _SERVICES_ALLOWED_ADAPTER_MODULES = frozenset(
     {
@@ -97,29 +120,47 @@ _SERVICES_ALLOWED_ADAPTER_MODULES = frozenset(
 )
 
 
+# Both the canonical adapters package and its deprecated alias prefix;
+# services must satisfy the layering rule under either spelling.
+_ADAPTER_PREFIXES = (
+    ["sfmapi", "server", "adapters"],
+    ["app", "adapters"],
+)
+
+
 def _adapter_import_violations(tree: ast.AST) -> list[str]:
+    def match_prefix(parts: list[str]) -> int | None:
+        """Return the index of the first segment after the adapters
+        package, or None when ``parts`` is not an adapters import."""
+        for prefix in _ADAPTER_PREFIXES:
+            if parts[: len(prefix)] == prefix:
+                return len(prefix)
+        return None
+
     violations: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 parts = alias.name.split(".")
-                if parts[:2] != ["app", "adapters"]:
+                idx = match_prefix(parts)
+                if idx is None:
                     continue
-                if len(parts) < 3 or parts[2] not in _SERVICES_ALLOWED_ADAPTER_MODULES:
+                if len(parts) <= idx or parts[idx] not in _SERVICES_ALLOWED_ADAPTER_MODULES:
                     violations.append(f"import {alias.name}")
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             parts = node.module.split(".")
-            if parts[:2] != ["app", "adapters"]:
+            idx = match_prefix(parts)
+            if idx is None:
                 continue
-            if len(parts) == 2:
-                # ``from app.adapters import <name>`` -- <name> must be an
+            if len(parts) == idx:
+                # ``from sfmapi.server.adapters import <name>`` -- <name> must be an
                 # allowed contract-layer submodule, never a symbol.
                 violations.extend(
-                    f"from app.adapters import {alias.name}"
+                    f"from {node.module} import {alias.name}"
                     for alias in node.names
                     if alias.name not in _SERVICES_ALLOWED_ADAPTER_MODULES
                 )
-            elif parts[2] not in _SERVICES_ALLOWED_ADAPTER_MODULES:
+            elif parts[idx] not in _SERVICES_ALLOWED_ADAPTER_MODULES:
                 violations.append(f"from {node.module} import ... (module not allowed)")
             else:
                 violations.extend(
@@ -137,12 +178,15 @@ def test_services_import_only_public_adapter_contract_surface() -> None:
     services legitimately need backend discovery/dispatch, so the rule is
     amended to allow the contract-layer modules listed in
     ``_SERVICES_ALLOWED_ADAPTER_MODULES`` -- public names only. Importing
-    any other ``app.adapters`` module (or any ``_private`` symbol) from
-    ``app/services`` fails here; either use the public seam or extend the
+    any other ``sfmapi.server.adapters`` module (or any ``_private`` symbol) from
+    ``sfmapi/server/services`` fails here; either use the public seam or extend the
     contract layer deliberately.
     """
+    service_files = sorted((ROOT / "sfmapi" / "server" / "services").glob("*.py"))
+    assert service_files, "services package not found — layering guard walked a stale path"
+
     failures: list[str] = []
-    for path in sorted((ROOT / "app" / "services").glob("*.py")):
+    for path in service_files:
         tree = ast.parse(_read_text(path), filename=str(path))
         failures.extend(
             f"{path.relative_to(ROOT)}: {violation}"

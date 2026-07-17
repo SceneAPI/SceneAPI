@@ -1,27 +1,27 @@
-# `app.storage`
+# `sfmapi.server.storage`
 
 ```{eval-rst}
-.. automodule:: app.storage.blobs
+.. automodule:: sfmapi.server.storage.blobs
    :members:
    :no-index:
 
-.. automodule:: app.storage.snapshots
+.. automodule:: sfmapi.server.storage.snapshots
    :members:
    :no-index:
 
-.. automodule:: app.storage.mapping_input
+.. automodule:: sfmapi.server.storage.mapping_input
    :members:
    :no-index:
 
-.. automodule:: app.storage.s3_cache
+.. automodule:: sfmapi.server.storage.s3_cache
    :members:
    :no-index:
 
-.. automodule:: app.storage.workspace
+.. automodule:: sfmapi.server.storage.workspace
    :members:
    :no-index:
 
-.. automodule:: app.storage.models
+.. automodule:: sfmapi.server.storage.models
    :members:
    :no-index:
 ```

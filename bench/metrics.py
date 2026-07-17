@@ -33,7 +33,7 @@ class ReconstructionMetrics:
 
 
 def metrics_from_snapshot_summary(summary: dict) -> ReconstructionMetrics:
-    """Parse the `summary.json` shape produced by `app.workers.tasks.map`."""
+    """Parse the `summary.json` shape produced by `sfmapi.server.workers.tasks.map`."""
     models = summary.get("models") or []
     n_imgs = sum(int(m.get("num_reg_images", 0) or 0) for m in models)
     n_pts = sum(int(m.get("num_points3D", 0) or 0) for m in models)

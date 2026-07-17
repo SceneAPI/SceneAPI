@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from app.sources.local import LocalPathSource
+from sfmapi.server.sources.local import LocalPathSource
 
 pytestmark = pytest.mark.integration
 

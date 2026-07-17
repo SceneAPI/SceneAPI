@@ -16,8 +16,8 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from httpx import ASGITransport, AsyncClient
 
-from app.core.config import reset_settings_for_tests
-from app.main import PREVIEW_CONFORMANCE_KEY, PREVIEW_CONFORMANCE_VALUE, create_app
+from sfmapi.server.core.config import reset_settings_for_tests
+from sfmapi.server.main import PREVIEW_CONFORMANCE_KEY, PREVIEW_CONFORMANCE_VALUE, create_app
 
 pytestmark = pytest.mark.unit
 

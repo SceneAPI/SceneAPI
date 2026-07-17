@@ -10,8 +10,6 @@ import pytest
 from jsonschema import Draft202012Validator
 from pydantic import ValidationError as PydanticValidationError
 
-from app.core.errors import ValidationError
-from app.services import plugin_service, sfm_stage_service
 from sfm_hub.discovery import discover_plugins, load_backend_entry_points
 from sfm_hub.doctor import detect_external_tools, doctor_manifest
 from sfm_hub.install import (
@@ -49,6 +47,8 @@ from sfm_hub.state import (
     set_provider_priority,
     upsert_profile,
 )
+from sfmapi.server.core.errors import ValidationError
+from sfmapi.server.services import plugin_service, sfm_stage_service
 
 pytestmark = pytest.mark.unit
 
@@ -153,8 +153,8 @@ def test_package_module_name_strips_extras_for_provisioning() -> None:
 
 
 def test_qualified_backend_registry_lookup_does_not_fallback_to_bare() -> None:
-    from app.adapters.registry import get_backend, register_backend_provider
-    from app.adapters.stub_backend import StubBackend
+    from sfmapi.server.adapters.registry import get_backend, register_backend_provider
+    from sfmapi.server.adapters.stub_backend import StubBackend
 
     def factory() -> StubBackend:
         return StubBackend()
@@ -394,7 +394,7 @@ def test_manifest_accepts_typed_extension_declarations() -> None:
 
 
 def test_unique_plugin_local_processor_alias_is_public() -> None:
-    from app.services import dataflow_registry_service
+    from sfmapi.server.services import dataflow_registry_service
 
     manifest = PluginManifest.model_validate(_typed_extension_manifest())
     registry = dataflow_registry_service.effective_registry(
@@ -412,7 +412,7 @@ def test_unique_plugin_local_processor_alias_is_public() -> None:
 
 
 def test_ambiguous_plugin_local_processor_alias_is_not_public() -> None:
-    from app.services import dataflow_registry_service
+    from sfmapi.server.services import dataflow_registry_service
 
     first = PluginManifest.model_validate(_typed_extension_manifest())
     second = PluginManifest.model_validate(
@@ -3190,7 +3190,7 @@ def test_entry_point_manifest_id_activates_plugin_when_name_differs(
             return list(self)
 
     import sfm_hub.discovery as discovery
-    from app.services.dataflow_registry_service import active_manifests
+    from sfmapi.server.services.dataflow_registry_service import active_manifests
 
     monkeypatch.setattr(
         discovery.metadata, "entry_points", lambda: FakeEntryPoints([FakeEntryPoint()])
@@ -3405,10 +3405,10 @@ def test_plugin_service_enable_records_entry_point_install(
 ) -> None:
     """enable_plugin on a discovered-but-not-yet-installed entry-point
     plugin records a manual install instead of raising."""
-    from app.services import plugin_service
+    from sfmapi.server.services import plugin_service
 
     monkeypatch.setattr(
-        "app.services.plugin_service.discovered_plugin_ids",
+        "sfmapi.server.services.plugin_service.discovered_plugin_ids",
         lambda: {"hloc"},
     )
 
@@ -3426,10 +3426,10 @@ def test_plugin_service_disable_records_entry_point_install(
 ) -> None:
     """Symmetric to enable: disable on a discovered-but-not-yet-installed
     entry-point plugin records the manual install (disabled)."""
-    from app.services import plugin_service
+    from sfmapi.server.services import plugin_service
 
     monkeypatch.setattr(
-        "app.services.plugin_service.discovered_plugin_ids",
+        "sfmapi.server.services.plugin_service.discovered_plugin_ids",
         lambda: {"hloc"},
     )
 
@@ -3443,7 +3443,7 @@ def test_plugin_service_disable_records_entry_point_install(
 def test_plugin_service_runs_package_provisioner_after_uv_install(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services import plugin_service
+    from sfmapi.server.services import plugin_service
 
     calls: list[str] = []
 
@@ -3488,7 +3488,7 @@ def test_plugin_service_runs_package_provisioner_after_uv_install(
 def test_plugin_service_records_skipped_package_provisioner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services import plugin_service
+    from sfmapi.server.services import plugin_service
 
     monkeypatch.setattr(plugin_service, "run_uv_install", lambda plan: None)
     monkeypatch.setattr(
@@ -3521,7 +3521,7 @@ def test_plugin_service_records_skipped_package_provisioner(
 def test_plugin_service_redacts_secret_provisioner_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services import plugin_service
+    from sfmapi.server.services import plugin_service
 
     monkeypatch.setattr(plugin_service, "run_uv_install", lambda plan: None)
     monkeypatch.setattr(
@@ -3562,7 +3562,7 @@ def test_plugin_service_redacts_secret_provisioner_env(
         dry_run=False,
         allow_unsafe_execution=True,
     )
-    from app.schemas.api.plugins import PluginInstallResponse
+    from sfmapi.server.schemas.api.plugins import PluginInstallResponse
 
     PluginInstallResponse.model_validate(result)
     serialized = json.dumps(result)
@@ -3591,8 +3591,8 @@ def test_plugin_service_redacts_secret_provisioner_env(
 def test_plugin_service_records_failed_provisioning_and_dedupes_retry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services import plugin_service
     from sfm_hub.provision import ProvisioningError
+    from sfmapi.server.services import plugin_service
 
     request_id = "123e4567-e89b-12d3-a456-426614174000"
     calls: list[str] = []
@@ -3644,7 +3644,7 @@ def test_plugin_service_records_failed_provisioning_and_dedupes_retry(
 def test_plugin_service_dedupes_successful_install_request_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services import plugin_service
+    from sfmapi.server.services import plugin_service
 
     request_id = "123e4567-e89b-12d3-a456-426614174000"
     calls: list[str] = []
@@ -3694,7 +3694,7 @@ def test_plugin_service_dedupes_successful_install_request_id(
 def test_plugin_service_reruns_install_with_different_request_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services import plugin_service
+    from sfmapi.server.services import plugin_service
 
     calls: list[str] = []
 
@@ -3742,7 +3742,7 @@ def test_plugin_service_reruns_install_with_different_request_id(
 def test_plugin_service_no_provision_runtime_records_not_requested(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services import plugin_service
+    from sfmapi.server.services import plugin_service
 
     monkeypatch.setattr(plugin_service, "run_uv_install", lambda plan: None)
 

@@ -1,6 +1,6 @@
 """Stable exception classes for sfmapi extensions."""
 
-from app.core.errors import (
+from sfmapi.server.core.errors import (
     BackendUnavailableError,
     BadRequestError,
     CapabilityUnavailableError,

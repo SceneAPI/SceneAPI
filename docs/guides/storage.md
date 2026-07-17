@@ -4,8 +4,8 @@ Three orthogonal layers, each with a distinct responsibility:
 
 | Layer | What it owns | Module |
 |---|---|---|
-| **Blobs** | Content-addressed immutable bytes for uploaded images | `app.storage.blobs` |
-| **ImageSource** | Logical reference to *where* bytes live (upload / local / S3) | `app.sources.*` |
+| **Blobs** | Content-addressed immutable bytes for uploaded images | `sfmapi.server.storage.blobs` |
+| **ImageSource** | Logical reference to *where* bytes live (upload / local / S3) | `sfmapi.server.sources.*` |
 | **Materialization** | Per-job realization of an `ImageSource` to a real path the backend can read | worker-only |
 
 ## Blob store
@@ -20,7 +20,7 @@ tracks how many entities (images, masks, model artifacts) reference
 the blob; lifecycle is GC'd when refcount → 0.
 
 ```{eval-rst}
-.. autoclass:: app.storage.blobs.BlobStore
+.. autoclass:: sfmapi.server.storage.blobs.BlobStore
    :members:
    :no-index:
 ```
@@ -30,15 +30,15 @@ the blob; lifecycle is GC'd when refcount → 0.
 Three implementations behind a single contract:
 
 ```{eval-rst}
-.. autoclass:: app.sources.upload.UploadSource
+.. autoclass:: sfmapi.server.sources.upload.UploadSource
    :members:
    :no-index:
 
-.. autoclass:: app.sources.local.LocalPathSource
+.. autoclass:: sfmapi.server.sources.local.LocalPathSource
    :members:
    :no-index:
 
-.. autoclass:: app.sources.s3.S3Source
+.. autoclass:: sfmapi.server.sources.s3.S3Source
    :members:
    :no-index:
 ```
@@ -59,7 +59,7 @@ miss. Cache is **shared across tenants** because content is addressed
 by ETag, not by tenant prefix.
 
 ```{eval-rst}
-.. autoclass:: app.storage.s3_cache.S3Cache
+.. autoclass:: sfmapi.server.storage.s3_cache.S3Cache
    :members:
    :no-index:
 ```
@@ -88,7 +88,7 @@ Readers list `snapshots/*/` and ignore any dir without a `.complete`
 file. The API never opens a non-sealed file, ever.
 
 ```{eval-rst}
-.. autoclass:: app.storage.snapshots.SnapshotStore
+.. autoclass:: sfmapi.server.storage.snapshots.SnapshotStore
    :members:
    :no-index:
 ```
@@ -103,7 +103,7 @@ On a re-run / resume, the worker calls
 expensive setup work isn't repeated.
 
 ```{eval-rst}
-.. automodule:: app.storage.mapping_input
+.. automodule:: sfmapi.server.storage.mapping_input
    :members:
    :no-index:
 ```
@@ -111,7 +111,7 @@ expensive setup work isn't repeated.
 ## GC
 
 ```{eval-rst}
-.. autofunction:: app.storage.workspace.gc_completed_jobs
+.. autofunction:: sfmapi.server.storage.workspace.gc_completed_jobs
    :no-index:
 ```
 

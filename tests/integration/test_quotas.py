@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.errors import QuotaExceededError
-from app.services import quota_service
+from sfmapi.server.core.errors import QuotaExceededError
+from sfmapi.server.services import quota_service
 
 pytestmark = pytest.mark.integration
 
 
 async def test_storage_quota_enforced_under_api_key_mode(session, monkeypatch) -> None:
-    from app.core.config import get_settings
+    from sfmapi.server.core.config import get_settings
 
     s = get_settings()
     monkeypatch.setattr(s, "auth_mode", "api_key")

@@ -7,19 +7,19 @@ from pathlib import Path
 
 import pytest
 
-from app.core.hashing import canonical_json, content_address
-from app.core.ids import new_id
-from app.core.paths import Paths
-from app.db.models import (
+from sfmapi.server.core.hashing import canonical_json, content_address
+from sfmapi.server.core.ids import new_id
+from sfmapi.server.core.paths import Paths
+from sfmapi.server.db.models import (
     Dataset,
     ImageSource,
     Project,
     Reconstruction,
     RuntimeVersion,
 )
-from app.schemas.points_binary import Point3DRecord, encode_all
-from app.storage import observations as obs
-from app.storage.snapshots import SnapshotStore
+from sfmapi.server.schemas.points_binary import Point3DRecord, encode_all
+from sfmapi.server.storage import observations as obs
+from sfmapi.server.storage.snapshots import SnapshotStore
 
 pytestmark = pytest.mark.e2e
 

@@ -1,7 +1,7 @@
 """Submit-time dependency readiness (shared-vocabulary regression).
 
 Before the readiness vocabulary was single-sourced in
-``app.orchestrator.readiness``, the scheduler counted only
+``sfmapi.server.orchestrator.readiness``, the scheduler counted only
 ``succeeded`` dependencies as satisfied and only looked at the tasks
 materialized in the current submission. A task depending on an
 upstream that already landed as ``skipped`` (or any pre-existing task
@@ -13,10 +13,10 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.ids import new_id
-from app.db.models import Job, Project, Task
-from app.orchestrator.dag import TaskNode
-from app.orchestrator.scheduler import submit_job_dag
+from sfmapi.server.core.ids import new_id
+from sfmapi.server.db.models import Job, Project, Task
+from sfmapi.server.orchestrator.dag import TaskNode
+from sfmapi.server.orchestrator.scheduler import submit_job_dag
 
 pytestmark = pytest.mark.integration
 

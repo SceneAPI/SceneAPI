@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from app.schemas.points_binary import (
+from sfmapi.server.schemas.points_binary import (
     HEADER_SIZE,
     Point3DRecord,
     decode_records,
     encode_all,
 )
-from app.storage import tiles
+from sfmapi.server.storage import tiles
 
 pytestmark = pytest.mark.unit
 

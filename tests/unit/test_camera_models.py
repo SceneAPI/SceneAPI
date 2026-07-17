@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from httpx import ASGITransport, AsyncClient
 
-from app.core.camera_models import get_camera_model
-from app.core.config import reset_settings_for_tests
+from sfmapi.server.core.camera_models import get_camera_model
+from sfmapi.server.core.config import reset_settings_for_tests
 
 
 def test_camera_model_registry_describes_distortion_layouts() -> None:
@@ -20,7 +20,7 @@ def test_camera_model_registry_describes_distortion_layouts() -> None:
 
 async def test_camera_model_registry_is_exposed(db_setup: None) -> None:
     reset_settings_for_tests()
-    from app.main import create_app
+    from sfmapi.server.main import create_app
 
     async with AsyncClient(
         transport=ASGITransport(app=create_app()),

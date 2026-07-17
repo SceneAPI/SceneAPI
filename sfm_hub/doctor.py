@@ -14,9 +14,9 @@ from urllib.request import Request, urlopen
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError as PydanticValidationError
 
-from app.core.public_outputs import sanitize_public_error_message
 from sfm_hub.models import PluginManifest, _public_url_issue
 from sfm_hub.state import PluginState, load_state
+from sfmapi.server.core.public_outputs import sanitize_public_error_message
 
 
 class DoctorCheck(BaseModel):

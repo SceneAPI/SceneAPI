@@ -36,9 +36,9 @@ spec:
           image: {{ include "sfmapi.workerImage" . | quote }}
           imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
           # Default command runs the ARQ worker against
-          # `app.workers.runner.WorkerSettings`. Override at the image
+          # `sfmapi.server.workers.runner.WorkerSettings`. Override at the image
           # level if your packaging differs.
-          command: ["arq", "app.workers.runner.WorkerSettings"]
+          command: ["arq", "sfmapi.server.workers.runner.WorkerSettings"]
           env:
             {{- include "sfmapi.commonEnv" . | nindent 12 }}
             - name: SFMAPI_PYCOLMAP_AVAILABLE

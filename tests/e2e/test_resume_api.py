@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.ids import new_id
-from app.db.models import Job, Project, RuntimeVersion, Task
+from sfmapi.server.core.ids import new_id
+from sfmapi.server.db.models import Job, Project, RuntimeVersion, Task
 
 pytestmark = pytest.mark.e2e
 

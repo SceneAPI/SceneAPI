@@ -233,7 +233,7 @@ missing upstream dependencies are not treated as sfmapi API failures.
 The capability vocabulary is canonical and stable. Backends advertise
 the subset they implement; sfmapi reads `capabilities()` once at
 boot and caches the result. The full list lives in
-`app.core.capabilities.ALL_KNOWN`.
+`sfmapi.server.core.capabilities.ALL_KNOWN`.
 
 Do not put backend-native commands or vendor tool names in
 `capabilities()`. Capabilities are portable sfmapi features. If a
@@ -615,7 +615,7 @@ Descriptor rules:
   `GET /v1/backend/actions/{action_id}` always includes them when
   available.
 - Backend action `required_capabilities` may contain only portable
-  public names from `app.core.capabilities.ALL_KNOWN`. Backend-native
+  public names from `sfmapi.server.core.capabilities.ALL_KNOWN`. Backend-native
   prerequisites belong in `metadata`. Plugin manifest/provider/
   processor `capabilities` are a separate typed-extension vocabulary:
   plugin-declared, provider-covered, contract-id-shaped ids that are
@@ -720,7 +720,7 @@ delivery failed.
 
 ## Reference: the no-op stub
 
-[`app.adapters.stub_backend.StubBackend`][stub] is the internal no-op reference
+[`sfmapi.server.adapters.stub_backend.StubBackend`][stub] is the internal no-op reference
 that ships in this repo. It exists for tests, ephemeral mode, and
 SDK live-server suites. Every method raises
 `CapabilityUnavailableError`; `capabilities()` returns the empty

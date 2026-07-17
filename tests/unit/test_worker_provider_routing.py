@@ -5,9 +5,9 @@ from typing import Any
 
 import pytest
 
-from app.adapters.registry import register_backend
-from app.db.models import Task
-from app.workers.tasks import extract as extract_task
+from sfmapi.server.adapters.registry import register_backend
+from sfmapi.server.db.models import Task
+from sfmapi.server.workers.tasks import extract as extract_task
 
 pytestmark = pytest.mark.unit
 

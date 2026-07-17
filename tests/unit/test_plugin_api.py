@@ -96,7 +96,7 @@ async def test_provider_pagination_keeps_duplicate_provider_ids(
     client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services import plugin_service
+    from sfmapi.server.services import plugin_service
 
     def row(provider_id: str, plugin_id: str) -> dict[str, object]:
         return {
@@ -175,7 +175,7 @@ async def test_plugin_admin_install_redacts_provisioning_env(
     client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services import plugin_service
+    from sfmapi.server.services import plugin_service
 
     monkeypatch.setattr(plugin_service, "run_uv_install", lambda plan: None)
     monkeypatch.setattr(
@@ -228,10 +228,10 @@ async def test_plugin_admin_container_service_runtime_flow(
     client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services import plugin_service
     from sfm_hub.models import ContainerServiceRuntime
     from sfm_hub.registry import get_manifest
     from sfm_hub.routing import ProviderRecord
+    from sfmapi.server.services import plugin_service
 
     server, thread, base_url = _start_container_service(
         {

@@ -3,9 +3,9 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
-from app.core.config import get_settings
-from app.db.models import RuntimeVersion
-from app.services.runtime_version_service import ensure_runtime_version
+from sfmapi.server.core.config import get_settings
+from sfmapi.server.db.models import RuntimeVersion
+from sfmapi.server.services.runtime_version_service import ensure_runtime_version
 
 pytestmark = pytest.mark.integration
 

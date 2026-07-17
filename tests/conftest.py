@@ -43,11 +43,11 @@ def _isolate_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Itera
     monkeypatch.setenv("SFMAPI_AUTO_LOAD_BACKEND_PLUGINS", "false")
 
     import sfm_hub.discovery as discovery
-    from app.adapters.registry import _PROVIDER_REGISTRY, _REGISTRY, register_backend
-    from app.adapters.stub_backend import StubBackend
-    from app.core import config as config_mod
-    from app.core.capabilities import reset_capabilities_cache
-    from app.db import session as session_mod
+    from sfmapi.server.adapters.registry import _PROVIDER_REGISTRY, _REGISTRY, register_backend
+    from sfmapi.server.adapters.stub_backend import StubBackend
+    from sfmapi.server.core import config as config_mod
+    from sfmapi.server.core.capabilities import reset_capabilities_cache
+    from sfmapi.server.db import session as session_mod
 
     class EmptyEntryPoints(list[object]):
         def select(self, *, group: str) -> list[object]:
@@ -75,12 +75,12 @@ async def db_setup() -> AsyncIterator[None]:
     """Create the schema for the per-test sqlite db."""
     # IMPORTANT: import models BEFORE touching Base.metadata so that all
     # ORM classes register their tables. Without this, a fresh process
-    # whose first test never imports `app.db.models` (directly or
+    # whose first test never imports `sfmapi.server.db.models` (directly or
     # transitively) ends up with empty metadata, and `create_all`
     # silently produces a database with zero tables.
-    from app.db import models  # noqa: F401  (registers tables)
-    from app.db.base import Base
-    from app.db.session import get_engine
+    from sfmapi.server.db import models  # noqa: F401  (registers tables)
+    from sfmapi.server.db.base import Base
+    from sfmapi.server.db.session import get_engine
 
     engine = get_engine()
     async with engine.begin() as conn:
@@ -92,7 +92,7 @@ async def db_setup() -> AsyncIterator[None]:
 
 @pytest_asyncio.fixture()
 async def session(db_setup: None) -> AsyncIterator[AsyncSession]:
-    from app.db.session import get_session_factory
+    from sfmapi.server.db.session import get_session_factory
 
     factory = get_session_factory()
     async with factory() as s:
@@ -101,7 +101,7 @@ async def session(db_setup: None) -> AsyncIterator[AsyncSession]:
 
 @pytest_asyncio.fixture()
 async def client(db_setup: None) -> AsyncIterator[AsyncClient]:
-    from app.main import create_app
+    from sfmapi.server.main import create_app
 
     app = create_app()
     transport = ASGITransport(app=app)

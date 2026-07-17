@@ -11,16 +11,16 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
-from app.schemas.api.artifacts import ArtifactConversionPlanRequest
-from app.schemas.api.projections import ProjectionJobRequest
-from app.schemas.api.scene import (
+from sfmapi.server.schemas.api.artifacts import ArtifactConversionPlanRequest
+from sfmapi.server.schemas.api.projections import ProjectionJobRequest
+from sfmapi.server.schemas.api.scene import (
     ImuMeasurement,
     PosePrior,
     Rigid3,
     Rotation,
 )
-from app.schemas.api.stages import VocabTreeSpec
-from app.schemas.pipeline_spec import (
+from sfmapi.server.schemas.api.stages import VocabTreeSpec
+from sfmapi.server.schemas.pipeline_spec import (
     BundleAdjustmentSpec,
     FeaturesSpec,
     IncrementalSpec,

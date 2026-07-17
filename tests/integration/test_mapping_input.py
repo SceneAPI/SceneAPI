@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from app.core.errors import StorageError
-from app.storage.mapping_input import (
+from sfmapi.server.core.errors import StorageError
+from sfmapi.server.storage.mapping_input import (
     gc_checkpoints,
     latest_checkpoint,
     list_checkpoints,

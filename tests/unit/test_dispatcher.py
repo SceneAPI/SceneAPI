@@ -5,18 +5,22 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
-from app.core.config import get_settings
-from app.core.errors import BackendUnavailableError, PycolmapUnavailableError, ValidationError
-from app.core.ids import new_id
-from app.db.models import Dataset, Image, ImageSource, Job, StageArtifact, Task
-from app.services import artifact_service, job_service, project_service
-from app.services.dataset_service import register_derived_dataset
-from app.workers.dispatcher import (
+from sfmapi.server.core.config import get_settings
+from sfmapi.server.core.errors import (
+    BackendUnavailableError,
+    PycolmapUnavailableError,
+    ValidationError,
+)
+from sfmapi.server.core.ids import new_id
+from sfmapi.server.db.models import Dataset, Image, ImageSource, Job, StageArtifact, Task
+from sfmapi.server.services import artifact_service, job_service, project_service
+from sfmapi.server.services.dataset_service import register_derived_dataset
+from sfmapi.server.workers.dispatcher import (
     _dependency_state_from_statuses,
     execute_task,
     get_handlers,
 )
-from app.workers.runner import WORKER_ID, run_task
+from sfmapi.server.workers.runner import WORKER_ID, run_task
 
 pytestmark = pytest.mark.unit
 
@@ -62,7 +66,7 @@ def test_runner_run_task_delegates_to_dispatcher(monkeypatch: pytest.MonkeyPatch
         seen.append(task_id)
         return {"status": "fake"}
 
-    import app.workers.runner as runner_mod
+    import sfmapi.server.workers.runner as runner_mod
 
     monkeypatch.setattr(runner_mod, "execute_task", fake_execute)
 
@@ -264,7 +268,7 @@ async def test_backend_unavailable_error_is_engine_neutral(session, monkeypatch)
     def raise_unavailable(_task: Task) -> dict:
         raise BackendUnavailableError("engine not installed")
 
-    import app.workers.dispatcher as dispatcher
+    import sfmapi.server.workers.dispatcher as dispatcher
 
     monkeypatch.setattr(dispatcher, "_HANDLERS_CACHE", {"noop": raise_unavailable})
 
@@ -293,7 +297,7 @@ async def test_pycolmap_unavailable_error_keeps_legacy_wire_error_class(
     def raise_unavailable(_task: Task) -> dict:
         raise PycolmapUnavailableError("pycolmap missing")
 
-    import app.workers.dispatcher as dispatcher
+    import sfmapi.server.workers.dispatcher as dispatcher
 
     monkeypatch.setattr(dispatcher, "_HANDLERS_CACHE", {"noop": raise_unavailable})
 
@@ -319,8 +323,8 @@ async def test_lifecycle_hooks_fire_only_for_registered_kind(session, monkeypatc
     ``on_success`` before the success commit, and ``failed`` on a
     cancel-before-pickup (which never resolves a handler) — and never
     fire for kinds that registered no hooks."""
-    import app.workers.dispatcher as dispatcher
-    from app.workers.tasks import _registry
+    import sfmapi.server.workers.dispatcher as dispatcher
+    from sfmapi.server.workers.tasks import _registry
 
     # Import the real task modules *before* patching the registry so
     # their registrations don't land inside the patched window.
@@ -402,7 +406,7 @@ async def test_execute_task_does_not_rerun_terminal_task(session, monkeypatch) -
         calls += 1
         raise AssertionError("terminal task should not be executed again")
 
-    import app.workers.dispatcher as dispatcher
+    import sfmapi.server.workers.dispatcher as dispatcher
 
     monkeypatch.setattr(dispatcher, "_HANDLERS_CACHE", {"noop": fail_if_called})
 

@@ -52,9 +52,9 @@ either is red, the PR doesn't land.
 
 ## Adding a new endpoint
 
-1. Pydantic schema under `app/schemas/api/`.
-2. Service function under `app/services/`.
-3. Route under `app/api/v1/`, mounted from `app/main.py`.
+1. Pydantic schema under `sfmapi/server/schemas/api/`.
+2. Service function under `sfmapi/server/services/`.
+3. Route under `sfmapi/server/api/v1/`, mounted from `sfmapi/server/main.py`.
 4. Test under `tests/e2e/` (and `tests/integration/` if it touches
    storage).
 5. Update the [API reference](../reference/api.md).
@@ -74,12 +74,12 @@ The most common contribution shape — a new pipeline stage like
 so the touchpoints are minimal and the drift modes are caught
 mechanically.
 
-1. **Add the worker task** at `app/workers/tasks/<kind>.py`. Decorate
+1. **Add the worker task** at `sfmapi/server/workers/tasks/<kind>.py`. Decorate
    the entry function:
 
    ```python
    from sfmapi.backends import require_backend_method
-   from app.workers.tasks._registry import task_handler
+   from sfmapi.server.workers.tasks._registry import task_handler
 
    @task_handler("my_stage")
    def run(task: Task) -> dict:
@@ -94,21 +94,21 @@ mechanically.
        return {"result_path": ..., **result}
    ```
 
-   Auto-discovery picks it up — no edit to `app/workers/dispatcher.py`
+   Auto-discovery picks it up — no edit to `sfmapi/server/workers/dispatcher.py`
    needed. The decorator raises on duplicate-kind so typos collide
    loudly.
 
 2. **Add the capability string** to
-   `app/core/capabilities.py::ALL_KNOWN`. Pick a canonical name
+   `sfmapi/server/core/capabilities.py::ALL_KNOWN`. Pick a canonical name
    (`pgo.optimize`, `geometry.two_view`, `<family>.<variant>`).
 
 3. **Add a Protocol method** to the smallest matching protocol in
-   `app.adapters.backend` if the stage needs a new backend-side
+   `sfmapi.server.adapters.backend` if the stage needs a new backend-side
    operation. Keep `SfmBackend` as the full union for complete engines.
-   Add the matching stub method to `app.adapters.stub_backend.StubBackend`
+   Add the matching stub method to `sfmapi.server.adapters.stub_backend.StubBackend`
    only when the no-op stub must satisfy that protocol.
 
-4. **Add a service helper** in `app/services/sfm_stage_service.py`:
+4. **Add a service helper** in `sfmapi/server/services/sfm_stage_service.py`:
 
    ```python
    async def submit_my_stage(...) -> tuple[str, list]:
@@ -126,7 +126,7 @@ mechanically.
    `require_capability("X.Y")` literals and fails if `"X.Y"` is
    missing from `ALL_KNOWN`.
 
-5. **Add a route** in the appropriate `app/api/v1/<resource>.py`,
+5. **Add a route** in the appropriate `sfmapi/server/api/v1/<resource>.py`,
    delegating to the service helper. Use
    `accepted_response(JobAcceptedResponse(...))` for the 202
    envelope.
@@ -172,14 +172,14 @@ own repos and satisfy the smallest protocol layer they need.
    `capabilities()`. For a package-level smoke check, run
    `sfmapi check-backend --import my_backend --backend my_backend`.
 5. If a new wire op is needed (a method not yet on a protocol), add
-   it to the narrowest protocol in `app/adapters/backend.py` and
-   surface a worker task under `app/workers/tasks/` (see "Adding a
+   it to the narrowest protocol in `sfmapi/server/adapters/backend.py` and
+   surface a worker task under `sfmapi/server/workers/tasks/` (see "Adding a
    new SfM stage" above). Worker tasks call backends through
    ``get_backend()`` plus ``require_backend_method(...)``, never via
    direct import.
 
 Backends advertising a capability that is not in
-`app.core.capabilities.ALL_KNOWN` will see that capability silently
+`sfmapi.server.core.capabilities.ALL_KNOWN` will see that capability silently
 dropped at `detect_capabilities` time (logged as a warning); add the
 canonical name to `ALL_KNOWN` first only when it is a portable sfmapi
 feature. For engine-native tools, add or fix the backend action

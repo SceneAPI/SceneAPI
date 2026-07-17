@@ -39,6 +39,10 @@ _Drafted by release-drafter from merged PRs since the last tag._
   `SFMAPI_MCP_ENABLED=true` as a compatibility alias.
 
 ### Changed
+- Moved the server implementation from the top-level `app` package into
+  the `sfmapi` namespace as `sfmapi.server` (console scripts, the ARQ
+  worker entrypoint, and `uvicorn` targets now use `sfmapi.server.*`
+  module paths). The wire contract is unchanged.
 - Reorganized the published documentation homepage and sidebar around
   user journeys: start, API usage, backend implementation, operations,
   SDKs, specification, and contribution.
@@ -50,6 +54,13 @@ _Drafted by release-drafter from merged PRs since the last tag._
 - Clarified authentication, admin-route, quota, backend-output, and
   runtime-version documentation to match current implementation
   behavior.
+
+### Deprecated
+- The top-level `app` package is now a compatibility alias over
+  `sfmapi.server`: every `app.*` import keeps working and resolves to
+  the same module objects, but emits a `DeprecationWarning`. The alias
+  is removed in 0.1.0 — plugins should use the public `sfmapi.*`
+  facades; internal tooling should import `sfmapi.server.*`.
 
 ## [0.0.1] - 2026-05-02
 

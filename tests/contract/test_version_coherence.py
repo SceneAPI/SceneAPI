@@ -1,7 +1,7 @@
 """Version coherence across the shipping surfaces (lean audit 5.5).
 
 One release = one version string. The server package
-(``app.__version__``), the wheel metadata (``pyproject.toml``), and
+(``sfmapi.server.__version__``), the wheel metadata (``pyproject.toml``), and
 the committed OpenAPI document (``docs/_static/openapi.json`` — the
 repo-root ``openapi.json`` is gitignored) must agree, or a release
 bump ships a spec/SDK that claims a different version than the server
@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from app import __version__ as app_version
+from sfmapi.server import __version__ as app_version
 
 pytestmark = pytest.mark.contract
 
@@ -36,7 +36,7 @@ def _pyproject_version(path: Path) -> str:
 
 def test_app_version_matches_pyproject() -> None:
     assert app_version == _pyproject_version(SERVER_ROOT / "pyproject.toml"), (
-        "app.__version__ and pyproject.toml [project].version disagree — "
+        "sfmapi.server.__version__ and pyproject.toml [project].version disagree — "
         "bump both together when cutting a release."
     )
 

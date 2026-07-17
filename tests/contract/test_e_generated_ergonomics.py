@@ -182,8 +182,8 @@ def test_parse_points_binary_round_trip_against_server_encoder() -> None:
     generated SDK's parser, confirm exact round-trip. Cross-language
     parity guarantee for the most-used wire shape."""
     erg, _ = _import_generated()
-    from app.schemas.points_binary import Point3DRecord as SrvPoint
-    from app.schemas.points_binary import encode_all
+    from sfmapi.server.schemas.points_binary import Point3DRecord as SrvPoint
+    from sfmapi.server.schemas.points_binary import encode_all
 
     records = [
         SrvPoint(point3d_id=100, xyz=(1.0, 2.0, 3.0), rgb=(255, 0, 0), track_len=5),
@@ -419,7 +419,7 @@ def test_sse_stream_terminates_after_job_reaches_terminal(
 
 
 def test_dispatcher_finalizes_job_after_every_task_transition() -> None:
-    """Static guard: ``app/workers/dispatcher.py::execute_task`` must
+    """Static guard: ``sfmapi/server/workers/dispatcher.py::execute_task`` must
     roll ``Job.status`` up after every terminal Task transition
     (succeeded / failed-via-exception / failed-via-BackendUnavailable
     / failed-via-UnknownTask / both cancel branches). Missing any one
@@ -434,9 +434,9 @@ def test_dispatcher_finalizes_job_after_every_task_transition() -> None:
     """
     from pathlib import Path as _Path
 
-    src = (_Path(__file__).resolve().parents[2] / "app" / "workers" / "dispatcher.py").read_text(
-        encoding="utf-8"
-    )
+    src = (
+        _Path(__file__).resolve().parents[2] / "sfmapi" / "server" / "workers" / "dispatcher.py"
+    ).read_text(encoding="utf-8")
     # The rollup must exist + be awaited by the shared post-terminal hop.
     assert "def _maybe_finalize_job" in src, (
         "dispatcher.py is missing _maybe_finalize_job — Job.status "
@@ -461,14 +461,14 @@ def test_dispatcher_finalizes_job_after_every_task_transition() -> None:
 
 
 def test_get_blob_store_singletons_the_memory_backend() -> None:
-    """Static + dynamic guard: ``app/storage/blobs.py::get_blob_store``
+    """Static + dynamic guard: ``sfmapi/server/storage/blobs.py::get_blob_store``
     MUST cache the in-memory backend instance. Constructing a fresh
     InMemoryBlobStore per call breaks every multi-call flow because
     the bytes live in a per-instance dict — uploaded blobs become
     "missing" to subsequent readers.
     """
-    from app.core.config import Settings
-    from app.storage.blobs import (
+    from sfmapi.server.core.config import Settings
+    from sfmapi.server.storage.blobs import (
         InMemoryBlobStore,
         get_blob_store,
         reset_memory_blob_store_for_tests,
@@ -493,7 +493,7 @@ def test_get_blob_store_singletons_the_memory_backend() -> None:
 
 
 def test_materialize_dag_persists_node_metadata() -> None:
-    """Static guard: ``app/services/job_service.py::materialize_dag``
+    """Static guard: ``sfmapi/server/services/job_service.py::materialize_dag``
     MUST persist ``TaskNode.metadata`` (carrying ``inputs`` /
     ``spec``) to ``Task.task_state_json`` for non-cached nodes.
 
@@ -507,9 +507,9 @@ def test_materialize_dag_persists_node_metadata() -> None:
     """
     from pathlib import Path as _Path
 
-    src = (_Path(__file__).resolve().parents[2] / "app" / "services" / "job_service.py").read_text(
-        encoding="utf-8"
-    )
+    src = (
+        _Path(__file__).resolve().parents[2] / "sfmapi" / "server" / "services" / "job_service.py"
+    ).read_text(encoding="utf-8")
     has_metadata_branch = "n.metadata" in src and "task_state_json" in src
     assert has_metadata_branch, (
         "job_service.py::materialize_dag is no longer persisting "
@@ -532,7 +532,7 @@ def test_job_accepted_response_carries_stage_specific_typed_fields() -> None:
     ``Optional`` directly on the envelope. ``model_dump()`` of a
     routed response now matches the recorded fixture exactly.
     """
-    from app.schemas.api.jobs import JobAcceptedResponse
+    from sfmapi.server.schemas.api.jobs import JobAcceptedResponse
 
     # Stage-specific keys MUST be declared on the model (typed access).
     declared = set(JobAcceptedResponse.model_fields)
@@ -575,21 +575,21 @@ def test_paths_exposes_workspace_root() -> None:
     ``_materialize`` crashes with an AttributeError on every fresh
     task. (Surfaced once already — kept here as a permanent guard.)
     """
-    from app.core.config import Settings
-    from app.core.paths import Paths
+    from sfmapi.server.core.config import Settings
+    from sfmapi.server.core.paths import Paths
 
     p = Paths(Settings())
     # Property is an attribute access, not a method call.
     assert hasattr(p, "workspace_root"), (
         "Paths.workspace_root removed — workers calling "
-        "paths.workspace_root in app/workers/_materialize.py and "
+        "paths.workspace_root in sfmapi/server/workers/_materialize.py and "
         "extract.py will crash with AttributeError on every fresh task."
     )
     assert p.workspace_root == p.s.workspace_root
 
 
 def test_jobs_events_handler_has_terminal_exit_clause() -> None:
-    """Static guard: the SSE handler in ``app/api/v1/jobs.py`` MUST
+    """Static guard: the SSE handler in ``sfmapi/server/api/v1/jobs.py`` MUST
     contain a terminal-status check that breaks its tail loop. A
     regression to ``while True: yield; sleep`` without that check
     re-introduces the hang we fixed.
@@ -598,9 +598,9 @@ def test_jobs_events_handler_has_terminal_exit_clause() -> None:
     """
     from pathlib import Path as _Path
 
-    src = (_Path(__file__).resolve().parents[2] / "app" / "api" / "v1" / "jobs.py").read_text(
-        encoding="utf-8"
-    )
+    src = (
+        _Path(__file__).resolve().parents[2] / "sfmapi" / "server" / "api" / "v1" / "jobs.py"
+    ).read_text(encoding="utf-8")
     # Two signals must be present; either disappearing means the
     # terminal-drain exit was lost.
     has_guard = "terminal_seen" in src or "terminal_statuses" in src

@@ -4,15 +4,15 @@ from typing import Any, cast
 
 import pytest
 
-from app.adapters.backend_contract import (
+from sfmapi.server.adapters.backend_contract import (
     assert_backend_contract,
     backend_capability_contract_violations,
     backend_contract_violations,
 )
-from app.adapters.registry import register_backend
-from app.adapters.stub_backend import StubBackend
-from app.cli import main as cli_main
-from app.core.capabilities import reset_capabilities_cache
+from sfmapi.server.adapters.registry import register_backend
+from sfmapi.server.adapters.stub_backend import StubBackend
+from sfmapi.server.cli import main as cli_main
+from sfmapi.server.core.capabilities import reset_capabilities_cache
 
 pytestmark = pytest.mark.unit
 

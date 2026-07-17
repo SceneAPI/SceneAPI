@@ -10,11 +10,11 @@ from typing import Any
 
 import pytest
 
-from app.adapters.registry import register_backend
-from app.adapters.stub_backend import StubBackend
-from app.core.errors import NotFoundError, ValidationError
-from app.schemas.pipeline_spec import FeaturesSpec
-from app.services import oneshot_service
+from sfmapi.server.adapters.registry import register_backend
+from sfmapi.server.adapters.stub_backend import StubBackend
+from sfmapi.server.core.errors import NotFoundError, ValidationError
+from sfmapi.server.schemas.pipeline_spec import FeaturesSpec
+from sfmapi.server.services import oneshot_service
 
 pytestmark = pytest.mark.unit
 

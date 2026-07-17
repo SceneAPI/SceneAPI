@@ -2,7 +2,7 @@
 
 Capability strings are declared in three places:
 
-1. ``app/core/capabilities.py::ALL_KNOWN`` — the canonical vocabulary.
+1. ``sfmapi/server/core/capabilities.py::ALL_KNOWN`` — the canonical vocabulary.
 2. Each backend's ``capabilities()`` method — the subset it implements.
 3. ``require_capability("X.Y")`` calls in services / routes — the gate.
 
@@ -13,7 +13,7 @@ backend advertises it (because ``Capabilities.features`` is keyed on
 ``ALL_KNOWN``). The endpoint then 501s permanently regardless of
 backend support — a silent contract violation.
 
-These tests scan ``app/services/`` + ``app/api/v1/`` for every
+These tests scan ``sfmapi/server/services/`` + ``sfmapi/server/api/v1/`` for every
 literal-arg ``require_capability("X.Y")`` call and assert each
 appears in ``ALL_KNOWN``. Runtime-suffix forms (``f"matchers.{type}"``)
 are spot-checked by walking the catalog of valid suffixes.
@@ -27,14 +27,18 @@ from typing import get_args
 
 import pytest
 
-from app.core.capabilities import ALL_KNOWN
-from app.core.processors import FEATURE_ATTRIBUTES
-from app.schemas.pipeline_spec import BA_MODE_CAPABILITIES, BundleAdjustmentSpec, FeatureType
+from sfmapi.server.core.capabilities import ALL_KNOWN
+from sfmapi.server.core.processors import FEATURE_ATTRIBUTES
+from sfmapi.server.schemas.pipeline_spec import (
+    BA_MODE_CAPABILITIES,
+    BundleAdjustmentSpec,
+    FeatureType,
+)
 
 pytestmark = pytest.mark.unit
 
 ROOT = Path(__file__).resolve().parents[2]
-SCAN_DIRS = [ROOT / "app" / "services", ROOT / "app" / "api"]
+SCAN_DIRS = [ROOT / "sfmapi" / "server" / "services", ROOT / "sfmapi" / "server" / "api"]
 
 
 def _collect_require_capability_strings() -> list[tuple[Path, int, str]]:
@@ -125,13 +129,13 @@ def test_feature_extractors_align_across_capabilities_schema_and_processors() ->
 
 
 def test_ba_mode_capability_map_is_single_sourced() -> None:
-    """``BA_MODE_CAPABILITIES`` in ``app.schemas.pipeline_spec`` is the
+    """``BA_MODE_CAPABILITIES`` in ``sfmapi.server.schemas.pipeline_spec`` is the
     one mode -> capability map; the web tier (sfm_stage_service) and
     the worker (tasks.ba) must both use that object rather than carry
     their own copy, and it must cover every ``BundleAdjustmentSpec.mode``
     with a capability that exists in ``ALL_KNOWN``."""
-    from app.services import sfm_stage_service
-    from app.workers.tasks import ba
+    from sfmapi.server.services import sfm_stage_service
+    from sfmapi.server.workers.tasks import ba
 
     modes = set(get_args(BundleAdjustmentSpec.model_fields["mode"].annotation))
     assert set(BA_MODE_CAPABILITIES) == modes, (

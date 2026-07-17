@@ -632,7 +632,7 @@ fields.
 ## ProgressEvent
 
 ```{eval-rst}
-.. automodule:: app.schemas.progress_event
+.. automodule:: sfmapi.server.schemas.progress_event
    :members:
    :no-index:
 ```
@@ -640,7 +640,7 @@ fields.
 ## Pipeline specs
 
 ```{eval-rst}
-.. automodule:: app.schemas.pipeline_spec
+.. automodule:: sfmapi.server.schemas.pipeline_spec
    :members:
    :no-index:
 ```
@@ -651,7 +651,7 @@ fields.
 26 bytes per point.
 
 ```{eval-rst}
-.. automodule:: app.schemas.points_binary
+.. automodule:: sfmapi.server.schemas.points_binary
    :members:
    :no-index:
 ```

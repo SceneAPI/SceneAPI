@@ -9,7 +9,7 @@ All settings are env-vars prefixed with `SFMAPI_`. They're parsed by a
 single Pydantic `Settings` class:
 
 ```{eval-rst}
-.. autoclass:: app.core.config.Settings
+.. autoclass:: sfmapi.server.core.config.Settings
    :members:
    :no-index:
 ```

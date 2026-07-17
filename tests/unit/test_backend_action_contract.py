@@ -4,11 +4,11 @@ from typing import Any
 
 import pytest
 
-from app.adapters.backend_actions import (
+from sfmapi.server.adapters.backend_actions import (
     assert_backend_action_contract,
     backend_action_contract_violations,
 )
-from app.adapters.stub_backend import StubBackend
+from sfmapi.server.adapters.stub_backend import StubBackend
 
 pytestmark = pytest.mark.unit
 

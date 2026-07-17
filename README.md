@@ -167,7 +167,8 @@ stdio mode, tenant scoping, and deployment notes.
 ## Layout
 
 ```
-app/
+sfmapi/          public plugin/embedding facades (runtime, backends, errors, ...)
+sfmapi/server/
   api/v1/        HTTP routes (NEVER imports the SfM backend or other heavy deps)
   core/          config, tenancy, hashing, paths, ids
   db/            SQLAlchemy models + alembic

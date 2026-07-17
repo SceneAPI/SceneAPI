@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from PIL import Image as PILImage
 
-from app.storage import similarity as sim
+from sfmapi.server.storage import similarity as sim
 
 pytestmark = pytest.mark.unit
 

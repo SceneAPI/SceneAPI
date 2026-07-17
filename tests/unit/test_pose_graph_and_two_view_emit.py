@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from app.schemas.api.scene import PoseGraphFile, TwoViewGeometriesFile
-from app.storage.pose_graph_emit import emit_pose_graph_file
-from app.storage.two_view_emit import export_two_view_geometries
+from sfmapi.server.schemas.api.scene import PoseGraphFile, TwoViewGeometriesFile
+from sfmapi.server.storage.pose_graph_emit import emit_pose_graph_file
+from sfmapi.server.storage.two_view_emit import export_two_view_geometries
 
 pytestmark = pytest.mark.unit
 

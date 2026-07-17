@@ -4,10 +4,10 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.core.ids import new_id
-from app.core.paths import Paths
-from app.db.models import Job, Project, Reconstruction, RuntimeVersion
-from app.storage.workspace import gc_completed_jobs
+from sfmapi.server.core.ids import new_id
+from sfmapi.server.core.paths import Paths
+from sfmapi.server.db.models import Job, Project, Reconstruction, RuntimeVersion
+from sfmapi.server.storage.workspace import gc_completed_jobs
 
 pytestmark = pytest.mark.integration
 

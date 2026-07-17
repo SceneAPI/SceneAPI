@@ -34,9 +34,9 @@ jobs:
           uv pip install -e "$SFMAPI_SDK_REPO/python"
           uv pip install -e "$SFMAPI_SDK_REPO/python/sfmapi_client_gen"
       - name: Ruff lint
-        run: uv run ruff check app sfmapi sfm_hub tests scripts
+        run: uv run ruff check sfmapi sfm_hub tests scripts
       - name: Ruff format check
-        run: uv run ruff format --check app sfmapi sfm_hub tests scripts
+        run: uv run ruff format --check sfmapi sfm_hub tests scripts
 
   test-sqlite:
     runs-on: ubuntu-latest

@@ -49,7 +49,7 @@ private control-plane network, mTLS, or an ingress policy).
 ## Quotas
 
 ```{eval-rst}
-.. automodule:: app.services.quota_service
+.. automodule:: sfmapi.server.services.quota_service
    :members:
    :no-index:
 ```

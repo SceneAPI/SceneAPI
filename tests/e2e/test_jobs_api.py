@@ -136,7 +136,7 @@ async def test_verify_returns_202(client) -> None:
 
 
 async def test_progress_snapshot_uses_latest_phase_event(client, session) -> None:
-    from app.db.models import Job, JobEvent, Project, Task
+    from sfmapi.server.db.models import Job, JobEvent, Project, Task
 
     now = datetime.now(UTC)
     project = Project(tenant_id="default", name="p-progress")
@@ -201,9 +201,9 @@ async def test_progress_snapshot_uses_latest_phase_event(client, session) -> Non
 async def test_backend_progress_reporter_events_are_persisted(client, session) -> None:
     from sqlalchemy import select
 
-    from app.adapters.registry import register_backend
-    from app.adapters.stub_backend import StubBackend
-    from app.db.models import JobEvent
+    from sfmapi.server.adapters.registry import register_backend
+    from sfmapi.server.adapters.stub_backend import StubBackend
+    from sfmapi.server.db.models import JobEvent
 
     class ReportingBackend(StubBackend):
         def extract_features(
@@ -252,8 +252,8 @@ async def test_backend_progress_reporter_events_are_persisted(client, session) -
 
 
 async def test_matches_can_select_feature_artifact_as_input(client) -> None:
-    from app.adapters.registry import register_backend
-    from app.adapters.stub_backend import StubBackend
+    from sfmapi.server.adapters.registry import register_backend
+    from sfmapi.server.adapters.stub_backend import StubBackend
 
     captured: dict[str, object] = {}
 

@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from app.core.config import Settings
-from app.core.errors import StorageError
-from app.storage.blobs import (
+from sfmapi.server.core.config import Settings
+from sfmapi.server.core.errors import StorageError
+from sfmapi.server.storage.blobs import (
     BlobStore,
     InMemoryBlobStore,
     get_blob_store,

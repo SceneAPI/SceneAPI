@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.ids import ID_LEN, is_id, new_id
+from sfmapi.server.core.ids import ID_LEN, is_id, new_id
 
 pytestmark = pytest.mark.unit
 

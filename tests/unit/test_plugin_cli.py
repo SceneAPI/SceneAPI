@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from app.cli import main
 from bench.cli import main as bench_main
 from sfm_hub.state import record_manual_install
+from sfmapi.server.cli import main
 
 pytestmark = pytest.mark.unit
 
@@ -48,7 +48,7 @@ def test_cli_install_redacts_provisioning_env(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services import plugin_service
+    from sfmapi.server.services import plugin_service
 
     monkeypatch.setattr(plugin_service, "run_uv_install", lambda plan: None)
     monkeypatch.setattr(

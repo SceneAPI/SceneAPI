@@ -83,7 +83,7 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $stdoutLog = Join-Path $logDir "$ServiceName.stdout.log"
 $stderrLog = Join-Path $logDir "$ServiceName.stderr.log"
 
-# ARQ entrypoint:  arq app.workers.runner.WorkerSettings
+# ARQ entrypoint:  arq sfmapi.server.workers.runner.WorkerSettings
 $arqExe = Join-Path $VenvPath "Scripts\arq.exe"
 if (-not (Test-Path $arqExe)) {
     throw "arq not installed in venv. Run `uv pip install -e .` first."
@@ -97,7 +97,7 @@ if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
 }
 
 Write-Host "Installing service '$ServiceName'..." -ForegroundColor Cyan
-& nssm install $ServiceName $arqExe app.workers.runner.WorkerSettings
+& nssm install $ServiceName $arqExe sfmapi.server.workers.runner.WorkerSettings
 & nssm set $ServiceName AppDirectory $WorkingDir
 & nssm set $ServiceName AppStdout $stdoutLog
 & nssm set $ServiceName AppStderr $stderrLog

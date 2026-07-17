@@ -14,14 +14,14 @@ def _fake_request(headers: dict[str, str] | None = None) -> object:
 
 
 async def test_default_tenant_returned() -> None:
-    from app.core.tenancy import current_tenant
+    from sfmapi.server.core.tenancy import current_tenant
 
     t = await current_tenant(_fake_request())  # type: ignore[arg-type]
     assert t == "default"
 
 
 async def test_get_current_tenant_after_dep_call() -> None:
-    from app.core.tenancy import (
+    from sfmapi.server.core.tenancy import (
         clear_current_tenant,
         current_tenant,
         get_current_tenant,

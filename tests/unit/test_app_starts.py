@@ -16,9 +16,9 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 def test_app_does_not_import_pycolmap_or_torch() -> None:
     # Force fresh import.
     for mod in list(sys.modules):
-        if mod.startswith(("app.main", "app.api", "pycolmap", "torch", "cv2")):
+        if mod.startswith(("sfmapi.server.main", "sfmapi.server.api", "pycolmap", "torch", "cv2")):
             sys.modules.pop(mod, None)
-    import app.main  # noqa: F401
+    import sfmapi.server.main  # noqa: F401
 
     forbidden = {"pycolmap", "torch", "cv2", "segment_anything"}
     leaked = forbidden & set(sys.modules)
@@ -26,7 +26,7 @@ def test_app_does_not_import_pycolmap_or_torch() -> None:
 
 
 def test_app_does_not_import_numpy() -> None:
-    """Lazy-numpy guard: importing ``app.main`` and building the app
+    """Lazy-numpy guard: importing ``sfmapi.server.main`` and building the app
     must not pull numpy into the web process. numpy is a query-time /
     worker dependency (``storage.vlad``, ``core.projection_engine``)
     and must be imported lazily inside the functions that use it.
@@ -37,10 +37,57 @@ def test_app_does_not_import_numpy() -> None:
     """
     code = (
         "import sys\n"
-        "import app.main\n"
-        "app.main.create_app()\n"
+        "import sfmapi.server.main\n"
+        "sfmapi.server.main.create_app()\n"
         "assert 'numpy' not in sys.modules, "
         "'web import graph pulled numpy at module scope'\n"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert proc.returncode == 0, f"stdout: {proc.stdout}\nstderr: {proc.stderr}"
+
+
+def test_deprecated_app_alias_shim_contract() -> None:
+    """Pins the one-release ``app`` -> ``sfmapi.server`` alias shim
+    (lean audit 7.4): every pre-rename import pattern keeps working
+    until 0.1.0, emits exactly one DeprecationWarning naming the
+    removal, and resolves to the *same module objects* as the new
+    paths (so ``except``/``isinstance``/monkeypatch stay coherent
+    across the two spellings).
+
+    Runs in a subprocess for a clean import state — the shim warns on
+    first import only.
+    """
+    code = (
+        "import warnings\n"
+        "with warnings.catch_warnings(record=True) as caught:\n"
+        "    warnings.simplefilter('always')\n"
+        "    import app\n"
+        "dep = [w for w in caught if issubclass(w.category, DeprecationWarning)]\n"
+        "assert dep, 'import app must emit a DeprecationWarning'\n"
+        "msg = str(dep[0].message)\n"
+        "assert 'sfmapi.server' in msg and '0.1.0' in msg, msg\n"
+        "import app.main\n"
+        "import importlib\n"
+        "import sfmapi.server.main\n"
+        "from app.core.errors import SfmApiError\n"
+        "import sfmapi.server.core.errors as real_errors\n"
+        "from app.adapters.registry import register_backend\n"
+        "import sfmapi.server.adapters.registry as real_registry\n"
+        "assert app.main is sfmapi.server.main\n"
+        "assert app.main.create_app is sfmapi.server.main.create_app\n"
+        "assert SfmApiError is real_errors.SfmApiError\n"
+        "assert register_backend is real_registry.register_backend\n"
+        "assert app.__version__ == sfmapi.server.__version__\n"
+        "runner = importlib.import_module('app.workers.runner')\n"
+        "assert runner is importlib.import_module('sfmapi.server.workers.runner')\n"
+        "assert runner.__name__ == 'sfmapi.server.workers.runner'\n"
+        "assert real_errors.__spec__.name == 'sfmapi.server.core.errors'\n"
     )
     proc = subprocess.run(
         [sys.executable, "-c", code],

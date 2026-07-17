@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from app.core import attributes as attrs
+from sfmapi.server.core import attributes as attrs
 
 
 def test_attribute_contract_is_json_serializable_and_self_describing() -> None:

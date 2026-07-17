@@ -32,7 +32,7 @@ author = "the sfmapi authors"
 copyright = "2026, the sfmapi authors"
 
 try:
-    from app import __version__ as version
+    from sfmapi.server import __version__ as version
 except ImportError:
     version = "0.0.1"
 release = version
@@ -183,7 +183,7 @@ def _generate_openapi() -> None:
     target = Path(__file__).parent / "_static" / "openapi.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
-        from app.main import create_app
+        from sfmapi.server.main import create_app
 
         spec = create_app().openapi()
     except Exception as exc:

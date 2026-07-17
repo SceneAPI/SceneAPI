@@ -1,4 +1,4 @@
-"""Locks the pipeline composition core contract (app.core.pipelines).
+"""Locks the pipeline composition core contract (sfmapi.server.core.pipelines).
 
 The type-availability validator: a pipeline is valid iff each operation's
 inputs are produced upstream (or supplied initially). Canonical pipelines
@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import json
 
-from app.core import pipelines as pl
-from app.core import processors as proc
-from app.core.attributes import Attribute
-from app.services import dataflow_registry_service
+from sfmapi.server.core import pipelines as pl
+from sfmapi.server.core import processors as proc
+from sfmapi.server.core.attributes import Attribute
+from sfmapi.server.services import dataflow_registry_service
 
 
 def test_canonical_pipelines_type_check() -> None:

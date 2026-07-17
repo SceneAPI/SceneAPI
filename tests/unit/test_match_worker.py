@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from app.core.errors import ValidationError
-from app.db.models import Task
-from app.workers.tasks import match as match_task
+from sfmapi.server.core.errors import ValidationError
+from sfmapi.server.db.models import Task
+from sfmapi.server.workers.tasks import match as match_task
 
 pytestmark = pytest.mark.unit
 

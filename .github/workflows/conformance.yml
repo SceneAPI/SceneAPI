@@ -4,13 +4,13 @@ on:
   push:
     branches: [main]
     paths:
-      - "app/**"
+      - "sfmapi/**"
       - "tests/conformance/**"
       - "SFMAPI-SPEC.md"
       - ".github/workflows/conformance.yml"
   pull_request:
     paths:
-      - "app/**"
+      - "sfmapi/**"
       - "tests/conformance/**"
       - "SFMAPI-SPEC.md"
   workflow_dispatch:

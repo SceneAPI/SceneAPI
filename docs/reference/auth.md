@@ -26,7 +26,7 @@ Public routes (no key required): `GET /healthz`, `GET /readyz`,
 `GET /version`, `GET /spec`, `GET /metrics`.
 
 Keys are scoped to a single `tenant_id` and resolved on every
-request through `app.core.tenancy.current_tenant`. Cross-tenant
+request through `sfmapi.server.core.tenancy.current_tenant`. Cross-tenant
 reads and writes use the same `problem+json` error shape as other
 API errors.
 

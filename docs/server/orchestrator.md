@@ -1,27 +1,27 @@
-# `app.orchestrator`
+# `sfmapi.server.orchestrator`
 
 ```{eval-rst}
-.. automodule:: app.orchestrator.dag
+.. automodule:: sfmapi.server.orchestrator.dag
    :members:
    :no-index:
 
-.. automodule:: app.orchestrator.scheduler
+.. automodule:: sfmapi.server.orchestrator.scheduler
    :members:
    :no-index:
 
-.. automodule:: app.orchestrator.lease
+.. automodule:: sfmapi.server.orchestrator.lease
    :members:
    :no-index:
 
-.. automodule:: app.orchestrator.janitor
+.. automodule:: sfmapi.server.orchestrator.janitor
    :members:
    :no-index:
 
-.. automodule:: app.orchestrator.queue
+.. automodule:: sfmapi.server.orchestrator.queue
    :members:
    :no-index:
 
-.. automodule:: app.orchestrator.resume
+.. automodule:: sfmapi.server.orchestrator.resume
    :members:
    :no-index:
 ```

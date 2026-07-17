@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import inspect
 
-from app.db.session import get_engine
+from sfmapi.server.db.session import get_engine
 
 pytestmark = pytest.mark.integration
 

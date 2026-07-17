@@ -8,9 +8,9 @@ them -- plugin override, never removal (the core fallback always holds).
 
 from __future__ import annotations
 
-from app.adapters import backend_artifacts as ba
-from app.core import artifacts
-from app.services import artifact_service
+from sfmapi.server.adapters import backend_artifacts as ba
+from sfmapi.server.core import artifacts
+from sfmapi.server.services import artifact_service
 
 
 class _ExplicitFormatBackend:

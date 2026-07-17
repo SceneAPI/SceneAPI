@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.core.config import Settings, reset_settings_for_tests
+from sfmapi.server.core.config import Settings, reset_settings_for_tests
 
 pytestmark = pytest.mark.integration
 
@@ -46,7 +46,7 @@ def test_ephemeral_settings_apply_overrides(ephemeral_settings: Settings) -> Non
 
 
 async def _reset_engine() -> None:
-    from app.db import session as session_mod
+    from sfmapi.server.db import session as session_mod
 
     if session_mod._engine is not None:
         await session_mod._engine.dispose()
@@ -56,7 +56,7 @@ async def _reset_engine() -> None:
 
 async def test_ephemeral_app_boot_health(ephemeral_settings: Settings) -> None:
     await _reset_engine()
-    from app.main import create_app
+    from sfmapi.server.main import create_app
 
     app = create_app()
     async with (
@@ -78,7 +78,7 @@ async def test_ephemeral_app_boot_health(ephemeral_settings: Settings) -> None:
 
 async def test_ephemeral_create_project_round_trip(ephemeral_settings: Settings) -> None:
     await _reset_engine()
-    from app.main import create_app
+    from sfmapi.server.main import create_app
 
     app = create_app()
     async with (
@@ -100,7 +100,7 @@ async def test_ephemeral_workspace_cleaned_after_shutdown(
     ephemeral_settings: Settings,
 ) -> None:
     await _reset_engine()
-    from app.main import create_app
+    from sfmapi.server.main import create_app
 
     app = create_app()
     workspace = ephemeral_settings.workspace_root

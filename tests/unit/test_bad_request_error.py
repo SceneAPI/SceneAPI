@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.errors import BadRequestError, SfmApiError, ValidationError
+from sfmapi.server.core.errors import BadRequestError, SfmApiError, ValidationError
 
 pytestmark = pytest.mark.unit
 

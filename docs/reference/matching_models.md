@@ -10,8 +10,8 @@ and how each backend family is expected to declare and route it.
 
 A matching model touches two contracts:
 
-1. **Portable capability + match-format layer** (`app/core/capabilities.py`,
-   `app/core/artifacts.py`). Capabilities like `features.extract.superpoint`,
+1. **Portable capability + match-format layer** (`sfmapi/server/core/capabilities.py`,
+   `sfmapi/server/core/artifacts.py`). Capabilities like `features.extract.superpoint`,
    `matchers.lightglue`, `matchers.loftr` advertise *what* a backend can
    do; the match-artifact formats describe *how* correspondences are
    carried:

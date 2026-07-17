@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from app.workers.tasks.kapture_import import (
+from sfmapi.server.workers.tasks.kapture_import import (
     _parse_kapture_records,
     _parse_kapture_sensors,
 )

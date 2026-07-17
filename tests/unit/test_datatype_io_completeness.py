@@ -10,8 +10,8 @@ dense_model/splat) or a format is orphaned (e.g. a dropped DataType).
 
 from __future__ import annotations
 
-from app.core import artifacts
-from app.core import datatypes as dt
+from sfmapi.server.core import artifacts
+from sfmapi.server.core import datatypes as dt
 
 
 def _artifact_datatype_ids() -> set[str]:

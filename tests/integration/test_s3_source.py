@@ -25,7 +25,7 @@ def _seed_bucket(name: str, files: dict[str, bytes]) -> None:
 
 def test_s3_source_lists_and_materializes(s3_env, tmp_path: Path) -> None:
     moto = pytest.importorskip("moto")
-    from app.sources.s3 import S3Source
+    from sfmapi.server.sources.s3 import S3Source
 
     with moto.mock_aws():
         _seed_bucket(
@@ -50,7 +50,7 @@ def test_s3_source_lists_and_materializes(s3_env, tmp_path: Path) -> None:
 def test_s3_cache_lru_evicts_oldest(s3_env, monkeypatch) -> None:
     import os
 
-    from app.storage.s3_cache import S3Cache
+    from sfmapi.server.storage.s3_cache import S3Cache
 
     cache = S3Cache()
     a = cache.insert(bucket="b", key="a", etag="1", src_bytes=b"x" * 1024)
@@ -73,8 +73,8 @@ def test_s3_cache_lru_evicts_oldest(s3_env, monkeypatch) -> None:
 
 def test_s3_source_etag_change_invalidates_cache(s3_env) -> None:
     moto = pytest.importorskip("moto")
-    from app.sources.s3 import S3Source
-    from app.storage.s3_cache import S3Cache
+    from sfmapi.server.sources.s3 import S3Source
+    from sfmapi.server.storage.s3_cache import S3Cache
 
     with moto.mock_aws():
         _seed_bucket("sfm-test2", {"x.jpg": b"\xff\xd8AAAA"})

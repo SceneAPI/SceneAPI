@@ -24,7 +24,7 @@ from typing import Any
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.core.config import Settings, reset_settings_for_tests
+from sfmapi.server.core.config import Settings, reset_settings_for_tests
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 _ULID_RE = re.compile(r"\b[0-9A-HJKMNP-TV-Z]{26}\b")
@@ -100,14 +100,14 @@ def ephemeral_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
 async def contract_client(ephemeral_settings: Settings) -> AsyncIterator[AsyncClient]:
     """Yield an httpx AsyncClient bound to a fresh ephemeral app
     instance with lifespan driven so the schema bootstraps."""
-    from app.db import session as session_mod
+    from sfmapi.server.db import session as session_mod
 
     if session_mod._engine is not None:
         await session_mod._engine.dispose()
     session_mod._engine = None
     session_mod._session_factory = None
 
-    from app.main import create_app
+    from sfmapi.server.main import create_app
 
     app = create_app()
     async with (
@@ -276,8 +276,8 @@ def live_ephemeral_server(monkeypatch: pytest.MonkeyPatch):
 
     import uvicorn
 
-    from app.db import session as session_mod
-    from app.storage.blobs import reset_memory_blob_store_for_tests
+    from sfmapi.server.db import session as session_mod
+    from sfmapi.server.storage.blobs import reset_memory_blob_store_for_tests
 
     _clear_inherited_env(monkeypatch)
     monkeypatch.setenv("SFMAPI_EPHEMERAL", "true")
@@ -296,7 +296,7 @@ def live_ephemeral_server(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(session_mod, "_engine", None, raising=False)
     monkeypatch.setattr(session_mod, "_session_factory", None, raising=False)
 
-    from app.main import create_app
+    from sfmapi.server.main import create_app
 
     app = create_app()
     config = uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning")

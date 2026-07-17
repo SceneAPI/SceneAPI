@@ -1,7 +1,7 @@
 # Public Backend API
 
 Backend packages should import this public surface, not the internal
-`app.adapters` modules. sfmapi ships **no real backend**. It provides
+`sfmapi.server.adapters` modules. sfmapi ships **no real backend**. It provides
 layered backend protocols, registry hooks, contract checkers, and a
 no-op stub for tests / ephemeral demos.
 
@@ -23,7 +23,7 @@ mapping, refinement, and export surface.
    :members:
    :no-index:
 
-.. automodule:: app.adapters.stub_backend
+.. automodule:: sfmapi.server.adapters.stub_backend
    :members:
    :no-index:
 ```

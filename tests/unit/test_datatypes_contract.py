@@ -1,10 +1,10 @@
-"""Locks the DataType registry core contract (app.core.datatypes)."""
+"""Locks the DataType registry core contract (sfmapi.server.core.datatypes)."""
 
 from __future__ import annotations
 
 import json
 
-from app.core import datatypes as dt
+from sfmapi.server.core import datatypes as dt
 
 
 def test_type_ids_are_unique_and_well_kinded() -> None:

@@ -15,7 +15,7 @@ TrustTier = Literal["official", "verified", "community", "local"]
 
 # A manifest is the contract a backend ships; malformed values here are
 # invisible until install / discovery time, so validate the shapes up front.
-# Provider-id pattern lives in app.core.ids (single source); the other
+# Provider-id pattern lives in sfmapi.server.core.ids (single source); the other
 # three are sfm_hub-specific and stay here.
 _ENTRY_POINT_RE = re.compile(r"^[A-Za-z_][\w.]*:[A-Za-z_]\w*$")
 _GITHUB_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -300,10 +300,10 @@ def _validate_public_build_args(args: dict[str, str]) -> dict[str, str]:
 
 
 def _provider_id_re() -> re.Pattern[str]:
-    """Late import: ``app.core.ids`` ships only stdlib but ``app`` and
-    ``sfm_hub`` cross-import elsewhere, so resolve lazily to avoid
-    Python's module-import-cycle serialization."""
-    from app.core.ids import PROVIDER_ID_RE
+    """Late import: ``sfmapi.server.core.ids`` ships only stdlib but
+    ``sfmapi.server`` and ``sfm_hub`` cross-import elsewhere, so resolve
+    lazily to avoid Python's module-import-cycle serialization."""
+    from sfmapi.server.core.ids import PROVIDER_ID_RE
 
     return PROVIDER_ID_RE
 
@@ -311,30 +311,30 @@ def _provider_id_re() -> re.Pattern[str]:
 def _known_capabilities() -> frozenset[str]:
     """The canonical capability vocabulary, imported lazily.
 
-    Late import: ``app.core.capabilities`` depends only on stdlib and never
+    Late import: ``sfmapi.server.core.capabilities`` depends only on stdlib and never
     imports ``sfm_hub``, so this adds no import cycle — but keeping it inside
     the function avoids a module-load-time edge from the lower-level hub
     package up into ``app``.
     """
-    from app.core.capabilities import ALL_KNOWN
+    from sfmapi.server.core.capabilities import ALL_KNOWN
 
     return ALL_KNOWN
 
 
 def _core_datatype_ids() -> frozenset[str]:
-    from app.core.datatypes import CORE_DATA_TYPES_BY_ID
+    from sfmapi.server.core.datatypes import CORE_DATA_TYPES_BY_ID
 
     return frozenset(CORE_DATA_TYPES_BY_ID)
 
 
 def _core_processor_ids() -> frozenset[str]:
-    from app.core.processors import PROCESSORS_BY_ID
+    from sfmapi.server.core.processors import PROCESSORS_BY_ID
 
     return frozenset(PROCESSORS_BY_ID)
 
 
 def _core_pipeline_ids() -> frozenset[str]:
-    from app.core.pipelines import CANONICAL_PIPELINES
+    from sfmapi.server.core.pipelines import CANONICAL_PIPELINES
 
     return frozenset(CANONICAL_PIPELINES)
 
@@ -1072,7 +1072,7 @@ def _core_processor_ports() -> dict[
     str,
     tuple[dict[str, object], dict[str, object]],
 ]:
-    from app.core.processors import PROCESSORS_BY_ID
+    from sfmapi.server.core.processors import PROCESSORS_BY_ID
 
     return {
         processor_id: (processor.consumer, processor.supplier)
@@ -1089,7 +1089,7 @@ def _plugin_processor_ports(
 
 
 def _core_processor_attributes() -> dict[str, list[PluginAttributeManifest]]:
-    from app.core.processors import PROCESSORS_BY_ID
+    from sfmapi.server.core.processors import PROCESSORS_BY_ID
 
     return {
         processor_id: [
