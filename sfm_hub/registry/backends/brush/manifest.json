@@ -3,10 +3,10 @@
   "plugin_id": "brush",
   "display_name": "Brush",
   "description": "3D Gaussian Splatting plugin for Brush training and PLY snapshot export through the sfmapi radiance-field contract.",
-  "package_name": "sfmapi-brush",
-  "github_url": "https://github.com/SFMAPI/sfmapi_brush.git",
+  "package_name": "sfmapi-radiance",
+  "github_url": "https://github.com/SFMAPI/sfmapi_radiance.git",
   "entry_points": [
-    "sfmapi_brush.plugin:plugin"
+    "sfmapi_radiance.providers.brush:plugin"
   ],
   "providers": [
     {
@@ -27,13 +27,13 @@
   "runtime_modes": {
     "uv": {
       "source": "git",
-      "url": "https://github.com/SFMAPI/sfmapi_brush.git",
+      "url": "https://github.com/SFMAPI/sfmapi_radiance.git",
       "ref": "main",
-      "package": "sfmapi-brush"
+      "package": "sfmapi-radiance"
     },
     "docker": {
       "image": null,
-      "build_context": "https://github.com/SFMAPI/sfmapi_brush.git"
+      "build_context": "https://github.com/SFMAPI/sfmapi_radiance.git"
     },
     "container_service": {
       "protocol": "sfmapi-plugin-http-v1",
@@ -45,8 +45,8 @@
       "image": {
         "build": {
           "source": "git",
-          "context": "https://github.com/SFMAPI/sfmapi_brush.git",
-          "dockerfile": "Dockerfile",
+          "context": "https://github.com/SFMAPI/sfmapi_radiance.git",
+          "dockerfile": "docker/brush.Dockerfile",
           "ref": "main",
           "args": {
             "SFMAPI_BRUSH_REF": "main"

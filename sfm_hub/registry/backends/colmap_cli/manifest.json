@@ -3,10 +3,10 @@
   "plugin_id": "colmap_cli",
   "display_name": "COLMAP CLI",
   "description": "Backend plugin that drives an installed COLMAP executable through sfmapi.",
-  "package_name": "sfmapi-colmap-cli",
-  "github_url": "https://github.com/SFMAPI/sfmapi_colmap_cli.git",
+  "package_name": "sfmapi-colmap-unified",
+  "github_url": "https://github.com/SFMAPI/sfmapi_colmap_unified.git",
   "entry_points": [
-    "sfmapi_colmap_cli.plugin:plugin"
+    "sfmapi_colmap_unified.cli.plugin:plugin"
   ],
   "providers": [
     {
@@ -52,9 +52,9 @@
   "runtime_modes": {
     "uv": {
       "source": "git",
-      "url": "https://github.com/SFMAPI/sfmapi_colmap_cli.git",
+      "url": "https://github.com/SFMAPI/sfmapi_colmap_unified.git",
       "ref": "main",
-      "package": "sfmapi-colmap-cli"
+      "package": "sfmapi-colmap-unified"
     },
     "docker": null,
     "external_tool": {

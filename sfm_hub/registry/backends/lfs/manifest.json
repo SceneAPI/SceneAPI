@@ -3,10 +3,10 @@
   "plugin_id": "lfs",
   "display_name": "LichtFeld Studio",
   "description": "3D Gaussian Splatting plugin for LichtFeld Studio headless training, conversion, and export through the sfmapi radiance-field contract.",
-  "package_name": "sfmapi-lfs",
-  "github_url": "https://github.com/SFMAPI/sfmapi_lfs.git",
+  "package_name": "sfmapi-radiance",
+  "github_url": "https://github.com/SFMAPI/sfmapi_radiance.git",
   "entry_points": [
-    "sfmapi_lfs.plugin:plugin"
+    "sfmapi_radiance.providers.lfs:plugin"
   ],
   "providers": [
     {
@@ -27,13 +27,13 @@
   "runtime_modes": {
     "uv": {
       "source": "git",
-      "url": "https://github.com/SFMAPI/sfmapi_lfs.git",
-      "ref": "master",
-      "package": "sfmapi-lfs"
+      "url": "https://github.com/SFMAPI/sfmapi_radiance.git",
+      "ref": "main",
+      "package": "sfmapi-radiance"
     },
     "docker": {
       "image": null,
-      "build_context": "https://github.com/SFMAPI/sfmapi_lfs.git"
+      "build_context": "https://github.com/SFMAPI/sfmapi_radiance.git"
     },
     "container_service": {
       "protocol": "sfmapi-plugin-http-v1",
@@ -45,9 +45,9 @@
       "image": {
         "build": {
           "source": "git",
-          "context": "https://github.com/SFMAPI/sfmapi_lfs.git",
-          "dockerfile": "Dockerfile",
-          "ref": "master",
+          "context": "https://github.com/SFMAPI/sfmapi_radiance.git",
+          "dockerfile": "docker/lfs.Dockerfile",
+          "ref": "main",
           "args": {
             "SFMAPI_LFS_REF": "master"
           }
@@ -65,7 +65,7 @@
       },
       "provenance": {
         "image_digest_required": false,
-        "source_revision": "master"
+        "source_revision": "main"
       },
       "healthcheck": {
         "path": "/healthz",

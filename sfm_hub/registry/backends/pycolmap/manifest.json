@@ -3,10 +3,10 @@
   "plugin_id": "pycolmap",
   "display_name": "pycolmap",
   "description": "Python backend plugin using pycolmap bindings for in-process COLMAP workflows.",
-  "package_name": "sfmapi-pycolmap",
-  "github_url": "https://github.com/SFMAPI/sfmapi_pycolmap.git",
+  "package_name": "sfmapi-colmap-unified",
+  "github_url": "https://github.com/SFMAPI/sfmapi_colmap_unified.git",
   "entry_points": [
-    "sfmapi_pycolmap.plugin:plugin"
+    "sfmapi_colmap_unified.pycolmap.plugin:plugin"
   ],
   "providers": [
     {
@@ -55,9 +55,9 @@
   "runtime_modes": {
     "uv": {
       "source": "git",
-      "url": "https://github.com/SFMAPI/sfmapi_pycolmap.git",
+      "url": "https://github.com/SFMAPI/sfmapi_colmap_unified.git",
       "ref": "main",
-      "package": "sfmapi-pycolmap"
+      "package": "sfmapi-colmap-unified"
     },
     "docker": null
   },

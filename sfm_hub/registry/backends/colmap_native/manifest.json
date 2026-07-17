@@ -3,9 +3,9 @@
   "plugin_id": "colmap_native",
   "display_name": "Native COLMAP backends",
   "description": "COLMAP backend collection with CLI, pycolmap, native C++, and in-memory provider variants.",
-  "package_name": "sfmapi-colmap",
-  "github_url": "https://github.com/SFMAPI/sfmapi_colmap.git",
-  "entry_points": ["sfmapi_colmap.plugin:plugin"],
+  "package_name": "sfmapi-colmap-unified",
+  "github_url": "https://github.com/SFMAPI/sfmapi_colmap_unified.git",
+  "entry_points": ["sfmapi_colmap_unified.native.plugin:plugin"],
   "providers": [
     {
       "provider_id": "colmap_cli",
@@ -135,9 +135,9 @@
   "runtime_modes": {
     "uv": {
       "source": "git",
-      "url": "https://github.com/SFMAPI/sfmapi_colmap.git",
+      "url": "https://github.com/SFMAPI/sfmapi_colmap_unified.git",
       "ref": "main",
-      "package": "sfmapi-colmap"
+      "package": "sfmapi-colmap-unified"
     },
     "docker": null,
     "external_tool": {

@@ -3,10 +3,10 @@
   "plugin_id": "spirulae",
   "display_name": "spirulae-splat",
   "description": "3D Gaussian Splatting plugin for spirulae-splat training, dataset rendering, and PLY export through the sfmapi radiance-field contract.",
-  "package_name": "sfmapi-spirulae",
-  "github_url": "https://github.com/SFMAPI/sfmapi_spirulae.git",
+  "package_name": "sfmapi-radiance",
+  "github_url": "https://github.com/SFMAPI/sfmapi_radiance.git",
   "entry_points": [
-    "sfmapi_spirulae.plugin:plugin"
+    "sfmapi_radiance.providers.spirulae:plugin"
   ],
   "providers": [
     {
@@ -28,13 +28,13 @@
   "runtime_modes": {
     "uv": {
       "source": "git",
-      "url": "https://github.com/SFMAPI/sfmapi_spirulae.git",
-      "ref": "master",
-      "package": "sfmapi-spirulae"
+      "url": "https://github.com/SFMAPI/sfmapi_radiance.git",
+      "ref": "main",
+      "package": "sfmapi-radiance"
     },
     "docker": {
       "image": null,
-      "build_context": "https://github.com/SFMAPI/sfmapi_spirulae.git"
+      "build_context": "https://github.com/SFMAPI/sfmapi_radiance.git"
     },
     "container_service": {
       "protocol": "sfmapi-plugin-http-v1",
@@ -46,9 +46,9 @@
       "image": {
         "build": {
           "source": "git",
-          "context": "https://github.com/SFMAPI/sfmapi_spirulae.git",
-          "dockerfile": "Dockerfile",
-          "ref": "master",
+          "context": "https://github.com/SFMAPI/sfmapi_radiance.git",
+          "dockerfile": "docker/spirulae.Dockerfile",
+          "ref": "main",
           "args": {
             "TORCH_DEVICE": "cuda",
             "TORCH_INDEX_URL": "https://download.pytorch.org/whl/cu128",
@@ -69,7 +69,7 @@
       },
       "provenance": {
         "image_digest_required": false,
-        "source_revision": "master"
+        "source_revision": "main"
       },
       "healthcheck": {
         "path": "/healthz",
