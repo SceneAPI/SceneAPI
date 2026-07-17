@@ -8,15 +8,12 @@ those options through the stable ``backend_options`` envelope.
 
 from __future__ import annotations
 
-import inspect
-from collections.abc import Callable
 from typing import Any, Protocol
-from urllib.parse import quote
 
 from sfm_hub.routing import ensure_provider_enabled
+from sfmapi.server.adapters import _descriptor_registry as _base
 from sfmapi.server.adapters.registry import get_backend
-from sfmapi.server.core.capabilities import ALL_KNOWN
-from sfmapi.server.core.errors import NotFoundError, ValidationError
+from sfmapi.server.core.errors import ValidationError
 
 
 class BackendConfigSchemaProvider(Protocol):
@@ -37,10 +34,6 @@ _STAGE_ORDER = {
     "radiance": 70,
 }
 _VALID_STAGES = frozenset(_STAGE_ORDER)
-# Canonical patterns live in sfmapi.server.core.ids; re-export under the local
-# underscore names to keep existing call sites in this file untouched.
-from sfmapi.server.core.ids import NAMESPACED_ID_RE as _NAMESPACED_ID_RE  # noqa: E402
-from sfmapi.server.core.ids import PROVIDER_ID_RE as _PROVIDER_RE  # noqa: E402
 
 _COLMAP_STAGE_CONFIGS: tuple[tuple[str, str, str, str, str], ...] = (
     ("colmap.features.sift", "features", "features.extract.sift", "colmap", "feature_extractor"),
@@ -85,28 +78,19 @@ _RUNTIME_MANAGED_COLMAP_OPTIONS = {
 }
 
 
-def _backend_name(backend: Any) -> str:
-    return str(getattr(backend, "name", "unknown"))
-
-
-def _link(config_id: str) -> dict[str, dict[str, str]]:
-    encoded = quote(config_id, safe="")
-    return {
-        "self": {"href": f"/v1/backend/config-schemas/{encoded}"},
-        "collection": {"href": "/v1/backend/config-schemas"},
-    }
-
-
-def _call_with_supported_kwargs(fn: Callable[..., Any], /, *args: Any, **kwargs: Any) -> Any:
-    """Call ``fn`` with only the optional kwargs its signature accepts."""
-    try:
-        signature = inspect.signature(fn)
-    except (TypeError, ValueError):
-        return fn(*args, **kwargs)
-    if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()):
-        return fn(*args, **kwargs)
-    supported = {key: value for key, value in kwargs.items() if key in signature.parameters}
-    return fn(*args, **supported)
+# Note: config's stage vocabulary intentionally includes ``radiance`` (70),
+# unlike the core CONFIG_STAGE_ORDER used by artifact contracts.
+_REGISTRY = _base.DescriptorRegistry(
+    id_key="config_id",
+    descriptor_noun="config schema",
+    title="Backend config schema",
+    violation_heading="Backend config schema contract violations:",
+    collection_path="/v1/backend/config-schemas",
+    index_label="config",
+    list_method="list_backend_config_schemas",
+    stage_order=_STAGE_ORDER,
+)
+_link = _REGISTRY.links
 
 
 def _infer_stage(capability: str | None) -> str:
@@ -135,39 +119,25 @@ def _normalize_descriptor(
     backend: Any,
     include_schema: bool,
 ) -> dict[str, Any]:
-    config_id = str(raw.get("config_id") or raw.get("id") or raw.get("name") or "").strip()
-    if not config_id:
-        raise ValidationError("backend config schema descriptor missing config_id")
-    capability = raw.get("capability")
-    capability = None if capability is None else str(capability)
-    provider = raw.get("provider")
-    provider = None if provider is None else str(provider)
+    config_id = _REGISTRY.descriptor_id(raw)
+    capability = _base.optional_str(raw.get("capability"))
+    provider = _base.optional_str(raw.get("provider"))
     schema = raw.get("option_schema", raw.get("schema", raw.get("input_schema")))
     if schema is not None and not isinstance(schema, dict):
         raise ValidationError(f"{config_id}: option_schema must be an object or null")
     return {
         "config_id": config_id,
-        "backend": str(raw.get("backend") or _backend_name(backend)),
+        "backend": str(raw.get("backend") or _base.backend_name(backend)),
         "stage": str(raw.get("stage") or _infer_stage(capability)),
         "capability": capability,
         "provider": provider,
-        "display_name": raw.get("display_name") or raw.get("title") or config_id,
+        "display_name": _base.descriptor_display_name(raw, config_id),
         "description": raw.get("description"),
         "option_schema": dict(schema or {}) if include_schema else None,
         "defaults": dict(raw.get("defaults") or {}),
         "metadata": dict(raw.get("metadata") or {}),
         "_links": _link(config_id),
     }
-
-
-def _dedupe(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    by_id: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        by_id.setdefault(str(row["config_id"]), row)
-    return sorted(
-        by_id.values(),
-        key=lambda item: (_STAGE_ORDER.get(str(item.get("stage")), 999), str(item["config_id"])),
-    )
 
 
 def _schema_for_colmap_backend_options(schema: dict[str, Any]) -> dict[str, Any]:
@@ -221,7 +191,7 @@ def _colmap_config_descriptors(backend: Any, *, include_schema: bool) -> list[di
             _normalize_descriptor(
                 {
                     "config_id": config_id,
-                    "backend": _backend_name(backend),
+                    "backend": _base.backend_name(backend),
                     "stage": stage,
                     "capability": capability,
                     "provider": provider,
@@ -313,7 +283,7 @@ def _radiance_config_descriptors(backend: Any, *, include_schema: bool) -> list[
         _normalize_descriptor(
             {
                 "config_id": _RADIANCE_TRAIN_CONFIG_ID,
-                "backend": _backend_name(backend),
+                "backend": _base.backend_name(backend),
                 "stage": "radiance",
                 "capability": "radiance.train",
                 "display_name": "Radiance training options",
@@ -365,33 +335,31 @@ def list_backend_config_schemas(
 ) -> list[dict[str, Any]]:
     """List normalized backend-specific option schemas."""
     backend = backend or get_backend()
-    rows: list[dict[str, Any]] = []
 
-    generic = getattr(backend, "list_backend_config_schemas", None)
-    if callable(generic):
-        for raw in _call_with_supported_kwargs(generic, include_schemas=include_schemas):
-            rows.append(_normalize_descriptor(raw, backend=backend, include_schema=include_schemas))
-        if rows:
-            return _dedupe(rows)
+    def _fallback() -> list[dict[str, Any]]:
+        return [
+            *_colmap_config_descriptors(backend, include_schema=include_schemas),
+            *_radiance_config_descriptors(backend, include_schema=include_schemas),
+        ]
 
-    rows.extend(_colmap_config_descriptors(backend, include_schema=include_schemas))
-    rows.extend(_radiance_config_descriptors(backend, include_schema=include_schemas))
-    return _dedupe(rows)
+    return _REGISTRY.list_rows(
+        backend,
+        normalize=lambda raw: _normalize_descriptor(
+            raw, backend=backend, include_schema=include_schemas
+        ),
+        fallback=_fallback,
+        call_kwargs={"include_schemas": include_schemas},
+    )
 
 
 def has_backend_config_schemas(backend: Any | None = None) -> bool:
-    try:
-        return bool(list_backend_config_schemas(backend, include_schemas=False))
-    except Exception:
-        return False
+    return _base.probe_listing(lambda: list_backend_config_schemas(backend, include_schemas=False))
 
 
 def get_backend_config_schema(config_id: str, backend: Any | None = None) -> dict[str, Any]:
     backend = backend or get_backend()
-    for row in list_backend_config_schemas(backend, include_schemas=True):
-        if row["config_id"] == config_id:
-            return row
-    raise NotFoundError(f"Backend config schema {config_id!r} not found")
+    rows = list_backend_config_schemas(backend, include_schemas=True)
+    return _REGISTRY.get_row(rows, config_id)
 
 
 def _json_type_matches(value: Any, expected: str) -> bool:
@@ -512,7 +480,7 @@ def validate_backend_options(
         if exact:
             stage_rows = exact
     if provider:
-        backend_name = str(getattr(backend, "name", "unknown"))
+        backend_name = _base.backend_name(backend)
         provider_rows = [
             row
             for row in stage_rows
@@ -548,29 +516,27 @@ def backend_config_contract_violations(backend: Any) -> list[str]:
     try:
         rows = list_backend_config_schemas(backend, include_schemas=True)
     except Exception as exc:
-        return [f"list_backend_config_schemas() failed: {exc}"]
+        return _REGISTRY.listing_failed(exc)
 
     config_ids: list[str] = []
     for index, row in enumerate(rows):
         config_id = str(row.get("config_id") or "")
-        label = config_id or f"config[{index}]"
+        label = _REGISTRY.row_label(config_id, index)
         if not config_id:
-            errors.append(f"{label}: config_id is required")
+            errors.append(_REGISTRY.missing_id_violation(label))
             continue
         config_ids.append(config_id)
-        if not _NAMESPACED_ID_RE.match(config_id):
-            errors.append(f"{label}: config_id should be namespaced, e.g. vendor.stage")
+        if (violation := _REGISTRY.namespaced_id_violation(label, config_id)) is not None:
+            errors.append(violation)
         stage = str(row.get("stage") or "").strip()
         if not stage:
             errors.append(f"{label}: stage is required")
         elif stage not in _VALID_STAGES:
             errors.append(f"{label}: stage must be one of {sorted(_VALID_STAGES)}")
-        provider = row.get("provider")
-        if provider is not None and not _PROVIDER_RE.match(str(provider)):
-            errors.append(f"{label}: provider must match /^[A-Za-z0-9][A-Za-z0-9_.-]*$/")
-        capability = row.get("capability")
-        if capability is not None and str(capability) not in ALL_KNOWN:
-            errors.append(f"{label}: capability {capability!r} is not portable")
+        if (violation := _base.provider_violation(label, row.get("provider"))) is not None:
+            errors.append(violation)
+        if (violation := _base.capability_violation(label, row.get("capability"))) is not None:
+            errors.append(violation)
         option_schema = row.get("option_schema")
         if option_schema is not None and not isinstance(option_schema, dict):
             errors.append(f"{label}: option_schema must be an object or null")
@@ -614,21 +580,14 @@ def backend_config_contract_violations(backend: Any) -> list[str]:
                                 f"runtime-managed option {option_name!r}"
                             )
 
-    duplicates = sorted({config_id for config_id in config_ids if config_ids.count(config_id) > 1})
-    for config_id in duplicates:
-        errors.append(f"{config_id}: duplicate config_id")
+    errors.extend(_REGISTRY.duplicate_violations(config_ids))
     return errors
 
 
 def assert_backend_config_contract(backend: Any) -> None:
     """Raise ``AssertionError`` if backend option schemas are malformed."""
 
-    violations = backend_config_contract_violations(backend)
-    if violations:
-        raise AssertionError(
-            "Backend config schema contract violations:\n"
-            + "\n".join(f"- {violation}" for violation in violations)
-        )
+    _REGISTRY.assert_contract(backend_config_contract_violations(backend))
 
 
 __all__ = [

@@ -9,13 +9,12 @@ API, while existing COLMAP demo backends are adapted from their
 
 from __future__ import annotations
 
-import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, cast
-from urllib.parse import quote
 
+from sfmapi.server.adapters import _descriptor_registry as _base
 from sfmapi.server.adapters.registry import get_backend
 from sfmapi.server.core import colmap_actions
 from sfmapi.server.core.capabilities import ALL_KNOWN
@@ -44,18 +43,18 @@ class BackendActionProvider(Protocol):
 ACTION_STABILITIES = {"stable", "experimental", "backend_extension", "deprecated"}
 ACTION_SIDE_EFFECTS = {"none", "read", "write", "unknown"}
 
-
-def _backend_name(backend: Any) -> str:
-    return str(getattr(backend, "name", "unknown"))
-
-
-def _link(action_id: str) -> dict[str, dict[str, str]]:
-    encoded = quote(action_id, safe="")
-    return {
-        "self": {"href": f"/v1/backend/actions/{encoded}"},
-        "validate": {"href": f"/v1/backend/actions/{encoded}:validate"},
-        "run": {"href": f"/v1/backend/actions/{encoded}:run"},
-    }
+_REGISTRY = _base.DescriptorRegistry(
+    id_key="action_id",
+    descriptor_noun="action",
+    title="Backend action",
+    violation_heading="Backend action contract violations:",
+    collection_path="/v1/backend/actions",
+    index_label="action",
+    list_method="list_backend_actions",
+    link_operations=("validate", "run"),
+    link_collection=False,
+)
+_link = _REGISTRY.links
 
 
 def _normalize_descriptor(
@@ -64,9 +63,10 @@ def _normalize_descriptor(
     backend: Any,
     include_schema: bool,
 ) -> dict[str, Any]:
-    action_id = str(raw.get("action_id") or raw.get("id") or raw.get("name") or "").strip()
-    if not action_id:
-        raise ValidationError("backend action descriptor missing action_id")
+    action_id = _REGISTRY.descriptor_id(raw)
+    # Unlike config/artifact descriptors, display_name resolution is
+    # key-presence based: an explicit ``display_name: None`` maps to ""
+    # rather than falling through to ``title`` / the id.
     if "display_name" in raw:
         display_name = raw.get("display_name")
     elif "title" in raw:
@@ -77,7 +77,7 @@ def _normalize_descriptor(
     output_schema = raw.get("output_schema") if include_schema else None
     return {
         "action_id": action_id,
-        "backend": str(raw.get("backend") or _backend_name(backend)),
+        "backend": str(raw.get("backend") or _base.backend_name(backend)),
         "display_name": "" if display_name is None else str(display_name),
         "description": raw.get("description"),
         "category": raw.get("category"),
@@ -93,18 +93,6 @@ def _normalize_descriptor(
         "metadata": dict(raw.get("metadata") or {}),
         "_links": _link(action_id),
     }
-
-
-def _call_with_supported_kwargs(fn: Callable[..., Any], /, *args: Any, **kwargs: Any) -> Any:
-    """Call ``fn`` with only the optional kwargs its signature accepts."""
-    try:
-        signature = inspect.signature(fn)
-    except (TypeError, ValueError):
-        return fn(*args, **kwargs)
-    if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()):
-        return fn(*args, **kwargs)
-    supported = {key: value for key, value in kwargs.items() if key in signature.parameters}
-    return fn(*args, **supported)
 
 
 def _schema_for_colmap_command(schema: dict[str, Any]) -> dict[str, Any]:
@@ -151,7 +139,7 @@ def _colmap_descriptor(
         metadata["option_count"] = schema.get("option_count", len(schema.get("options") or []))
     return {
         "action_id": f"colmap.{command}",
-        "backend": _backend_name(backend),
+        "backend": _base.backend_name(backend),
         "display_name": f"COLMAP {command}",
         "description": f"Run the upstream COLMAP `{command}` command through the active backend.",
         "category": colmap_actions.category_for(command),
@@ -179,15 +167,6 @@ def _colmap_descriptor(
     }
 
 
-def _dedupe(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    by_id: dict[str, dict[str, Any]] = {}
-    for action in actions:
-        action_id = str(action["action_id"])
-        if action_id not in by_id:
-            by_id[action_id] = action
-    return [by_id[key] for key in sorted(by_id)]
-
-
 def list_backend_actions(
     backend: Any | None = None,
     *,
@@ -195,27 +174,30 @@ def list_backend_actions(
 ) -> list[dict[str, Any]]:
     """List normalized backend action descriptors."""
     backend = backend or get_backend()
-    actions: list[dict[str, Any]] = []
 
-    generic = getattr(backend, "list_backend_actions", None)
-    if callable(generic):
-        for raw in _call_with_supported_kwargs(generic, include_schemas=include_schemas):
-            actions.append(
-                _normalize_descriptor(raw, backend=backend, include_schema=include_schemas)
-            )
+    def _namespace_descriptors() -> list[dict[str, Any]]:
+        return [
+            descriptor
+            for namespace in _ACTION_NAMESPACES.values()
+            for descriptor in namespace.list_descriptors(backend, include_schemas=include_schemas)
+        ]
 
-    for namespace in _ACTION_NAMESPACES.values():
-        actions.extend(namespace.list_descriptors(backend, include_schemas=include_schemas))
-
-    return _dedupe(actions)
+    # generic_wins=False: provider-declared actions MERGE with the namespaced
+    # standards (first-wins on id) instead of short-circuiting them.
+    return _REGISTRY.list_rows(
+        backend,
+        normalize=lambda raw: _normalize_descriptor(
+            raw, backend=backend, include_schema=include_schemas
+        ),
+        fallback=_namespace_descriptors,
+        call_kwargs={"include_schemas": include_schemas},
+        generic_wins=False,
+    )
 
 
 def has_backend_actions(backend: Any | None = None) -> bool:
     """Cheap capability probe for the public capabilities envelope."""
-    try:
-        return bool(list_backend_actions(backend, include_schemas=False))
-    except Exception:
-        return False
+    return _base.probe_listing(lambda: list_backend_actions(backend, include_schemas=False))
 
 
 def _colmap_schema(backend: Any, command: str) -> dict[str, Any]:
@@ -265,8 +247,7 @@ def _build_colmap_descriptor(backend: Any, command: str) -> dict[str, Any]:
 def _run_colmap_command(backend: Any, command: str, inputs: dict[str, Any]) -> dict[str, Any]:
     run_colmap = getattr(backend, "run_colmap_command", None)
     if not callable(run_colmap):
-        action_id = f"{colmap_actions.ACTION_NAMESPACE}.{command}"
-        raise NotFoundError(f"Backend action {action_id!r} not found")
+        _REGISTRY.raise_not_found(f"{colmap_actions.ACTION_NAMESPACE}.{command}")
     options, positional = colmap_actions.split_cli_inputs(inputs)
     return cast(dict[str, Any], run_colmap(command, options=options, positional=positional))
 
@@ -302,15 +283,15 @@ def get_backend_action(action_id: str, backend: Any | None = None) -> dict[str, 
         except NotFoundError:
             pass
 
-    for action in list_backend_actions(backend, include_schemas=True):
-        if action["action_id"] == action_id:
-            return action
+    action = _REGISTRY.find(list_backend_actions(backend, include_schemas=True), action_id)
+    if action is not None:
+        return action
 
     handler = _resolve_action_namespace(action_id)
     if handler is not None:
         return handler.build_descriptor(backend, action_id.partition(".")[2])
 
-    raise NotFoundError(f"Backend action {action_id!r} not found")
+    _REGISTRY.raise_not_found(action_id)
 
 
 def _validate_json_inputs(
@@ -406,7 +387,7 @@ def run_backend_action(
     if callable(generic_run):
         return cast(
             dict[str, Any],
-            _call_with_supported_kwargs(
+            _base.call_with_supported_kwargs(
                 generic_run,
                 action_id,
                 normalized_inputs,
@@ -419,7 +400,7 @@ def run_backend_action(
     if handler is not None:
         return handler.run(backend, action_id.partition(".")[2], normalized_inputs)
 
-    raise NotFoundError(f"Backend action {action_id!r} not found")
+    _REGISTRY.raise_not_found(action_id)
 
 
 def backend_action_contract_violations(backend: Any) -> list[str]:
@@ -447,7 +428,7 @@ def backend_action_contract_violations(backend: Any) -> list[str]:
         try:
             raw_actions = list(generic_list())
         except Exception as exc:
-            return [f"list_backend_actions() failed: {exc}"]
+            return _REGISTRY.listing_failed(exc)
         for index, raw in enumerate(raw_actions):
             if not isinstance(raw, dict):
                 errors.append(f"action[{index}]: descriptor must be an object")
@@ -455,9 +436,9 @@ def backend_action_contract_violations(backend: Any) -> list[str]:
             action_id = str(raw.get("action_id") or raw.get("id") or raw.get("name") or "")
             if action_id:
                 raw_action_ids.append(action_id)
+            label = _REGISTRY.row_label(action_id, index)
             if "display_name" in raw and not str(raw.get("display_name") or "").strip():
-                errors.append(f"{action_id or f'action[{index}]'}: display_name is required")
-            label = action_id or f"action[{index}]"
+                errors.append(f"{label}: display_name is required")
             if "stability" in raw and str(raw.get("stability")) not in ACTION_STABILITIES:
                 errors.append(f"{label}: stability must be one of {sorted(ACTION_STABILITIES)}")
             if "side_effects" in raw and str(raw.get("side_effects")) not in ACTION_SIDE_EFFECTS:
@@ -475,25 +456,22 @@ def backend_action_contract_violations(backend: Any) -> list[str]:
                         f"{label}: required_capabilities contains non-portable capability "
                         f"{cap!r}; backend-native prerequisites belong in action metadata"
                     )
-        raw_duplicates = sorted(
-            {action_id for action_id in raw_action_ids if raw_action_ids.count(action_id) > 1}
-        )
-        for action_id in raw_duplicates:
-            errors.append(f"{action_id}: duplicate action_id")
+        errors.extend(_REGISTRY.duplicate_violations(raw_action_ids))
 
     try:
         actions = list_backend_actions(backend, include_schemas=True)
     except Exception as exc:
-        return [f"list_backend_actions() failed: {exc}"]
+        return _REGISTRY.listing_failed(exc)
 
     action_ids: list[str] = []
     for index, action in enumerate(actions):
         action_id = str(action.get("action_id") or "")
-        label = action_id or f"action[{index}]"
+        label = _REGISTRY.row_label(action_id, index)
         if not action_id:
-            errors.append(f"{label}: action_id is required")
+            errors.append(_REGISTRY.missing_id_violation(label))
             continue
         action_ids.append(action_id)
+        # Looser than the config/artifacts NAMESPACED_ID_RE check on purpose.
         if "." not in action_id:
             errors.append(f"{label}: action_id should be namespaced, e.g. vendor.operation")
         if not str(action.get("display_name") or "").strip():
@@ -516,9 +494,7 @@ def backend_action_contract_violations(backend: Any) -> list[str]:
                     "backend-native prerequisites belong in action metadata"
                 )
 
-    duplicates = sorted({action_id for action_id in action_ids if action_ids.count(action_id) > 1})
-    for action_id in duplicates:
-        errors.append(f"{action_id}: duplicate action_id")
+    errors.extend(_REGISTRY.duplicate_violations(action_ids))
 
     try:
         capabilities = set(backend.capabilities())
@@ -540,12 +516,7 @@ def backend_action_contract_violations(backend: Any) -> list[str]:
 def assert_backend_action_contract(backend: Any) -> None:
     """Raise ``AssertionError`` if a backend mixes capabilities and actions."""
 
-    violations = backend_action_contract_violations(backend)
-    if violations:
-        raise AssertionError(
-            "Backend action contract violations:\n"
-            + "\n".join(f"- {violation}" for violation in violations)
-        )
+    _REGISTRY.assert_contract(backend_action_contract_violations(backend))
 
 
 __all__ = [
