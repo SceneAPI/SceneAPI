@@ -124,7 +124,8 @@
   ],
   "artifact_contracts": [
     "vismatch.matches.coordinates",
-    "vismatch.matches.database"
+    "vismatch.matches.database",
+    "vismatch.matches.database_pairs"
   ],
   "licenses": [
     {
