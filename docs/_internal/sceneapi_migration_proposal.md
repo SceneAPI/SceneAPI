@@ -87,3 +87,52 @@ Big-bang rename (org + packages + wire in one pass before any push):
 maximum churn while the 84-commit backlog is still unpushed, and it
 couples a mechanical hosting move to two identity decisions that
 deserve their own review. Staging costs one extra coordinate sweep.
+
+
+---
+
+## LOCKED 2026-07-17 (gates answered) — execution spec
+
+G1 = all scaffold names now. G2 = package rename immediately.
+G3 = wire identity waits for Phase C. G4 = execute now + reserve PyPI.
+Consequence: this ships as **0.1.0** (not 0.0.2): the rename lands
+with the already-planned 0.1.0 removals.
+
+### Naming scheme (locked)
+
+| Repo (SceneAPI org) | Distribution | Import package | Contents / providers (entry-point names UNCHANGED) |
+|---|---|---|---|
+| `SceneAPI` | `sceneapi` | `sceneapi` (shim `sfmapi` for one release) | core server; CLI `sceneapi` (+`sfmapi` alias script one release) |
+| `SceneSDK` | `sceneapi-client` (generated py) + `@sceneapi/client` (ts) | `sceneapi_client_gen` | SDK repo; hand-rolled python SDK DELETED (was due at 0.1.0) |
+| `3DGS` | `sceneapi-3dgs` | `sceneapi_3dgs` (from `sfmapi_radiance`) | brush, gsplat, fastergs, lfs, spirulae |
+| `SceneMap` | `sceneapi-map` | `sceneapi_map` | colmap {native,pycolmap,cli} + instantsfm + spheresfm + realityscan (merge) |
+| `SceneMatch` | `sceneapi-match` | `sceneapi_match` | vismatch + hloc (merge) |
+| `SceneBench` | `sceneapi-bench` | `sceneapi_bench` | created (no scaffold existed) |
+| `sfmapi-cpp` | — | — | pushed as-is and archived (frozen history) |
+
+- Env prefix `SCENEAPI_*`; `SFMAPI_*` honored via a construction-time
+  alias shim (DeprecationWarning) for one release.
+- Entry-point group `sceneapi.backends`; loader reads the legacy
+  `sfmapi.backends` group too for one release.
+- The `app` compat shim (L44) is REMOVED in this release as scheduled.
+- Wire identity unchanged (G3): `SFMAPI-SPEC.md` name, `sfmapi.*.v1`
+  format ids, `x-sfm-*` media types, sfmapi.github.io error URIs all
+  stay until Phase C.
+- Version: core + SDK dists 0.1.0; plugin dists 0.1.0 (fresh names).
+- Org scaffolds are absorbed by `merge -s ours` of the scaffold remote
+  into local history, then a normal push (no force).
+- PyPI: placeholder/real publishes reserve `sceneapi`,
+  `sceneapi-client`, `sceneapi-3dgs`, `sceneapi-map`,
+  `sceneapi-match`, `sceneapi-bench`; requires PyPI credentials or a
+  configured trusted publisher — attempted, reported if blocked.
+
+### Execution order
+
+1. **W7 core rename** (exclusive): sfmapi->sceneapi import/dist/CLI/
+   env/entry-point group + shims; drop `app` shim + hand-rolled SDK
+   consumers; version 0.1.0; full suite.
+2. **W8 parallel**: SceneMatch merge; SceneMap merge; 3DGS + SDK +
+   bench renames — all against the renamed core.
+3. **W9**: coordinate sweep to SceneAPI/<repo> URLs (manifests,
+   bundled registry, CI checkout refs, docs), org pushes, SFMAPI
+   "moved" notes, PyPI reservation, register rows.
