@@ -50,9 +50,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.base_url:
-        os.environ["SFMAPI_TEST_BASE_URL"] = args.base_url.rstrip("/")
+        os.environ["SCENEAPI_TEST_BASE_URL"] = args.base_url.rstrip("/")
     if args.api_key:
-        os.environ["SFMAPI_TEST_KEY"] = args.api_key
+        os.environ["SCENEAPI_TEST_KEY"] = args.api_key
 
     here = Path(__file__).resolve().parent
     pytest_args = [str(here)]

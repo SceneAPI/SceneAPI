@@ -45,7 +45,7 @@ spec:
               containerPort: 8080
           env:
             {{- include "sfmapi.commonEnv" . | nindent 12 }}
-            - name: SFMAPI_PYCOLMAP_AVAILABLE
+            - name: SCENEAPI_PYCOLMAP_AVAILABLE
               value: "false"
           {{- if .Values.env.existingSecret }}
           envFrom:

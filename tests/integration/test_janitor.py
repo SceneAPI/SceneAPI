@@ -14,8 +14,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-from sfmapi.server.core.ids import new_id
-from sfmapi.server.db.models import (
+from sceneapi.server.core.ids import new_id
+from sceneapi.server.db.models import (
     Dataset,
     ImageSource,
     Job,
@@ -27,7 +27,7 @@ from sfmapi.server.db.models import (
     Task,
     Upload,
 )
-from sfmapi.server.orchestrator.lease import now_utc
+from sceneapi.server.orchestrator.lease import now_utc
 
 pytestmark = pytest.mark.integration
 
@@ -76,7 +76,7 @@ async def _seed_task(
 
 
 async def test_reclaim_resets_running_task_with_expired_lease(session) -> None:
-    from sfmapi.server.orchestrator.janitor import reclaim_expired_leases
+    from sceneapi.server.orchestrator.janitor import reclaim_expired_leases
 
     task_id = await _seed_task(session, status="running", lease_offset_seconds=-60)
 
@@ -91,7 +91,7 @@ async def test_reclaim_resets_running_task_with_expired_lease(session) -> None:
 
 
 async def test_reclaim_ignores_running_task_with_valid_lease(session) -> None:
-    from sfmapi.server.orchestrator.janitor import reclaim_expired_leases
+    from sceneapi.server.orchestrator.janitor import reclaim_expired_leases
 
     task_id = await _seed_task(session, status="running", lease_offset_seconds=60)
 
@@ -107,7 +107,7 @@ async def test_reclaim_ignores_running_task_with_valid_lease(session) -> None:
 async def test_reclaim_ignores_terminal_task_with_expired_lease(session) -> None:
     """A succeeded task with a stale lease must not be dragged back to
     pending — only ``running`` tasks are reclaimable."""
-    from sfmapi.server.orchestrator.janitor import reclaim_expired_leases
+    from sceneapi.server.orchestrator.janitor import reclaim_expired_leases
 
     task_id = await _seed_task(session, status="succeeded", lease_offset_seconds=-60)
 
@@ -120,7 +120,7 @@ async def test_reclaim_ignores_terminal_task_with_expired_lease(session) -> None
 
 
 async def test_ready_pending_tasks_skip_unmaterialized_task_state(session) -> None:
-    from sfmapi.server.orchestrator.janitor import find_ready_pending_tasks
+    from sceneapi.server.orchestrator.janitor import find_ready_pending_tasks
 
     rv = RuntimeVersion(rv_id=new_id(), runtime_version_id="test-rv", seed="0")
     session.add(rv)
@@ -150,7 +150,7 @@ async def test_ready_pending_tasks_skip_unmaterialized_task_state(session) -> No
 
 
 async def test_ready_pending_tasks_treat_skipped_dependencies_as_done(session) -> None:
-    from sfmapi.server.orchestrator.janitor import find_ready_pending_tasks
+    from sceneapi.server.orchestrator.janitor import find_ready_pending_tasks
 
     rv = RuntimeVersion(rv_id=new_id(), runtime_version_id="test-rv", seed="0")
     session.add(rv)
@@ -196,7 +196,7 @@ async def test_ready_pending_tasks_treat_skipped_dependencies_as_done(session) -
 async def test_run_janitor_once_re_enqueues_reclaimed_task(session) -> None:
     """``run_janitor_once`` resets the lease AND re-enqueues — under the
     inline queue the noop task runs and reaches ``succeeded``."""
-    from sfmapi.server.orchestrator.janitor import run_janitor_once
+    from sceneapi.server.orchestrator.janitor import run_janitor_once
 
     task_id = await _seed_task(session, status="running", lease_offset_seconds=-60)
 
@@ -212,7 +212,7 @@ async def test_run_janitor_once_re_enqueues_reclaimed_task(session) -> None:
 async def test_run_janitor_once_re_enqueues_ready_pending_task(session) -> None:
     """A dependency-ready pending task can be stranded if submit-time enqueue
     failed. The janitor sweep retries it even though no lease expired."""
-    from sfmapi.server.orchestrator.janitor import run_janitor_once
+    from sceneapi.server.orchestrator.janitor import run_janitor_once
 
     rv = RuntimeVersion(rv_id=new_id(), runtime_version_id="test-rv-ready", seed="0")
     session.add(rv)
@@ -271,7 +271,7 @@ async def test_run_janitor_once_re_enqueues_ready_pending_task(session) -> None:
 async def test_run_janitor_once_marks_stranded_dependency_failures(session) -> None:
     """If a worker dies after committing an upstream terminal state but before
     DAG advancement, the janitor propagates that terminal dependency state."""
-    from sfmapi.server.orchestrator.janitor import run_janitor_once
+    from sceneapi.server.orchestrator.janitor import run_janitor_once
 
     rv = RuntimeVersion(rv_id=new_id(), runtime_version_id="test-rv-deps", seed="0")
     session.add(rv)
@@ -349,7 +349,7 @@ async def test_run_janitor_once_marks_stranded_dependency_failures(session) -> N
 
 
 async def test_run_janitor_once_fails_reconstruction_for_stranded_map(session) -> None:
-    from sfmapi.server.orchestrator.janitor import run_janitor_once
+    from sceneapi.server.orchestrator.janitor import run_janitor_once
 
     rv = RuntimeVersion(rv_id=new_id(), runtime_version_id="test-rv-recon-deps", seed="0")
     session.add(rv)
@@ -439,7 +439,7 @@ async def test_run_janitor_once_fails_reconstruction_for_stranded_map(session) -
 
 
 async def test_run_janitor_once_marks_missing_dependencies_failed(session) -> None:
-    from sfmapi.server.orchestrator.janitor import run_janitor_once
+    from sceneapi.server.orchestrator.janitor import run_janitor_once
 
     rv = RuntimeVersion(rv_id=new_id(), runtime_version_id="test-rv-missing-dep", seed="0")
     session.add(rv)
@@ -493,7 +493,7 @@ async def test_run_janitor_once_reaps_expired_unfinalized_upload(session) -> Non
     """The janitor sweep also drops uploads past expires_at that were
     never finalized — this is what backs the UploadState 'expired ...
     reaped by the janitor' doc claim."""
-    from sfmapi.server.orchestrator.janitor import run_janitor_once
+    from sceneapi.server.orchestrator.janitor import run_janitor_once
 
     stale = await _seed_upload(session, state="open", expires_offset_seconds=-3600)
     fresh = await _seed_upload(session, state="open", expires_offset_seconds=3600)
@@ -524,8 +524,8 @@ async def _seed_terminal_job(
     """Persist a Job (+ one Task, optionally artifact/event rows and an
     events.jsonl file) finished ``finished_days_ago`` days in the past.
     Returns ``(job_id, events_jsonl_path)``."""
-    from sfmapi.server.core.config import get_settings
-    from sfmapi.server.core.paths import Paths
+    from sceneapi.server.core.config import get_settings
+    from sceneapi.server.core.paths import Paths
 
     # NB: ULID prefixes are time-ordered — same-millisecond ids share
     # their first chars, so use the random suffix for uniqueness.
@@ -582,7 +582,7 @@ async def _seed_terminal_job(
 
 async def test_gc_expired_job_records_disabled_by_default(session) -> None:
     """``retention_days`` defaults to None — the sweep must be a no-op."""
-    from sfmapi.server.orchestrator.janitor import gc_expired_job_records
+    from sceneapi.server.orchestrator.janitor import gc_expired_job_records
 
     job_id, _ = await _seed_terminal_job(session, finished_days_ago=365)
 
@@ -593,8 +593,8 @@ async def test_gc_expired_job_records_disabled_by_default(session) -> None:
 async def test_gc_expired_job_records_deletes_old_terminal_job(session) -> None:
     """An old terminal job loses its row, task/artifact/event rows, and
     its events.jsonl file."""
-    from sfmapi.server.core.config import reset_settings_for_tests
-    from sfmapi.server.orchestrator.janitor import gc_expired_job_records
+    from sceneapi.server.core.config import reset_settings_for_tests
+    from sceneapi.server.orchestrator.janitor import gc_expired_job_records
 
     reset_settings_for_tests(retention_days=30)
     job_id, events_file = await _seed_terminal_job(session, finished_days_ago=31, with_records=True)
@@ -612,8 +612,8 @@ async def test_gc_expired_job_records_deletes_old_terminal_job(session) -> None:
 
 
 async def test_gc_expired_job_records_keeps_recent_pinned_and_unfinished_jobs(session) -> None:
-    from sfmapi.server.core.config import reset_settings_for_tests
-    from sfmapi.server.orchestrator.janitor import gc_expired_job_records
+    from sceneapi.server.core.config import reset_settings_for_tests
+    from sceneapi.server.orchestrator.janitor import gc_expired_job_records
 
     reset_settings_for_tests(retention_days=30)
     recent_id, _ = await _seed_terminal_job(session, finished_days_ago=1)
@@ -631,8 +631,8 @@ async def test_gc_expired_job_records_keeps_recent_pinned_and_unfinished_jobs(se
 
 async def test_run_janitor_once_runs_retention_gc_when_enabled(session) -> None:
     """The GC stage is wired into the sweep behind the setting."""
-    from sfmapi.server.core.config import reset_settings_for_tests
-    from sfmapi.server.orchestrator.janitor import run_janitor_once
+    from sceneapi.server.core.config import reset_settings_for_tests
+    from sceneapi.server.orchestrator.janitor import run_janitor_once
 
     reset_settings_for_tests(retention_days=30)
     old_id, _ = await _seed_terminal_job(session, finished_days_ago=31)

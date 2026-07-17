@@ -1,4 +1,4 @@
-# sfmapi deploy: web + redis + postgres.
+# sceneapi deploy: web + redis + postgres.
 #
 # The GPU **worker** is intentionally NOT here — on Windows + CUDA we
 # run it as an nssm-wrapped service against the host's existing CUDA
@@ -14,15 +14,15 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${SFMAPI_PG_USER:-sfm}
-      POSTGRES_PASSWORD: ${SFMAPI_PG_PASS:-sfm}
-      POSTGRES_DB: ${SFMAPI_PG_DB:-sfmapi}
+      POSTGRES_USER: ${SCENEAPI_PG_USER:-sfm}
+      POSTGRES_PASSWORD: ${SCENEAPI_PG_PASS:-sfm}
+      POSTGRES_DB: ${SCENEAPI_PG_DB:-sfmapi}
     ports:
-      - "${SFMAPI_PG_PORT:-5432}:5432"
+      - "${SCENEAPI_PG_PORT:-5432}:5432"
     volumes:
       - sfmapi_pg:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${SFMAPI_PG_USER:-sfm} -d ${SFMAPI_PG_DB:-sfmapi}"]
+      test: ["CMD-SHELL", "pg_isready -U ${SCENEAPI_PG_USER:-sfm} -d ${SCENEAPI_PG_DB:-sfmapi}"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -31,7 +31,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "${SFMAPI_REDIS_PORT:-6379}:6379"
+      - "${SCENEAPI_REDIS_PORT:-6379}:6379"
     volumes:
       - sfmapi_redis:/data
     command: ["redis-server", "--appendonly", "yes"]
@@ -52,18 +52,18 @@ services:
       redis:
         condition: service_healthy
     environment:
-      SFMAPI_ENV: prod
-      SFMAPI_DB_URL: "postgresql+psycopg://${SFMAPI_PG_USER:-sfm}:${SFMAPI_PG_PASS:-sfm}@postgres:5432/${SFMAPI_PG_DB:-sfmapi}"
-      SFMAPI_REDIS_URL: "redis://redis:6379/0"
-      SFMAPI_WORKSPACE_ROOT: /workspaces
-      SFMAPI_BLOB_ROOT: /workspaces/_blobs
-      SFMAPI_S3_CACHE_ROOT: /workspaces/_cache/s3
-      SFMAPI_AUTH_MODE: ${SFMAPI_AUTH_MODE:-api_key}
-      SFMAPI_PYCOLMAP_AVAILABLE: "false"  # web never imports pycolmap
-      SFMAPI_LOG_LEVEL: INFO
-      SFMAPI_INLINE_TASKS: "false"
+      SCENEAPI_ENV: prod
+      SCENEAPI_DB_URL: "postgresql+psycopg://${SCENEAPI_PG_USER:-sfm}:${SCENEAPI_PG_PASS:-sfm}@postgres:5432/${SCENEAPI_PG_DB:-sfmapi}"
+      SCENEAPI_REDIS_URL: "redis://redis:6379/0"
+      SCENEAPI_WORKSPACE_ROOT: /workspaces
+      SCENEAPI_BLOB_ROOT: /workspaces/_blobs
+      SCENEAPI_S3_CACHE_ROOT: /workspaces/_cache/s3
+      SCENEAPI_AUTH_MODE: ${SCENEAPI_AUTH_MODE:-api_key}
+      SCENEAPI_PYCOLMAP_AVAILABLE: "false"  # web never imports pycolmap
+      SCENEAPI_LOG_LEVEL: INFO
+      SCENEAPI_INLINE_TASKS: "false"
     ports:
-      - "${SFMAPI_WEB_PORT:-8080}:8080"
+      - "${SCENEAPI_WEB_PORT:-8080}:8080"
     volumes:
       - sfmapi_workspaces:/workspaces
 

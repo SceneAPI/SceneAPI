@@ -1,4 +1,4 @@
-"""Shared dependency-readiness vocabulary (``sfmapi.server.orchestrator.readiness``).
+"""Shared dependency-readiness vocabulary (``sceneapi.server.orchestrator.readiness``).
 
 Scheduler, dispatcher, and janitor used to carry three drifting copies
 of this logic (the scheduler accepted only ``succeeded``). These tests
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from sfmapi.server.orchestrator.readiness import (
+from sceneapi.server.orchestrator.readiness import (
     CANCELLED_DEPENDENCY_STATUSES,
     FAILED_DEPENDENCY_STATUSES,
     READY_DEPENDENCY_STATUSES,
@@ -69,8 +69,8 @@ def test_dependency_state_precedence() -> None:
 
 
 def test_dispatcher_reuses_shared_vocabulary() -> None:
-    from sfmapi.server.orchestrator import readiness
-    from sfmapi.server.workers import dispatcher
+    from sceneapi.server.orchestrator import readiness
+    from sceneapi.server.workers import dispatcher
 
     assert dispatcher.READY_DEPENDENCY_STATUSES is readiness.READY_DEPENDENCY_STATUSES
     assert dispatcher.CANCELLED_DEPENDENCY_STATUSES is readiness.CANCELLED_DEPENDENCY_STATUSES

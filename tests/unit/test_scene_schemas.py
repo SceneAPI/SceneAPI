@@ -1,11 +1,11 @@
-"""Round-trip tests for sfmapi.server.schemas.api.scene types."""
+"""Round-trip tests for sceneapi.server.schemas.api.scene types."""
 
 from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
 
-from sfmapi.server.schemas.api.scene import (
+from sceneapi.server.schemas.api.scene import (
     Camera,
     CamerasFile,
     Frame,

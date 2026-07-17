@@ -1,4 +1,4 @@
-name-template: "sfmapi v$RESOLVED_VERSION"
+name-template: "sceneapi v$RESOLVED_VERSION"
 tag-template: "v$RESOLVED_VERSION"
 
 # version-resolver picks the bump level from PR labels; if no label is
@@ -81,7 +81,7 @@ autolabeler:
       - "/^chore(\\(.+\\))?:/"
 
 template: |
-  ## sfmapi v$RESOLVED_VERSION
+  ## sceneapi v$RESOLVED_VERSION
 
   $CHANGES
 

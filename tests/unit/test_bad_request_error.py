@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sfmapi.server.core.errors import BadRequestError, SfmApiError, ValidationError
+from sceneapi.server.core.errors import BadRequestError, SfmApiError, ValidationError
 
 pytestmark = pytest.mark.unit
 

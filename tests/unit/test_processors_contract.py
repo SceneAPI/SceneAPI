@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 
-from sfmapi.server.core import datatypes as dt
-from sfmapi.server.core import operations as ops
-from sfmapi.server.core import processors as proc
+from sceneapi.server.core import datatypes as dt
+from sceneapi.server.core import operations as ops
+from sceneapi.server.core import processors as proc
 
 
 def test_all_processor_ports_reference_known_datatypes() -> None:

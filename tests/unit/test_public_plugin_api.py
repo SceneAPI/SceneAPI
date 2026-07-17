@@ -2,9 +2,9 @@ from __future__ import annotations
 
 
 def test_public_backend_api_reexports_runtime_contracts() -> None:
-    from sfmapi.backends import Backend, SfmBackend, assert_backend_contract, register_backend
-    from sfmapi.errors import CapabilityUnavailableError, ValidationError
-    from sfmapi.runtime import create_app
+    from sceneapi.backends import Backend, SfmBackend, assert_backend_contract, register_backend
+    from sceneapi.errors import CapabilityUnavailableError, ValidationError
+    from sceneapi.runtime import create_app
 
     assert Backend is not None
     assert SfmBackend is not None
@@ -16,7 +16,7 @@ def test_public_backend_api_reexports_runtime_contracts() -> None:
 
 
 async def test_public_testing_reset_runtime_for_tests(tmp_path) -> None:
-    from sfmapi.testing import reset_runtime_for_tests
+    from sceneapi.testing import reset_runtime_for_tests
 
     settings = await reset_runtime_for_tests(
         ephemeral=True,

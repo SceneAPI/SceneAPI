@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import structlog
 
-from sfmapi.server.core.logging import (
+from sceneapi.server.core.logging import (
     JobFileLogger,
     bind_job_context,
     configure_logging,

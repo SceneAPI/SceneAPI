@@ -1,13 +1,13 @@
-"""``sfmapi.plugin_service`` -- the public facade over ``sfmapi.server.plugin_server``."""
+"""``sceneapi.plugin_service`` -- the public facade over ``sceneapi.server.plugin_server``."""
 
 from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
 
-import sfmapi.plugin_service as facade
-import sfmapi.server.plugin_server as kit
-from sfmapi.plugin_service import (
+import sceneapi.plugin_service as facade
+import sceneapi.server.plugin_server as kit
+from sceneapi.plugin_service import (
     PROTOCOL,
     PROTOCOL_VERSION,
     ManifestBackend,

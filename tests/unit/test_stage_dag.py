@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from sfmapi.server.services.sfm_stage_service import build_recipe_dag
+from sceneapi.server.services.sfm_stage_service import build_recipe_dag
 
 pytestmark = pytest.mark.unit
 

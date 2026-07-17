@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from sfmapi.server.storage import observations as obs
+from sceneapi.server.storage import observations as obs
 
 pytestmark = pytest.mark.unit
 

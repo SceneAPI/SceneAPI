@@ -1,4 +1,4 @@
-"""Locks the COLMAP action/command core standard (sfmapi.server.core.colmap_actions).
+"""Locks the COLMAP action/command core standard (sceneapi.server.core.colmap_actions).
 
 The contract pins the action namespace, the input-schema kind, the closed
 category vocabulary, and the read-only / GPU classification so the served
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from sfmapi.server.core import colmap_actions as ca
+from sceneapi.server.core import colmap_actions as ca
 
 
 def test_namespace_and_input_schema_kind() -> None:

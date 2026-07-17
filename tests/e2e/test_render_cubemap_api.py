@@ -49,9 +49,11 @@ async def _make_dataset(client, *, is_spherical: bool) -> str:
 
 async def test_render_cubemap_returns_501_without_capability(client, monkeypatch) -> None:
     """Without a backend or built-in pixel engine, capability rejection wins."""
-    from sfmapi.server.core.capabilities import reset_capabilities_cache
+    from sceneapi.server.core.capabilities import reset_capabilities_cache
 
-    monkeypatch.setattr("sfmapi.server.core.projection_engine.has_projection_engine", lambda: False)
+    monkeypatch.setattr(
+        "sceneapi.server.core.projection_engine.has_projection_engine", lambda: False
+    )
     reset_capabilities_cache()
     resp = await client.post("/v1/datasets/01HGHOST00000000000000000A:renderCubemap")
     assert resp.status_code == 501
@@ -87,9 +89,9 @@ async def test_projection_request_validates_equirectangular_dimensions(client) -
 
 
 async def test_perspective_projection_requires_spherical_dataset(client) -> None:
-    from sfmapi.server.adapters.registry import register_backend
-    from sfmapi.server.adapters.stub_backend import StubBackend
-    from sfmapi.server.core.capabilities import reset_capabilities_cache
+    from sceneapi.server.adapters.registry import register_backend
+    from sceneapi.server.adapters.stub_backend import StubBackend
+    from sceneapi.server.core.capabilities import reset_capabilities_cache
 
     class PerspectiveBackend(StubBackend):
         def capabilities(self) -> set[str]:
@@ -106,9 +108,9 @@ async def test_perspective_projection_requires_spherical_dataset(client) -> None
 
 
 async def test_projection_job_writes_manifest_and_artifact(client) -> None:
-    from sfmapi.server.adapters.registry import register_backend
-    from sfmapi.server.adapters.stub_backend import StubBackend
-    from sfmapi.server.core.capabilities import reset_capabilities_cache
+    from sceneapi.server.adapters.registry import register_backend
+    from sceneapi.server.adapters.stub_backend import StubBackend
+    from sceneapi.server.core.capabilities import reset_capabilities_cache
 
     class ProjectionBackend(StubBackend):
         def capabilities(self) -> set[str]:

@@ -190,7 +190,7 @@ jobs:
             if [ -n "${DRAFT_BODY:-}" ]; then
               printf '%s\n' "$DRAFT_BODY"
             else
-              echo "## sfmapi $TAG"
+              echo "## sceneapi $TAG"
               echo
               echo "_(release-drafter produced no body; falling back to a static section.)_"
             fi
@@ -229,7 +229,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.resolve.outputs.tag }}
-          name: sfmapi ${{ needs.resolve.outputs.tag }}
+          name: sceneapi ${{ needs.resolve.outputs.tag }}
           body_path: ${{ steps.notes.outputs.path }}
           fail_on_unmatched_files: true
           files: |

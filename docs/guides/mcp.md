@@ -41,19 +41,19 @@ uv sync --extra dev --extra mcp
 Use stdio for desktop agents that launch local MCP servers:
 
 ```bash
-uv run sfmapi mcp
+uv run sceneapi mcp
 ```
 
 The legacy direct entrypoint is equivalent:
 
 ```bash
-uv run sfmapi-mcp
+uv run sceneapi-mcp
 ```
 
 This uses the same `SFMAPI_*` environment variables as the REST server,
-including `SFMAPI_DB_URL`, `SFMAPI_DEFAULT_TENANT`, and backend
-registration settings. When `SFMAPI_AUTH_MODE=api_key`, set
-`SFMAPI_MCP_TENANT_ID` so MCP reads are scoped to exactly one tenant.
+including `SCENEAPI_DB_URL`, `SCENEAPI_DEFAULT_TENANT`, and backend
+registration settings. When `SCENEAPI_AUTH_MODE=api_key`, set
+`SCENEAPI_MCP_TENANT_ID` so MCP reads are scoped to exactly one tenant.
 
 ## Run locally over HTTP
 
@@ -61,14 +61,14 @@ Use HTTP when you want an MCP endpoint reachable by local tools or a
 browser-based inspector:
 
 ```bash
-uv run sfmapi mcp --transport http --host 127.0.0.1 --port 9000
+uv run sceneapi mcp --transport http --host 127.0.0.1 --port 9000
 ```
 
 The MCP endpoint is `http://127.0.0.1:9000/mcp`. A simple local HTML
 status page is served at `http://127.0.0.1:9000/`, with JSON health at
 `http://127.0.0.1:9000/healthz`.
 
-`uv run sfmapi-mcp --transport http --host 127.0.0.1 --port 9000` is
+`uv run sceneapi-mcp --transport http --host 127.0.0.1 --port 9000` is
 kept as a direct entrypoint for existing agent launchers.
 
 The standalone HTTP command rejects non-loopback hosts by default. If
@@ -76,7 +76,7 @@ you intentionally bind outside localhost, put it behind trusted network
 controls and opt in explicitly:
 
 ```bash
-uv run sfmapi mcp --transport http --host 0.0.0.0 --allow-non-loopback
+uv run sceneapi mcp --transport http --host 0.0.0.0 --allow-non-loopback
 ```
 
 ## Serve from the API process
@@ -84,22 +84,22 @@ uv run sfmapi mcp --transport http --host 0.0.0.0 --allow-non-loopback
 To mount MCP into the FastAPI application:
 
 ```bash
-uv run sfmapi serve --mcp local --reload
+uv run sceneapi serve --mcp local --reload
 ```
 
 On PowerShell:
 
 ```powershell
-$env:SFMAPI_MCP_MODE = "local"
-uv run uvicorn sfmapi.runtime:create_app --factory --reload
+$env:SCENEAPI_MCP_MODE = "local"
+uv run uvicorn sceneapi.runtime:create_app --factory --reload
 ```
 
 The MCP endpoint is mounted at `/mcp` by default. The local HTML status
 page is available at `/mcp/status`. Change the mount point with
-`SFMAPI_MCP_MOUNT_PATH=/agent`.
+`SCENEAPI_MCP_MOUNT_PATH=/agent`.
 
-`SFMAPI_MCP_ENABLED=true` is still accepted as a compatibility alias,
-but new setups should prefer `SFMAPI_MCP_MODE=local`. When MCP is
+`SCENEAPI_MCP_ENABLED=true` is still accepted as a compatibility alias,
+but new setups should prefer `SCENEAPI_MCP_MODE=local`. When MCP is
 mounted into the API process, `GET /v1/backend` includes `_links.mcp`
 and `_links.mcp_status` so clients can discover the local adapter.
 
@@ -107,7 +107,7 @@ Backend packages can expose the same API-process MCP mount from their
 own launchers. For example, with `sfmapi-colmap`:
 
 ```bash
-uv run sfmapi-colmap-api \
+uv run sceneapi-colmap-api \
   --backend colmap_cpp_native \
   --mcp local \
   --host 127.0.0.1 \
@@ -125,7 +125,7 @@ Codex can connect to sfmapi over streamable HTTP. Start the API with
 MCP mounted first, then register the endpoint:
 
 ```bash
-uv run sfmapi serve --mcp local --host 127.0.0.1 --port 8000
+uv run sceneapi serve --mcp local --host 127.0.0.1 --port 8000
 codex mcp add sfmapi_colmap --url http://127.0.0.1:8000/mcp
 codex mcp list
 codex mcp get sfmapi_colmap
@@ -161,7 +161,7 @@ the API with MCP mounted, then add the server using Claude Code's HTTP
 MCP transport:
 
 ```bash
-uv run sfmapi serve --mcp local --host 127.0.0.1 --port 8000
+uv run sceneapi serve --mcp local --host 127.0.0.1 --port 8000
 claude mcp add --transport http sfmapi_colmap http://127.0.0.1:8000/mcp
 claude mcp list
 claude mcp get sfmapi_colmap
@@ -205,8 +205,8 @@ authentication, and project-file options:
 
 MCP does not reuse FastAPI request dependencies, so it does not read
 `Authorization` headers from the REST API. In `auth_mode=none`, tools
-default to `SFMAPI_DEFAULT_TENANT`. In `auth_mode=api_key`, set
-`SFMAPI_MCP_TENANT_ID=<tenant>`; calls that omit the tenant or pass that
+default to `SCENEAPI_DEFAULT_TENANT`. In `auth_mode=api_key`, set
+`SCENEAPI_MCP_TENANT_ID=<tenant>`; calls that omit the tenant or pass that
 same tenant are allowed, and calls for any other tenant fail.
 
 ## Available tools
@@ -261,7 +261,7 @@ those MCP actions have explicit safety and auth rules.
 `list_backend_actions`, `get_backend_action`, and
 `plan_artifact_conversion` accept an optional `provider` argument so
 agents can inspect a specific installed backend provider without
-changing `SFMAPI_BACKEND`.
+changing `SCENEAPI_BACKEND`.
 
 Artifact tools expose metadata only. Use REST `GET
 /v1/artifacts/{artifact_id}/content` or the SDKs for file transfer.

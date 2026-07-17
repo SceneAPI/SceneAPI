@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      - "sceneapi/**"
       - "sfmapi/**"
       - "sfm_hub/**"
       - ".readthedocs.yaml"

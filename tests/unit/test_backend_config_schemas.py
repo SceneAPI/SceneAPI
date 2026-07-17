@@ -5,14 +5,14 @@ from typing import Any, cast
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from sfmapi.server.adapters import backend_config
-from sfmapi.server.adapters.registry import register_backend
-from sfmapi.server.adapters.stub_backend import StubBackend
-from sfmapi.server.core.capabilities import detect_capabilities, reset_capabilities_cache
-from sfmapi.server.core.config import reset_settings_for_tests
-from sfmapi.server.core.errors import ValidationError
-from sfmapi.server.workers.tasks.extract import _feature_options
-from sfmapi.server.workers.tasks.match import _match_options
+from sceneapi.server.adapters import backend_config
+from sceneapi.server.adapters.registry import register_backend
+from sceneapi.server.adapters.stub_backend import StubBackend
+from sceneapi.server.core.capabilities import detect_capabilities, reset_capabilities_cache
+from sceneapi.server.core.config import reset_settings_for_tests
+from sceneapi.server.core.errors import ValidationError
+from sceneapi.server.workers.tasks.extract import _feature_options
+from sceneapi.server.workers.tasks.match import _match_options
 
 pytestmark = pytest.mark.unit
 
@@ -52,11 +52,11 @@ class ConfigBackend(StubBackend):
 
 
 async def _client_for_backend(monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
-    monkeypatch.setenv("SFMAPI_BACKEND", "config_test")
+    monkeypatch.setenv("SCENEAPI_BACKEND", "config_test")
     register_backend("config_test", ConfigBackend, providers=["config_test"])
     reset_settings_for_tests()
     reset_capabilities_cache()
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     return AsyncClient(
         transport=ASGITransport(app=create_app()),

@@ -3,7 +3,7 @@
 The preview surfaces — admin routing profiles, typed-dataflow
 discovery, and image similarity — stay mounted and serving in every
 deployment. ``settings.expose_preview_apis`` (env
-``SFMAPI_EXPOSE_PREVIEW_APIS``) only controls whether they appear in
+``SCENEAPI_EXPOSE_PREVIEW_APIS``) only controls whether they appear in
 the OpenAPI document, i.e. whether they are part of the default
 (kernel) contract that SDK codegen and the pinned
 ``docs/_static/openapi.json`` snapshot see.
@@ -16,8 +16,8 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from httpx import ASGITransport, AsyncClient
 
-from sfmapi.server.core.config import reset_settings_for_tests
-from sfmapi.server.main import PREVIEW_CONFORMANCE_KEY, PREVIEW_CONFORMANCE_VALUE, create_app
+from sceneapi.server.core.config import reset_settings_for_tests
+from sceneapi.server.main import PREVIEW_CONFORMANCE_KEY, PREVIEW_CONFORMANCE_VALUE, create_app
 
 pytestmark = pytest.mark.unit
 
@@ -141,7 +141,7 @@ def test_exposed_contract_includes_preview_operations_with_conformance_marker() 
 
 
 def test_expose_preview_apis_env_var_is_wired(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SFMAPI_EXPOSE_PREVIEW_APIS", "true")
+    monkeypatch.setenv("SCENEAPI_EXPOSE_PREVIEW_APIS", "true")
     spec = _app(expose_preview_apis=None).openapi()
     missing = sorted(set(PREVIEW_OPERATIONS) - set(spec["paths"]))
-    assert not missing, f"SFMAPI_EXPOSE_PREVIEW_APIS=true did not expose: {missing}"
+    assert not missing, f"SCENEAPI_EXPOSE_PREVIEW_APIS=true did not expose: {missing}"

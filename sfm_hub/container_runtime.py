@@ -65,7 +65,11 @@ def _image_ref(plugin_id: str, runtime) -> str:
 
 def _run_service(plugin_id: str, image_ref: str, runtime, host_port: int) -> None:
     name = _safe_name(plugin_id)
-    container_port = int(os.environ.get("SFMAPI_PLUGIN_CONTAINER_PORT", "8080"))
+    container_port = int(
+        os.environ.get("SCENEAPI_PLUGIN_CONTAINER_PORT")
+        or os.environ.get("SFMAPI_PLUGIN_CONTAINER_PORT")
+        or "8080"
+    )
     subprocess.run(["docker", "rm", "-f", name], check=False, stdout=subprocess.DEVNULL)
     command = [
         "docker",
@@ -85,7 +89,7 @@ def _run_service(plugin_id: str, image_ref: str, runtime, host_port: int) -> Non
     for env_name in sorted(set(runtime.execution.env + runtime.execution.secrets)):
         if env_name in os.environ:
             command.extend(["-e", env_name])
-    for root_var in ("SFMAPI_WORKSPACE_ROOT", "SFMAPI_BLOB_ROOT", "SFMAPI_S3_CACHE_ROOT"):
+    for root_var in ("SCENEAPI_WORKSPACE_ROOT", "SCENEAPI_BLOB_ROOT", "SCENEAPI_S3_CACHE_ROOT"):
         root = os.environ.get(root_var)
         if root:
             path = Path(root).resolve()

@@ -1,7 +1,7 @@
 # Multi-tenancy
 
 sfmapi is multi-tenant from migration 0001. v0 ships in *single-user*
-mode (`SFMAPI_AUTH_MODE=none`) where every request resolves to the
+mode (`SCENEAPI_AUTH_MODE=none`) where every request resolves to the
 `default` tenant — but every table, every workspace path, and every
 service signature already carries `tenant_id`. Switching to real auth
 is a config flip plus an API key rollout.
@@ -23,7 +23,7 @@ is a config flip plus an API key rollout.
 
 ## Switching on API key auth
 
-1. Set `SFMAPI_AUTH_MODE=api_key` in the web container's env.
+1. Set `SCENEAPI_AUTH_MODE=api_key` in the web container's env.
 2. Restart the web container.
 3. Issue a key:
 
@@ -49,7 +49,7 @@ private control-plane network, mTLS, or an ingress policy).
 ## Quotas
 
 ```{eval-rst}
-.. automodule:: sfmapi.server.services.quota_service
+.. automodule:: sceneapi.server.services.quota_service
    :members:
    :no-index:
 ```

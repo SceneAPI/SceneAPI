@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from sfmapi.server.schemas.points_binary import (
+from sceneapi.server.schemas.points_binary import (
     HEADER_SIZE,
     RECORD_SIZE,
     Point3DRecord,

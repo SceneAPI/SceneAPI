@@ -8,7 +8,7 @@ page is the contract.
 
 Backends use structural typing: no inheritance, no metaclass, just the
 methods they actually support. The minimum contract is
-[`sfmapi.backends.Backend`][prot]: `name`, `version`, `vendor`,
+[`sceneapi.backends.Backend`][prot]: `name`, `version`, `vendor`,
 `capabilities()`, and `runtime_versions()`.
 
 Use the smallest level that fits:
@@ -27,7 +27,7 @@ normal `501 CapabilityUnavailableError` instead of an internal
 
 ## Portable stage backend
 
-Full portable backends can satisfy [`sfmapi.backends.SfmBackend`][prot] by
+Full portable backends can satisfy [`sceneapi.backends.SfmBackend`][prot] by
 structural typing — no inheritance required, no metaclass. A backend
 is any class with the right method names, signatures, and an
 identity triple (`name`, `version`, `vendor`).
@@ -35,7 +35,7 @@ identity triple (`name`, `version`, `vendor`).
 [prot]: ../server/adapters.md
 
 ```python
-from sfmapi.backends import ProgressReporter
+from sceneapi.backends import ProgressReporter
 
 class MyBackend:
     name = "my_backend"
@@ -121,14 +121,14 @@ class VendorCliBackend:
 ## Registering at startup
 
 ```python
-from sfmapi.runtime import register_backend
+from sceneapi.runtime import register_backend
 
 register_backend("my_backend", MyBackend, providers=["my_backend"])
 ```
 
 Then either:
 
-- set the env var: `SFMAPI_BACKEND=my_backend`, or
+- set the env var: `SCENEAPI_BACKEND=my_backend`, or
 - pass `name=` to `get_backend("my_backend")` for explicit selection, or
 - let sfm_hub resolve a stage `provider` to the registered provider alias.
 
@@ -137,7 +137,7 @@ that `import my_backend` is the only thing the operator needs:
 
 ```python
 # my_backend/__init__.py
-from sfmapi.runtime import register_backend
+from sceneapi.runtime import register_backend
 from .backend import MyBackend
 
 register_backend("my_backend", MyBackend, providers=["my_backend"])
@@ -146,14 +146,14 @@ register_backend("my_backend", MyBackend, providers=["my_backend"])
 ### Entry-point plugins
 
 When the backend ships as a Python entry point under
-`[project.entry-points."sfmapi.backends"]`, sfm_hub loads it during
+`[project.entry-points."sceneapi.backends"]`, sfm_hub loads it during
 lifespan startup. Plugin authors should use the canonical
-{class}`sfmapi.backends.Plugin` dataclass to express the entry point
+{class}`sceneapi.backends.Plugin` dataclass to express the entry point
 in three lines:
 
 ```python
 # sfmapi_my_backend/plugin.py
-from sfmapi.backends import Plugin
+from sceneapi.backends import Plugin
 
 from .backend import MyBackend
 
@@ -169,11 +169,11 @@ plugin = Plugin(
 The matching `pyproject.toml` declaration is:
 
 ```toml
-[project.entry-points."sfmapi.backends"]
+[project.entry-points."sceneapi.backends"]
 my_backend = "sfmapi_my_backend.plugin:plugin"
 ```
 
-`sfmapi scaffold-plugin <id>` generates this shape for you (see
+`sceneapi scaffold-plugin <id>` generates this shape for you (see
 {doc}`../reference/cli`).
 
 `Plugin` supports three modes:
@@ -233,7 +233,7 @@ missing upstream dependencies are not treated as sfmapi API failures.
 The capability vocabulary is canonical and stable. Backends advertise
 the subset they implement; sfmapi reads `capabilities()` once at
 boot and caches the result. The full list lives in
-`sfmapi.server.core.capabilities.ALL_KNOWN`.
+`sceneapi.server.core.capabilities.ALL_KNOWN`.
 
 Do not put backend-native commands or vendor tool names in
 `capabilities()`. Capabilities are portable sfmapi features. If a
@@ -300,8 +300,8 @@ names in backend actions instead.
 Provider resolution is execution-native for portable worker stages. If
 validation resolves `provider="hloc"`, the worker calls the backend
 factory registered for the `hloc` provider alias instead of blindly
-using `SFMAPI_BACKEND`. Single-backend deployments can ignore provider
-aliases and continue using `SFMAPI_BACKEND`.
+using `SCENEAPI_BACKEND`. Single-backend deployments can ignore provider
+aliases and continue using `SCENEAPI_BACKEND`.
 
 The same provider selector is available on backend extension surfaces:
 `GET /v1/backend/actions?provider=hloc`,
@@ -615,7 +615,7 @@ Descriptor rules:
   `GET /v1/backend/actions/{action_id}` always includes them when
   available.
 - Backend action `required_capabilities` may contain only portable
-  public names from `sfmapi.server.core.capabilities.ALL_KNOWN`. Backend-native
+  public names from `sceneapi.server.core.capabilities.ALL_KNOWN`. Backend-native
   prerequisites belong in `metadata`. Plugin manifest/provider/
   processor `capabilities` are a separate typed-extension vocabulary:
   plugin-declared, provider-covered, contract-id-shaped ids that are
@@ -632,7 +632,7 @@ Use sfmapi's combined contract checker in your backend package so this
 split is enforced in CI:
 
 ```python
-from sfmapi.backends import assert_backend_contract
+from sceneapi.backends import assert_backend_contract
 from my_backend import MyBackend
 
 def test_backend_contract():
@@ -649,7 +649,7 @@ cannot catch misspelled keys.
 You can also run it without writing a test:
 
 ```bash
-sfmapi check-backend --import my_backend --backend my_backend
+sceneapi check-backend --import my_backend --backend my_backend
 ```
 
 ## Progress reporting
@@ -708,7 +708,7 @@ delivery failed.
 - **Own your engine lifecycle.** Backends declare Python dependencies in
   their package metadata. If they need release assets, native builds, or
   model downloads, they may expose `package.provisioning.provision()` so
-  `sfmapi plugins install --method uv` can plan or run that setup.
+  `sceneapi plugins install --method uv` can plan or run that setup.
   Provisioners may return `steps`, `warnings`, `metadata`, `env`, and
   `outputs`; sfmapi serializes environment values only as `env_keys` and
   `redacted_env`, and redacts secret-looking keys such as `TOKEN`, `SECRET`,
@@ -720,7 +720,7 @@ delivery failed.
 
 ## Reference: the no-op stub
 
-[`sfmapi.server.adapters.stub_backend.StubBackend`][stub] is the internal no-op reference
+[`sceneapi.server.adapters.stub_backend.StubBackend`][stub] is the internal no-op reference
 that ships in this repo. It exists for tests, ephemeral mode, and
 SDK live-server suites. Every method raises
 `CapabilityUnavailableError`; `capabilities()` returns the empty
@@ -745,7 +745,7 @@ uv run pytest -m "contract" --backend=my_backend
 ```
 
 …where the `--backend` arg is whatever your test harness wires
-through ``sfmapi.runtime.register_backend("name", MyBackend, providers=[...])``
+through ``sceneapi.runtime.register_backend("name", MyBackend, providers=[...])``
 in a conftest. The contract tests assert the protocol shape, not
 engine semantics — they catch "forgot to add the new method when
 sfmapi added one to the Protocol" regressions.

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from sfmapi.server.orchestrator.dag import TaskNode
+from sceneapi.server.orchestrator.dag import TaskNode
 
 pytestmark = pytest.mark.unit
 

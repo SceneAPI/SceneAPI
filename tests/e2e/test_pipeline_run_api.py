@@ -14,9 +14,9 @@ pytestmark = pytest.mark.e2e
 
 
 def _install_typed_plugin(monkeypatch: pytest.MonkeyPatch) -> None:
+    from sceneapi.server.services import dataflow_registry_service
     from sfm_hub.models import PluginManifest
     from sfm_hub.state import record_manual_install
-    from sfmapi.server.services import dataflow_registry_service
 
     manifest = PluginManifest.model_validate(
         {

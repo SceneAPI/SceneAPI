@@ -4,8 +4,8 @@ from datetime import UTC
 
 import pytest
 
-from sfmapi.server.core.errors import TenantViolationError
-from sfmapi.server.services import api_key_service
+from sceneapi.server.core.errors import TenantViolationError
+from sceneapi.server.services import api_key_service
 
 pytestmark = pytest.mark.integration
 

@@ -10,7 +10,7 @@ surface — import from this package, not from the submodules.
 from __future__ import annotations
 
 # Private helpers and vocabularies re-exported for intra-repo consumers
-# (e.g. sfm_hub.doctor and sfmapi.server.workers.tasks.radiance_train use
+# (e.g. sfm_hub.doctor and sceneapi.server.workers.tasks.radiance_train use
 # _public_url_issue) and for test back-compat with the pre-split module.
 from sfm_hub.models.dataflow import (
     PluginAttributeManifest,

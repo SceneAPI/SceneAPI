@@ -2,7 +2,7 @@
 
 The suite supports two backends:
 
-  - **External**: when `SFMAPI_TEST_BASE_URL` is set (e.g. by the
+  - **External**: when `SCENEAPI_TEST_BASE_URL` is set (e.g. by the
     standalone runner), tests run against that server over the
     network using a real `httpx.AsyncClient`.
 
@@ -31,11 +31,11 @@ pytestmark = pytest.mark.conformance
 
 
 def _base_url() -> str | None:
-    return os.environ.get("SFMAPI_TEST_BASE_URL")
+    return os.environ.get("SCENEAPI_TEST_BASE_URL")
 
 
 def _api_key() -> str | None:
-    return os.environ.get("SFMAPI_TEST_KEY")
+    return os.environ.get("SCENEAPI_TEST_KEY")
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -52,7 +52,7 @@ async def conf_client() -> AsyncIterator[AsyncClient]:
         return
     # In-process fallback. Reuse the same db_setup infra as the rest
     # of the test suite (pulled in via tests/conftest.py autouse).
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
     from tests.conftest import db_setup as _db_setup  # noqa: F401  (fixture token)
 
     app = create_app()
@@ -73,9 +73,9 @@ async def _db_if_in_process() -> AsyncIterator[None]:
     # Late import + delegate to the existing project-wide db_setup
     # so we get schema creation per-test exactly as the reference
     # tests do.
-    from sfmapi.server.db import models  # noqa: F401
-    from sfmapi.server.db.base import Base
-    from sfmapi.server.db.session import get_engine
+    from sceneapi.server.db import models  # noqa: F401
+    from sceneapi.server.db.base import Base
+    from sceneapi.server.db.session import get_engine
 
     engine = get_engine()
     async with engine.begin() as conn:

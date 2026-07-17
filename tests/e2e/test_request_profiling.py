@@ -15,13 +15,13 @@ async def test_request_profiling_adds_server_timing_and_profile_dump(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     profile_dir = tmp_path / "profiles"
-    monkeypatch.setenv("SFMAPI_PROFILE_REQUESTS", "true")
-    monkeypatch.setenv("SFMAPI_PROFILE_MIN_MS", "0")
-    monkeypatch.setenv("SFMAPI_PROFILE_TOP_N", "5")
-    monkeypatch.setenv("SFMAPI_PROFILE_DIR", str(profile_dir))
+    monkeypatch.setenv("SCENEAPI_PROFILE_REQUESTS", "true")
+    monkeypatch.setenv("SCENEAPI_PROFILE_MIN_MS", "0")
+    monkeypatch.setenv("SCENEAPI_PROFILE_TOP_N", "5")
+    monkeypatch.setenv("SCENEAPI_PROFILE_DIR", str(profile_dir))
 
-    from sfmapi.server.core.config import reset_settings_for_tests
-    from sfmapi.server.main import create_app
+    from sceneapi.server.core.config import reset_settings_for_tests
+    from sceneapi.server.main import create_app
 
     reset_settings_for_tests()
     app = create_app()
@@ -41,12 +41,12 @@ async def test_request_profiling_does_not_dump_below_threshold(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     profile_dir = tmp_path / "profiles"
-    monkeypatch.setenv("SFMAPI_PROFILE_REQUESTS", "true")
-    monkeypatch.setenv("SFMAPI_PROFILE_MIN_MS", "60000")
-    monkeypatch.setenv("SFMAPI_PROFILE_DIR", str(profile_dir))
+    monkeypatch.setenv("SCENEAPI_PROFILE_REQUESTS", "true")
+    monkeypatch.setenv("SCENEAPI_PROFILE_MIN_MS", "60000")
+    monkeypatch.setenv("SCENEAPI_PROFILE_DIR", str(profile_dir))
 
-    from sfmapi.server.core.config import reset_settings_for_tests
-    from sfmapi.server.main import create_app
+    from sceneapi.server.core.config import reset_settings_for_tests
+    from sceneapi.server.main import create_app
 
     reset_settings_for_tests()
     app = create_app()

@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from sfmapi.server.core.config import Settings
-from sfmapi.server.orchestrator.queue import (
+from sceneapi.server.core.config import Settings
+from sceneapi.server.orchestrator.queue import (
     ArqQueue,
     InlineQueue,
     Queue,
@@ -23,7 +23,7 @@ pytestmark = pytest.mark.unit
 
 
 def _settings(**overrides: Any) -> Settings:
-    # Explicit defaults — global conftest sets SFMAPI_INLINE_TASKS=true
+    # Explicit defaults — global conftest sets SCENEAPI_INLINE_TASKS=true
     # so we have to opt out per test.
     overrides.setdefault("inline_tasks", False)
     overrides.setdefault("queue_backend", "arq")
@@ -62,7 +62,7 @@ def test_inline_queue_invokes_run_task(monkeypatch: pytest.MonkeyPatch) -> None:
         seen.append(task_id)
         return {"status": "fake"}
 
-    import sfmapi.server.workers.runner as runner_mod
+    import sceneapi.server.workers.runner as runner_mod
 
     monkeypatch.setattr(runner_mod, "run_task", fake_run_task)
     q = InlineQueue(_settings())

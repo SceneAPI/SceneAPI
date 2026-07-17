@@ -4,12 +4,14 @@ on:
   push:
     branches: [main]
     paths:
+      - "sceneapi/**"
       - "sfmapi/**"
       - "tests/conformance/**"
       - "SFMAPI-SPEC.md"
       - ".github/workflows/conformance.yml"
   pull_request:
     paths:
+      - "sceneapi/**"
       - "sfmapi/**"
       - "tests/conformance/**"
       - "SFMAPI-SPEC.md"
@@ -43,8 +45,8 @@ jobs:
         run: uv sync --extra dev
       - name: Run conformance suite
         env:
-          SFMAPI_AUTH_MODE: "none"
-          SFMAPI_PYCOLMAP_AVAILABLE: "false"
+          SCENEAPI_AUTH_MODE: "none"
+          SCENEAPI_PYCOLMAP_AVAILABLE: "false"
         run: uv run pytest tests/conformance -v --junitxml=conformance.xml
       - name: Upload JUnit report
         if: always()
@@ -66,8 +68,8 @@ jobs:
         run: uv sync --extra dev
       - name: Run conformance suite against ${{ github.event.inputs.base_url }}
         env:
-          SFMAPI_TEST_BASE_URL: ${{ github.event.inputs.base_url }}
-          SFMAPI_TEST_KEY: ${{ github.event.inputs.api_key }}
+          SCENEAPI_TEST_BASE_URL: ${{ github.event.inputs.base_url }}
+          SCENEAPI_TEST_KEY: ${{ github.event.inputs.api_key }}
         run: uv run pytest tests/conformance -v --junitxml=conformance.xml
       - name: Upload JUnit report
         if: always()

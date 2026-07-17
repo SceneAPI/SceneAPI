@@ -83,7 +83,7 @@ class PluginState(BaseModel):
 
 
 def default_state_path() -> Path:
-    override = os.environ.get("SFMAPI_PLUGIN_STATE")
+    override = os.environ.get("SCENEAPI_PLUGIN_STATE") or os.environ.get("SFMAPI_PLUGIN_STATE")
     if override:
         return Path(override)
     return Path.home() / ".config" / "sfmapi" / "plugins.json"

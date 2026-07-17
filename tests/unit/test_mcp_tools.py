@@ -9,13 +9,13 @@ from typing import Any, ClassVar
 
 import pytest
 
+from sceneapi.server.core.config import get_settings
+from sceneapi.server.core.errors import TenantViolationError
+from sceneapi.server.core.ids import new_id
+from sceneapi.server.db.models import JobEvent, StageArtifact, Task
+from sceneapi.server.mcp import tools
+from sceneapi.server.services import job_service, project_service
 from sfm_hub.state import record_manual_install
-from sfmapi.server.core.config import get_settings
-from sfmapi.server.core.errors import TenantViolationError
-from sfmapi.server.core.ids import new_id
-from sfmapi.server.db.models import JobEvent, StageArtifact, Task
-from sfmapi.server.mcp import tools
-from sfmapi.server.services import job_service, project_service
 
 
 class _FakeFastMCP:
@@ -228,7 +228,7 @@ def test_create_mcp_server_requires_mcp_tenant_for_api_key_mode(
     monkeypatch.setattr(settings, "auth_mode", "api_key")
     monkeypatch.setattr(settings, "mcp_tenant_id", None)
 
-    from sfmapi.server.mcp.server import create_mcp_server
+    from sceneapi.server.mcp.server import create_mcp_server
 
     with pytest.raises(TenantViolationError):
         create_mcp_server()
@@ -239,7 +239,7 @@ def test_create_mcp_server_registers_curated_tools(monkeypatch: pytest.MonkeyPat
     fake_module = types.SimpleNamespace(FastMCP=_FakeFastMCP)
     monkeypatch.setitem(sys.modules, "fastmcp", fake_module)
 
-    from sfmapi.server.mcp.server import create_mcp_server
+    from sceneapi.server.mcp.server import create_mcp_server
 
     server = create_mcp_server(include_index_route=True, endpoint_hint="/agent")
 
@@ -276,7 +276,7 @@ def test_create_mcp_server_registers_curated_tools(monkeypatch: pytest.MonkeyPat
 
 @pytest.mark.unit
 def test_mcp_http_requires_explicit_non_loopback_opt_in() -> None:
-    from sfmapi.server.mcp.server import main
+    from sceneapi.server.mcp.server import main
 
     with pytest.raises(SystemExit):
         main(["--transport", "http", "--host", "0.0.0.0"])
@@ -290,8 +290,8 @@ def test_mcp_standalone_defaults_to_http_when_mode_is_http(
     fake_module = types.SimpleNamespace(FastMCP=_FakeFastMCP)
     monkeypatch.setitem(sys.modules, "fastmcp", fake_module)
 
-    from sfmapi.server.core.config import reset_settings_for_tests
-    from sfmapi.server.mcp.server import main
+    from sceneapi.server.core.config import reset_settings_for_tests
+    from sceneapi.server.mcp.server import main
 
     reset_settings_for_tests(mcp_mode="http")
     try:
@@ -315,8 +315,8 @@ def test_mcp_standalone_loads_backend_plugins(
     calls: list[tuple[Any, Any]] = []
 
     import sfm_hub.discovery as discovery
-    from sfmapi.server.core.config import reset_settings_for_tests
-    from sfmapi.server.mcp.server import main
+    from sceneapi.server.core.config import reset_settings_for_tests
+    from sceneapi.server.mcp.server import main
 
     monkeypatch.setattr(
         discovery,
@@ -345,7 +345,7 @@ def test_mcp_stdio_warms_backend_before_serving(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setitem(sys.modules, "fastmcp", fake_module)
     calls: list[str] = []
 
-    import sfmapi.server.mcp.server as mcp_server
+    import sceneapi.server.mcp.server as mcp_server
 
     monkeypatch.setattr(
         mcp_server,
@@ -371,16 +371,16 @@ def test_sfmapi_serve_cli_sets_mcp_mode(monkeypatch: pytest.MonkeyPatch) -> None
         run=lambda app_ref, **kwargs: calls.append((app_ref, kwargs))
     )
     monkeypatch.setitem(sys.modules, "uvicorn", fake_uvicorn)
-    monkeypatch.delenv("SFMAPI_MCP_MODE", raising=False)
+    monkeypatch.delenv("SCENEAPI_MCP_MODE", raising=False)
 
-    from sfmapi.server.cli import main
+    from sceneapi.server.cli import main
 
     main(["serve", "--mcp", "local", "--host", "127.0.0.1", "--port", "8123"])
 
-    assert os.environ["SFMAPI_MCP_MODE"] == "local"
+    assert os.environ["SCENEAPI_MCP_MODE"] == "local"
     assert calls == [
         (
-            "sfmapi.runtime:create_app",
+            "sceneapi.runtime:create_app",
             {"factory": True, "host": "127.0.0.1", "port": 8123, "reload": False},
         )
     ]
@@ -391,7 +391,7 @@ async def test_real_fastmcp_lists_annotations_and_reads_resources(session) -> No
     pytest.importorskip("fastmcp")
     project_id, job_id, _task_id = await _seed_project_job_and_progress(session)
 
-    from sfmapi.server.mcp.server import create_mcp_server
+    from sceneapi.server.mcp.server import create_mcp_server
 
     server = create_mcp_server()
     listed_tools = await server.list_tools()
@@ -443,7 +443,7 @@ async def test_real_fastmcp_client_can_call_tool_and_read_resource(session) -> N
 
     from fastmcp import Client
 
-    from sfmapi.server.mcp.server import create_mcp_server
+    from sceneapi.server.mcp.server import create_mcp_server
 
     async with Client(create_mcp_server()) as client:
         tools_list = await client.list_tools()
@@ -484,8 +484,8 @@ async def test_fastapi_mcp_mount_status_uses_configured_path() -> None:
     pytest.importorskip("fastmcp")
     from httpx import ASGITransport, AsyncClient
 
-    from sfmapi.server.core.config import reset_settings_for_tests
-    from sfmapi.server.main import create_app
+    from sceneapi.server.core.config import reset_settings_for_tests
+    from sceneapi.server.main import create_app
 
     reset_settings_for_tests(mcp_enabled=True, mcp_mount_path="/agent")
     try:
@@ -504,8 +504,8 @@ async def test_fastapi_mcp_mount_status_uses_configured_path() -> None:
 async def test_fastapi_mcp_is_not_mounted_by_default() -> None:
     from httpx import ASGITransport, AsyncClient
 
-    from sfmapi.server.core.config import reset_settings_for_tests
-    from sfmapi.server.main import create_app
+    from sceneapi.server.core.config import reset_settings_for_tests
+    from sceneapi.server.main import create_app
 
     reset_settings_for_tests(mcp_mode="off", mcp_enabled=False)
     try:
@@ -526,13 +526,13 @@ async def test_fastapi_mcp_mode_local_mounts_and_advertises_link(
     pytest.importorskip("fastmcp")
     from httpx import ASGITransport, AsyncClient
 
-    from sfmapi.server.adapters.registry import register_backend
-    from sfmapi.server.adapters.stub_backend import StubBackend
-    from sfmapi.server.core.config import reset_settings_for_tests
-    from sfmapi.server.main import create_app
+    from sceneapi.server.adapters.registry import register_backend
+    from sceneapi.server.adapters.stub_backend import StubBackend
+    from sceneapi.server.core.config import reset_settings_for_tests
+    from sceneapi.server.main import create_app
 
     register_backend("stub", StubBackend)
-    monkeypatch.setenv("SFMAPI_BACKEND", "stub")
+    monkeypatch.setenv("SCENEAPI_BACKEND", "stub")
     reset_settings_for_tests(mcp_mode="local", mcp_mount_path="/agent")
     try:
         app = create_app()

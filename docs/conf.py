@@ -1,4 +1,4 @@
-"""Sphinx configuration for sfmapi documentation."""
+"""Sphinx configuration for sceneapi documentation."""
 
 from __future__ import annotations
 
@@ -27,12 +27,12 @@ autodoc_mock_imports = [
 
 # -- Project information -----------------------------------------------------
 
-project = "sfmapi"
+project = "sceneapi"
 author = "the sfmapi authors"
 copyright = "2026, the sfmapi authors"
 
 try:
-    from sfmapi.server import __version__ as version
+    from sceneapi.server import __version__ as version
 except ImportError:
     version = "0.0.1"
 release = version
@@ -87,7 +87,7 @@ exclude_patterns = [
 # -- HTML output -------------------------------------------------------------
 
 html_theme = "furo"
-html_title = f"sfmapi {release}"
+html_title = f"sceneapi {release}"
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
 html_js_files = ["custom.js"]
@@ -181,7 +181,7 @@ def _generate_openapi() -> None:
     target = Path(__file__).parent / "_static" / "openapi.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
-        from sfmapi.server.main import create_app
+        from sceneapi.server.main import create_app
 
         spec = create_app().openapi()
     except Exception as exc:
@@ -199,7 +199,7 @@ _generate_openapi()
 # (pathlib.Path x111, datetime.datetime x21) blocked by the deliberate
 # `intersphinx_disabled_reftypes = ["*"]` resilience setting below;
 # sqlalchemy (AsyncSession x87) / annotated_types / pydantic internals
-# with no intersphinx inventory; ~60 distinct sfmapi.server.* classes
+# with no intersphinx inventory; ~60 distinct sceneapi.server.* classes
 # referenced in autodoc type hints but documented on no page; plus
 # pydantic Field constraint reprs (`pattern='^...'`, `min_length=1`)
 # misparsed as targets. Flipping this on needs: re-enabling intersphinx

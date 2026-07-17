@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from sfmapi.server.schemas.api.scene import CorrespondenceGraphFile
-from sfmapi.server.storage.correspondence_emit import (
+from sceneapi.server.schemas.api.scene import CorrespondenceGraphFile
+from sceneapi.server.storage.correspondence_emit import (
     export_correspondence_graph,
     iter_database_correspondences,
 )

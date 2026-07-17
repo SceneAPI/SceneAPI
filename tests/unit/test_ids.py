@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from sfmapi.server.core.ids import ID_LEN, is_id, new_id
+from sceneapi.server.core.ids import ID_LEN, is_id, new_id
 
 pytestmark = pytest.mark.unit
 

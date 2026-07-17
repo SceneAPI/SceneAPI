@@ -24,7 +24,7 @@ from typing import Any
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from sfmapi.server.core.config import Settings, reset_settings_for_tests
+from sceneapi.server.core.config import Settings, reset_settings_for_tests
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 _ULID_RE = re.compile(r"\b[0-9A-HJKMNP-TV-Z]{26}\b")
@@ -74,25 +74,25 @@ _ID_KIND_BASE = {
 
 def _clear_inherited_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in (
-        "SFMAPI_DB_URL",
-        "SFMAPI_WORKSPACE_ROOT",
-        "SFMAPI_BLOB_ROOT",
-        "SFMAPI_S3_CACHE_ROOT",
-        "SFMAPI_INLINE_TASKS",
-        "SFMAPI_QUEUE_BACKEND",
-        "SFMAPI_BLOB_BACKEND",
-        "SFMAPI_AUTO_LOAD_BACKEND_PLUGINS",
+        "SCENEAPI_DB_URL",
+        "SCENEAPI_WORKSPACE_ROOT",
+        "SCENEAPI_BLOB_ROOT",
+        "SCENEAPI_S3_CACHE_ROOT",
+        "SCENEAPI_INLINE_TASKS",
+        "SCENEAPI_QUEUE_BACKEND",
+        "SCENEAPI_BLOB_BACKEND",
+        "SCENEAPI_AUTO_LOAD_BACKEND_PLUGINS",
     ):
         monkeypatch.delenv(key, raising=False)
     # Contract fixtures lock the recorded responses to the StubBackend
     # surface — never pull in whatever plugins the venv happens to ship.
-    monkeypatch.setenv("SFMAPI_AUTO_LOAD_BACKEND_PLUGINS", "false")
+    monkeypatch.setenv("SCENEAPI_AUTO_LOAD_BACKEND_PLUGINS", "false")
 
 
 @pytest.fixture
 def ephemeral_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     _clear_inherited_env(monkeypatch)
-    monkeypatch.setenv("SFMAPI_EPHEMERAL", "true")
+    monkeypatch.setenv("SCENEAPI_EPHEMERAL", "true")
     return reset_settings_for_tests()
 
 
@@ -100,14 +100,14 @@ def ephemeral_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
 async def contract_client(ephemeral_settings: Settings) -> AsyncIterator[AsyncClient]:
     """Yield an httpx AsyncClient bound to a fresh ephemeral app
     instance with lifespan driven so the schema bootstraps."""
-    from sfmapi.server.db import session as session_mod
+    from sceneapi.server.db import session as session_mod
 
     if session_mod._engine is not None:
         await session_mod._engine.dispose()
     session_mod._engine = None
     session_mod._session_factory = None
 
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     app = create_app()
     async with (
@@ -276,11 +276,11 @@ def live_ephemeral_server(monkeypatch: pytest.MonkeyPatch):
 
     import uvicorn
 
-    from sfmapi.server.db import session as session_mod
-    from sfmapi.server.storage.blobs import reset_memory_blob_store_for_tests
+    from sceneapi.server.db import session as session_mod
+    from sceneapi.server.storage.blobs import reset_memory_blob_store_for_tests
 
     _clear_inherited_env(monkeypatch)
-    monkeypatch.setenv("SFMAPI_EPHEMERAL", "true")
+    monkeypatch.setenv("SCENEAPI_EPHEMERAL", "true")
 
     prior_engine = session_mod._engine
 
@@ -296,7 +296,7 @@ def live_ephemeral_server(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(session_mod, "_engine", None, raising=False)
     monkeypatch.setattr(session_mod, "_session_factory", None, raising=False)
 
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     app = create_app()
     config = uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning")

@@ -43,9 +43,9 @@ def list_() -> None:
 )
 @click.option("--all", "run_all", is_flag=True, help="Run every dataset under bench/datasets/.")
 @click.option(
-    "--base-url", envvar="SFMAPI_BASE_URL", default="http://localhost:8080", show_default=True
+    "--base-url", envvar="SCENEAPI_BASE_URL", default="http://localhost:8080", show_default=True
 )
-@click.option("--api-key", envvar="SFMAPI_KEY", default=None)
+@click.option("--api-key", envvar="SCENEAPI_KEY", default=None)
 @click.option(
     "--timeout", type=float, default=3600.0, show_default=True, help="Per-bench timeout in seconds."
 )

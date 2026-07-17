@@ -9,9 +9,9 @@ from typing import Any
 
 import pytest
 
-from sfmapi.server.core.config import Settings
-from sfmapi.server.core.errors import StorageError
-from sfmapi.server.storage.blobs import (
+from sceneapi.server.core.config import Settings
+from sceneapi.server.core.errors import StorageError
+from sceneapi.server.storage.blobs import (
     BlobStore,
     FSBlobStore,
     S3BlobStore,
@@ -54,7 +54,7 @@ def test_factory_rejects_unknown_backend(tmp_path: Path) -> None:
 
 def test_s3_requires_bucket(tmp_path: Path) -> None:
     s = _settings(tmp_path, blob_backend="s3")
-    with pytest.raises(StorageError, match="SFMAPI_BLOB_S3_BUCKET"):
+    with pytest.raises(StorageError, match="SCENEAPI_BLOB_S3_BUCKET"):
         S3BlobStore(s)
 
 

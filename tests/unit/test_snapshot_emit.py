@@ -1,4 +1,4 @@
-"""Tests for sfmapi.server.storage.snapshot_emit using a synthetic Reconstruction stub."""
+"""Tests for sceneapi.server.storage.snapshot_emit using a synthetic Reconstruction stub."""
 
 from __future__ import annotations
 
@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from sfmapi.server.schemas.api.scene import CamerasFile, ImagesFile
-from sfmapi.server.schemas.points_binary import HEADER_SIZE, RECORD_SIZE, decode_records
-from sfmapi.server.storage.snapshot_emit import emit_snapshot_files
+from sceneapi.server.schemas.api.scene import CamerasFile, ImagesFile
+from sceneapi.server.schemas.points_binary import HEADER_SIZE, RECORD_SIZE, decode_records
+from sceneapi.server.storage.snapshot_emit import emit_snapshot_files
 
 pytestmark = pytest.mark.unit
 

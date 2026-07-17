@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from sfmapi.server.adapters.backend import Backend, SfmBackend, require_backend_method
-from sfmapi.server.adapters.registry import (
+from sceneapi.server.adapters.backend import Backend, SfmBackend, require_backend_method
+from sceneapi.server.adapters.registry import (
     _PROVIDER_REGISTRY,
     _REGISTRY,
     get_backend,
@@ -22,8 +22,8 @@ from sfmapi.server.adapters.registry import (
     list_backends,
     register_backend,
 )
-from sfmapi.server.adapters.stub_backend import StubBackend
-from sfmapi.server.core.errors import CapabilityUnavailableError
+from sceneapi.server.adapters.stub_backend import StubBackend
+from sceneapi.server.core.errors import CapabilityUnavailableError
 
 pytestmark = pytest.mark.unit
 
@@ -57,9 +57,9 @@ def test_no_default_backend(monkeypatch: pytest.MonkeyPatch) -> None:
     saved_providers = dict(_PROVIDER_REGISTRY)
     _REGISTRY.clear()
     _PROVIDER_REGISTRY.clear()
-    monkeypatch.delenv("SFMAPI_BACKEND", raising=False)
+    monkeypatch.delenv("SCENEAPI_BACKEND", raising=False)
     try:
-        with pytest.raises(KeyError, match="no sfmapi backend selected"):
+        with pytest.raises(KeyError, match="no sceneapi backend selected"):
             get_backend()
     finally:
         _REGISTRY.clear()
@@ -69,12 +69,12 @@ def test_no_default_backend(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_unknown_backend_name_raises() -> None:
-    with pytest.raises(KeyError, match="unknown sfmapi backend"):
+    with pytest.raises(KeyError, match="unknown sceneapi backend"):
         get_backend("not.a.real.backend")
 
 
 def test_unknown_provider_raises() -> None:
-    with pytest.raises(KeyError, match="unknown sfmapi provider"):
+    with pytest.raises(KeyError, match="unknown sceneapi provider"):
         get_backend(provider="not.a.real.provider")
 
 
@@ -82,7 +82,7 @@ def test_get_backend_provider_does_not_fall_through_to_backend_name() -> None:
     register_backend("stub-fallthrough", StubBackend)
     try:
         assert "stub-fallthrough" not in list_backend_providers()
-        with pytest.raises(KeyError, match="unknown sfmapi provider"):
+        with pytest.raises(KeyError, match="unknown sceneapi provider"):
             get_backend(provider="stub-fallthrough")
     finally:
         _REGISTRY.pop("stub-fallthrough", None)
@@ -157,7 +157,7 @@ def test_unsupported_capability_raises_501_shaped_error() -> None:
 def test_capabilities_endpoint_picks_up_swapped_backend() -> None:
     """Replacing the default-named backend in the registry changes the
     capability snapshot. Proves swap-is-one-import-change."""
-    from sfmapi.server.core.capabilities import detect_capabilities
+    from sceneapi.server.core.capabilities import detect_capabilities
 
     caps = detect_capabilities()
     assert caps.backend.name == "stub"

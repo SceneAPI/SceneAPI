@@ -1,51 +1,51 @@
-# `sfmapi.server.workers`
+# `sceneapi.server.workers`
 
 ```{eval-rst}
-.. automodule:: sfmapi.server.workers.runner
+.. automodule:: sceneapi.server.workers.runner
    :members:
    :no-index:
 
-.. automodule:: sfmapi.server.workers.events
+.. automodule:: sceneapi.server.workers.events
    :members:
    :no-index:
 
-.. automodule:: sfmapi.server.workers.progress
+.. automodule:: sceneapi.server.workers.progress
    :members:
    :no-index:
 
-.. automodule:: sfmapi.server.workers.tasks.extract
+.. automodule:: sceneapi.server.workers.tasks.extract
    :members:
    :no-index:
 
-.. automodule:: sfmapi.server.workers.tasks.match
+.. automodule:: sceneapi.server.workers.tasks.match
    :members:
    :no-index:
 
-.. automodule:: sfmapi.server.workers.tasks.verify
+.. automodule:: sceneapi.server.workers.tasks.verify
    :members:
    :no-index:
 
-.. automodule:: sfmapi.server.workers.tasks.map
+.. automodule:: sceneapi.server.workers.tasks.map
    :members:
    :no-index:
 
-.. automodule:: sfmapi.server.workers.tasks.ba
+.. automodule:: sceneapi.server.workers.tasks.ba
    :members:
    :no-index:
 
-.. automodule:: sfmapi.server.workers.tasks.triangulate
+.. automodule:: sceneapi.server.workers.tasks.triangulate
    :members:
    :no-index:
 
-.. automodule:: sfmapi.server.workers.tasks.relocalize
+.. automodule:: sceneapi.server.workers.tasks.relocalize
    :members:
    :no-index:
 
-.. automodule:: sfmapi.server.workers.tasks.pgo
+.. automodule:: sceneapi.server.workers.tasks.pgo
    :members:
    :no-index:
 
-.. automodule:: sfmapi.server.workers.tasks.export
+.. automodule:: sceneapi.server.workers.tasks.export
    :members:
    :no-index:
 ```

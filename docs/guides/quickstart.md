@@ -1,6 +1,6 @@
 # Quickstart
 
-Stand up sfmapi on a single host with no Docker, no Redis, no
+Stand up sceneapi on a single host with no Docker, no Redis, no
 Postgres. Allow about five minutes. The defaults give you SQLite
 on disk, filesystem blob storage, and an in-process worker — perfect
 for development, embedded use, and trying the wire surface.
@@ -41,14 +41,14 @@ uv pip install -e ".[image-processing]"
 ## 2. Start the server
 
 ```bash
-uv run uvicorn sfmapi.runtime:create_app --factory --reload
+uv run uvicorn sceneapi.runtime:create_app --factory --reload
 ```
 
 Verify:
 
 ```bash
 curl http://localhost:8080/healthz       # {"status":"ok"}
-curl http://localhost:8080/version       # {"sfmapi":"0.0.1","backend":null}
+curl http://localhost:8080/version       # {"sfmapi":"0.1.0","backend":null}
 curl http://localhost:8080/v1/spec       # spec metadata + openapi.json link
 ```
 

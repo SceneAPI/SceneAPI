@@ -4,15 +4,15 @@ from typing import Any, cast
 
 import pytest
 
-from sfmapi.server.adapters.backend_contract import (
+from sceneapi.server.adapters.backend_contract import (
     assert_backend_contract,
     backend_capability_contract_violations,
     backend_contract_violations,
 )
-from sfmapi.server.adapters.registry import register_backend
-from sfmapi.server.adapters.stub_backend import StubBackend
-from sfmapi.server.cli import main as cli_main
-from sfmapi.server.core.capabilities import reset_capabilities_cache
+from sceneapi.server.adapters.registry import register_backend
+from sceneapi.server.adapters.stub_backend import StubBackend
+from sceneapi.server.cli import main as cli_main
+from sceneapi.server.core.capabilities import reset_capabilities_cache
 
 pytestmark = pytest.mark.unit
 
@@ -123,7 +123,7 @@ def test_check_backend_cli_reports_ok(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     register_backend("good_backend", cast(Any, lambda: GoodBackend()))
-    monkeypatch.setenv("SFMAPI_BACKEND", "good_backend")
+    monkeypatch.setenv("SCENEAPI_BACKEND", "good_backend")
     reset_capabilities_cache()
 
     cli_main(["check-backend"])
@@ -136,7 +136,7 @@ def test_check_backend_cli_fails_loudly(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     register_backend("bad_backend", cast(Any, lambda: UnknownCapabilityBackend()))
-    monkeypatch.setenv("SFMAPI_BACKEND", "bad_backend")
+    monkeypatch.setenv("SCENEAPI_BACKEND", "bad_backend")
     reset_capabilities_cache()
 
     with pytest.raises(SystemExit) as exc_info:

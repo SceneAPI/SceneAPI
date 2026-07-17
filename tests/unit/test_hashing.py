@@ -4,7 +4,7 @@ import io
 
 import pytest
 
-from sfmapi.server.core.hashing import (
+from sceneapi.server.core.hashing import (
     canonical_json,
     content_address,
     hash_dict,

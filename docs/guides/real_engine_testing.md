@@ -10,7 +10,7 @@ need a real engine are marked and skipped by default.
 | Marker | Needs | Default run | How to enable |
 |---|---|---|---|
 | _(unmarked)_ | nothing — stub backend, in-memory SQLite | **runs** | always |
-| `needs_postgres` | `SFMAPI_DB_URL` pointed at a live Postgres | skipped | start Postgres, set `SFMAPI_DB_URL=postgresql+psycopg://…`, run `-m "not needs_pycolmap"` |
+| `needs_postgres` | `SCENEAPI_DB_URL` pointed at a live Postgres | skipped | start Postgres, set `SCENEAPI_DB_URL=postgresql+psycopg://…`, run `-m "not needs_pycolmap"` |
 | `needs_pycolmap` | a registered backend that advertises real SfM capabilities (a `pip install`-ed plugin) | skipped | install a backend package (e.g. `sfmapi-pycolmap`), then run without `-m "not needs_pycolmap"` |
 | `needs_backend` | any concrete `SfmBackend` registered (broader than `needs_pycolmap`) | skipped | install + register any backend plugin |
 
@@ -36,7 +36,7 @@ A backend plugin lives in its own repo (`sfmapi_pycolmap`,
 uv pip install -e ../sfmapi_pycolmap        # or another backend repo
 
 # 2. run the full suite — the backend auto-registers via its
-#    sfmapi.backends entry point at app startup
+#    sceneapi.backends entry point at app startup
 uv run pytest -q -m "not needs_postgres"
 ```
 

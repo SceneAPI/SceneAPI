@@ -13,8 +13,8 @@ import time
 
 import pytest
 
-from sfmapi.server.core.ids import new_id
-from sfmapi.server.db.models import Job, Project, RuntimeVersion, Task
+from sceneapi.server.core.ids import new_id
+from sceneapi.server.db.models import Job, Project, RuntimeVersion, Task
 
 pytestmark = pytest.mark.integration
 
@@ -98,7 +98,7 @@ async def _seed_cancelled_dag(session, *, force: bool) -> tuple[str, str, str]:
 
 
 async def test_cancel_requested_short_circuits_task_to_cancelled(session) -> None:
-    from sfmapi.server.workers.dispatcher import execute_task
+    from sceneapi.server.workers.dispatcher import execute_task
 
     job_id, task_id = await _seed_cancelled_job(session, force=False)
 
@@ -117,7 +117,7 @@ async def test_cancel_requested_short_circuits_task_to_cancelled(session) -> Non
 
 
 async def test_cancelled_dependency_rolls_dag_up_to_cancelled(session) -> None:
-    from sfmapi.server.workers.dispatcher import execute_task
+    from sceneapi.server.workers.dispatcher import execute_task
 
     job_id, first_id, second_id = await _seed_cancelled_dag(session, force=False)
 
@@ -138,7 +138,7 @@ async def test_cancelled_dependency_rolls_dag_up_to_cancelled(session) -> None:
 
 
 async def test_cancel_force_marks_task_cancelled_dirty(session) -> None:
-    from sfmapi.server.workers.dispatcher import execute_task
+    from sceneapi.server.workers.dispatcher import execute_task
 
     job_id, task_id = await _seed_cancelled_job(session, force=True)
 
@@ -158,7 +158,7 @@ async def test_cancel_force_marks_task_cancelled_dirty(session) -> None:
 async def test_uncancelled_job_runs_the_task_normally(session) -> None:
     """Guard the negative: a job with no cancel flag is not short-circuited
     — the noop handler runs and the task reaches ``succeeded``."""
-    from sfmapi.server.workers.dispatcher import execute_task
+    from sceneapi.server.workers.dispatcher import execute_task
 
     rv = RuntimeVersion(rv_id=new_id(), runtime_version_id="test-rv", seed="0")
     session.add(rv)
@@ -195,8 +195,8 @@ async def test_cancel_requested_while_handler_runs_prevents_success_commit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A cancel arriving after pickup still wins before outputs commit."""
-    from sfmapi.server.workers import dispatcher
-    from sfmapi.server.workers.dispatcher import execute_task
+    from sceneapi.server.workers import dispatcher
+    from sceneapi.server.workers.dispatcher import execute_task
 
     rv = RuntimeVersion(rv_id=new_id(), runtime_version_id="test-rv", seed="0")
     project = Project(tenant_id="default", name="mid-handler-cancel")
@@ -258,8 +258,8 @@ async def test_cancel_between_read_and_lease_short_circuits_handler(
 ) -> None:
     """A cancel committed after the first task read but before lease
     acquisition must be observed before the handler starts."""
-    from sfmapi.server.workers import dispatcher
-    from sfmapi.server.workers.dispatcher import execute_task
+    from sceneapi.server.workers import dispatcher
+    from sceneapi.server.workers.dispatcher import execute_task
 
     rv = RuntimeVersion(rv_id=new_id(), runtime_version_id="test-rv", seed="0")
     project = Project(tenant_id="default", name="pre-lease-cancel")
@@ -316,9 +316,9 @@ async def test_lost_lease_prevents_success_commit(
 ) -> None:
     """If the janitor or another worker takes the lease, the original worker
     must not commit success outputs after its handler returns."""
-    from sfmapi.server.db.session import get_session_factory
-    from sfmapi.server.workers import dispatcher
-    from sfmapi.server.workers.dispatcher import execute_task
+    from sceneapi.server.db.session import get_session_factory
+    from sceneapi.server.workers import dispatcher
+    from sceneapi.server.workers.dispatcher import execute_task
 
     rv = RuntimeVersion(rv_id=new_id(), runtime_version_id="test-rv", seed="0")
     project = Project(tenant_id="default", name="lost-lease")

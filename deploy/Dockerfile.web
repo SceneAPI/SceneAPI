@@ -1,6 +1,6 @@
-# sfmapi web container — minimal, no GPU, no pycolmap.
+# sceneapi web container — minimal, no GPU, no pycolmap.
 #
-# This image runs `sfmapi.server.main:app` under uvicorn. It does NOT include
+# This image runs `sceneapi.server.main:app` under uvicorn. It does NOT include
 # pycolmap, torch, or any heavy ML deps; those live in the worker.
 
 FROM python:3.12-slim AS base
@@ -19,10 +19,10 @@ RUN apt-get update \
 
 COPY pyproject.toml /app/pyproject.toml
 COPY README.md /app/README.md
-COPY sfmapi /app/sfmapi
+COPY sceneapi /app/sceneapi
 COPY sfm_hub /app/sfm_hub
-# Deprecated one-release `app` compatibility shim (removed in 0.1.0).
-COPY app /app/app
+# Deprecated one-release `sfmapi` compatibility shim (removed in 0.2.0).
+COPY sfmapi /app/sfmapi
 COPY alembic /app/alembic
 COPY alembic.ini /app/alembic.ini
 
@@ -39,4 +39,4 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -fsS http://127.0.0.1:8080/healthz || exit 1
 
 # Run migrations on startup, then launch uvicorn.
-CMD ["sh", "-c", "alembic upgrade head && uvicorn sfmapi.server.main:app --host 0.0.0.0 --port 8080 --log-level info"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn sceneapi.server.main:app --host 0.0.0.0 --port 8080 --log-level info"]

@@ -17,14 +17,14 @@ env:
   authMode: api_key              # "none" | "api_key"
   logLevel: INFO
   inlineTasks: false
-  extraEnv: {}                   # arbitrary additional SFMAPI_* env vars (plaintext)
+  extraEnv: {}                   # arbitrary additional SCENEAPI_* env vars (plaintext)
   # Name of a pre-created Secret whose keys are injected as env vars
   # (envFrom.secretRef) into both the web and worker pods. Use it for
-  # sensitive SFMAPI_* settings instead of extraEnv — e.g. an external
-  # SFMAPI_DB_URL / SFMAPI_REDIS_URL with credentials, S3 keys, etc.
+  # sensitive SCENEAPI_* settings instead of extraEnv — e.g. an external
+  # SCENEAPI_DB_URL / SCENEAPI_REDIS_URL with credentials, S3 keys, etc.
   # Explicit env entries rendered by the chart take precedence over
   # keys from this secret only when the chart actually renders them
-  # (the chart omits SFMAPI_DB_URL / SFMAPI_REDIS_URL when the
+  # (the chart omits SCENEAPI_DB_URL / SCENEAPI_REDIS_URL when the
   # bundled subcharts are disabled and no extraEnv override is set).
   existingSecret: ""
 
@@ -110,7 +110,7 @@ worker:
       memory: 16Gi
       nvidia.com/gpu: 1
   env:
-    extraEnv: {}                 # additional SFMAPI_* env vars
+    extraEnv: {}                 # additional SCENEAPI_* env vars
 
 # --- Workspace storage -----------------------------------------------------
 #

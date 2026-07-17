@@ -1,6 +1,6 @@
 """MCP <-> REST parity guards (lean audit 2026-07, item 6.5).
 
-``sfmapi/server/mcp/tools.py`` is a hand-maintained mirror of a curated subset of
+``sceneapi/server/mcp/tools.py`` is a hand-maintained mirror of a curated subset of
 the REST surface. Nothing structural ties a tool to the route it
 mirrors, so the two can drift silently: a tool gets added without a
 REST counterpart, a mirrored route gets renamed or deleted while the
@@ -26,7 +26,7 @@ recursive shape checks — the SDK contract fixtures own those.
 The module must pass without the optional ``sfmapi[mcp]`` extra: only
 the registration-parity test imports ``fastmcp`` (via ``importorskip``),
 mirroring ``tests/unit/test_mcp_tools.py``; everything else works from
-``sfmapi.server.mcp.tools`` / ``sfmapi.server.mcp.server`` module state, which never import
+``sceneapi.server.mcp.tools`` / ``sceneapi.server.mcp.server`` module state, which never import
 FastMCP at import time.
 """
 
@@ -40,11 +40,11 @@ import pytest
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
 
-from sfmapi.server.core.ids import new_id
-from sfmapi.server.db.models import Task
-from sfmapi.server.mcp import tools
-from sfmapi.server.mcp.server import TOOL_TITLES
-from sfmapi.server.services import job_service, project_service
+from sceneapi.server.core.ids import new_id
+from sceneapi.server.db.models import Task
+from sceneapi.server.mcp import tools
+from sceneapi.server.mcp.server import TOOL_TITLES
+from sceneapi.server.services import job_service, project_service
 
 pytestmark = pytest.mark.contract
 
@@ -100,7 +100,7 @@ def _rest_route_index() -> dict[tuple[str, str], APIRoute]:
     Route templates are settings-independent, so building the app once
     per test process is safe and keeps the whole module fast.
     """
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     index: dict[tuple[str, str], APIRoute] = {}
     for route in create_app().routes:
@@ -186,7 +186,7 @@ async def _seed_project_and_job(session) -> tuple[str, str]:
 def test_every_mcp_tool_maps_to_a_live_rest_route() -> None:
     """Invariant: the MCP surface is a conscious mirror of REST.
 
-    Enumerates the registered tools from ``sfmapi.server.mcp.tools.TOOLS`` (no
+    Enumerates the registered tools from ``sceneapi.server.mcp.tools.TOOLS`` (no
     hardcoded count) and requires a ``TOOL_TO_REST`` entry for each, in
     both directions. Each mapped (method, path) must exist in the live
     FastAPI route table. Catches: adding a tool without recording what
@@ -204,7 +204,7 @@ def test_every_mcp_tool_maps_to_a_live_rest_route() -> None:
     stale = set(TOOL_TO_REST) - set(tool_names)
     assert not stale, (
         f"TOOL_TO_REST names tools that are no longer registered: {sorted(stale)} — "
-        "remove the entries or restore the tools in sfmapi/server/mcp/tools.py"
+        "remove the entries or restore the tools in sceneapi/server/mcp/tools.py"
     )
 
     routes = _rest_route_index()
@@ -219,8 +219,8 @@ def test_every_mcp_tool_maps_to_a_live_rest_route() -> None:
 async def test_portable_stage_catalog_points_at_live_routes() -> None:
     """Invariant: every ``list_portable_stages`` catalog entry is real.
 
-    The catalog in ``sfmapi/server/mcp/tools.py`` hand-copies stage route
-    templates ("keep in sync with sfmapi/server/api/v1/..." per its comment).
+    The catalog in ``sceneapi/server/mcp/tools.py`` hand-copies stage route
+    templates ("keep in sync with sceneapi/server/api/v1/..." per its comment).
     Each entry's (method, route) must exist in the FastAPI route table
     and live under the resource prefix its ``scope`` claims. Catches a
     stage route being renamed/removed while the catalog keeps
@@ -255,7 +255,7 @@ def test_tool_titles_reference_only_registered_tools() -> None:
     Titles are optional decoration (``list_portable_stages`` currently
     ships without one, so the reverse direction is intentionally not
     asserted), but a title keyed on a removed/renamed tool is dead
-    weight that signals a half-finished rename in ``sfmapi/server/mcp/server.py``.
+    weight that signals a half-finished rename in ``sceneapi/server/mcp/server.py``.
     """
     assert set(TOOL_TITLES) <= set(_registered_tool_names())
 
@@ -327,7 +327,7 @@ async def test_job_and_project_tool_payload_keys_match_rest_response_models(sess
 
 
 async def test_fastmcp_registration_mirrors_module_tool_list() -> None:
-    """Invariant: the served MCP surface == ``sfmapi.server.mcp.tools.TOOLS``.
+    """Invariant: the served MCP surface == ``sceneapi.server.mcp.tools.TOOLS``.
 
     Registers the real FastMCP server and asserts the advertised tool
     names are exactly the module registration list, every tool carries
@@ -339,7 +339,7 @@ async def test_fastmcp_registration_mirrors_module_tool_list() -> None:
     """
     pytest.importorskip("fastmcp")
 
-    from sfmapi.server.mcp.server import create_mcp_server
+    from sceneapi.server.mcp.server import create_mcp_server
 
     server = create_mcp_server()
     listed = await server.list_tools()

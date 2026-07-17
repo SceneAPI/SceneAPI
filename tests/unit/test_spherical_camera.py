@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sfmapi.server.schemas.api.scene import (
+from sceneapi.server.schemas.api.scene import (
     SPHERICAL_CAMERA_MODEL,
     Camera,
     is_spherical_camera,

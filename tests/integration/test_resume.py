@@ -3,10 +3,10 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
-from sfmapi.server.core.errors import ValidationError
-from sfmapi.server.core.ids import new_id
-from sfmapi.server.db.models import Job, Project, RuntimeVersion, Task
-from sfmapi.server.orchestrator.resume import resume_job
+from sceneapi.server.core.errors import ValidationError
+from sceneapi.server.core.ids import new_id
+from sceneapi.server.db.models import Job, Project, RuntimeVersion, Task
+from sceneapi.server.orchestrator.resume import resume_job
 
 pytestmark = pytest.mark.integration
 
@@ -130,7 +130,7 @@ async def test_resume_enqueues_only_dependency_ready_tasks(
             return None
 
     monkeypatch.setattr(
-        "sfmapi.server.orchestrator.queue.get_queue",
+        "sceneapi.server.orchestrator.queue.get_queue",
         lambda *_args, **_kwargs: FakeQueue(),
     )
 

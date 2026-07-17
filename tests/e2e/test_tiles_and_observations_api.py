@@ -7,19 +7,19 @@ from pathlib import Path
 
 import pytest
 
-from sfmapi.server.core.hashing import canonical_json, content_address
-from sfmapi.server.core.ids import new_id
-from sfmapi.server.core.paths import Paths
-from sfmapi.server.db.models import (
+from sceneapi.server.core.hashing import canonical_json, content_address
+from sceneapi.server.core.ids import new_id
+from sceneapi.server.core.paths import Paths
+from sceneapi.server.db.models import (
     Dataset,
     ImageSource,
     Project,
     Reconstruction,
     RuntimeVersion,
 )
-from sfmapi.server.schemas.points_binary import Point3DRecord, encode_all
-from sfmapi.server.storage import observations as obs
-from sfmapi.server.storage.snapshots import SnapshotStore
+from sceneapi.server.schemas.points_binary import Point3DRecord, encode_all
+from sceneapi.server.storage import observations as obs
+from sceneapi.server.storage.snapshots import SnapshotStore
 
 pytestmark = pytest.mark.e2e
 

@@ -9,11 +9,11 @@ from typing import Any
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
+from sceneapi.server.core.errors import CapabilityUnavailableError, ValidationError
+from sceneapi.server.schemas.api.radiance import RadianceEvaluateRequest, RadianceTrainRequest
+from sceneapi.server.workers.tasks.radiance_eval import run as run_eval
+from sceneapi.server.workers.tasks.radiance_train import run
 from sfm_hub.state import record_manual_install
-from sfmapi.server.core.errors import CapabilityUnavailableError, ValidationError
-from sfmapi.server.schemas.api.radiance import RadianceEvaluateRequest, RadianceTrainRequest
-from sfmapi.server.workers.tasks.radiance_eval import run as run_eval
-from sfmapi.server.workers.tasks.radiance_train import run
 
 pytestmark = pytest.mark.unit
 
@@ -791,7 +791,7 @@ def test_stub_radiance_train_cleans_live_directory(
         ):
             return tmp_path / tenant_id / project_id / radiance_field_id
 
-    import sfmapi.server.workers.tasks.radiance_train as module
+    import sceneapi.server.workers.tasks.radiance_train as module
 
     monkeypatch.setattr(module, "Paths", FakePaths)
     task = SimpleNamespace(

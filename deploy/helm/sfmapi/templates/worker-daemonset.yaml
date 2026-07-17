@@ -36,14 +36,14 @@ spec:
           image: {{ include "sfmapi.workerImage" . | quote }}
           imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
           # Default command runs the ARQ worker against
-          # `sfmapi.server.workers.runner.WorkerSettings`. Override at the image
+          # `sceneapi.server.workers.runner.WorkerSettings`. Override at the image
           # level if your packaging differs.
-          command: ["arq", "sfmapi.server.workers.runner.WorkerSettings"]
+          command: ["arq", "sceneapi.server.workers.runner.WorkerSettings"]
           env:
             {{- include "sfmapi.commonEnv" . | nindent 12 }}
-            - name: SFMAPI_PYCOLMAP_AVAILABLE
+            - name: SCENEAPI_PYCOLMAP_AVAILABLE
               value: "true"
-            - name: SFMAPI_WORKER_ID
+            - name: SCENEAPI_WORKER_ID
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName

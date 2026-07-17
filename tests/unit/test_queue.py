@@ -6,7 +6,7 @@ pytestmark = pytest.mark.unit
 
 
 async def test_arq_queue_uses_fresh_delivery_id(monkeypatch: pytest.MonkeyPatch) -> None:
-    from sfmapi.server.orchestrator.queue import ArqQueue
+    from sceneapi.server.orchestrator.queue import ArqQueue
 
     calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
@@ -26,7 +26,7 @@ async def test_arq_queue_uses_fresh_delivery_id(monkeypatch: pytest.MonkeyPatch)
 
 
 async def test_arq_queue_surfaces_enqueue_drop(monkeypatch: pytest.MonkeyPatch) -> None:
-    from sfmapi.server.orchestrator.queue import ArqQueue
+    from sceneapi.server.orchestrator.queue import ArqQueue
 
     class FakePool:
         async def enqueue_job(self, *args: object, **kwargs: object) -> None:
@@ -42,8 +42,8 @@ async def test_arq_queue_surfaces_enqueue_drop(monkeypatch: pytest.MonkeyPatch) 
 
 
 async def test_raw_redis_queue_pushes_plain_task_id(monkeypatch: pytest.MonkeyPatch) -> None:
-    from sfmapi.server.core.config import reset_settings_for_tests
-    from sfmapi.server.orchestrator.queue import RawRedisQueue
+    from sceneapi.server.core.config import reset_settings_for_tests
+    from sceneapi.server.orchestrator.queue import RawRedisQueue
 
     settings = reset_settings_for_tests(
         queue_backend="raw_redis",

@@ -39,10 +39,10 @@ the second call hits cache.
 ## Lease + heartbeat
 
 ```{eval-rst}
-.. autofunction:: sfmapi.server.orchestrator.lease.try_acquire_lease
+.. autofunction:: sceneapi.server.orchestrator.lease.try_acquire_lease
    :no-index:
 
-.. autofunction:: sfmapi.server.orchestrator.lease.refresh_lease
+.. autofunction:: sceneapi.server.orchestrator.lease.refresh_lease
    :no-index:
 ```
 
@@ -52,16 +52,16 @@ branches. Workers refresh every `lease_ttl_seconds // 3`.
 ## Lease-reclaim janitor
 
 ```{eval-rst}
-.. autofunction:: sfmapi.server.orchestrator.janitor.reclaim_expired_leases
+.. autofunction:: sceneapi.server.orchestrator.janitor.reclaim_expired_leases
    :no-index:
 
-.. autofunction:: sfmapi.server.orchestrator.janitor.run_janitor_once
+.. autofunction:: sceneapi.server.orchestrator.janitor.run_janitor_once
    :no-index:
 ```
 
 If a worker crashes mid-task, its lease is never refreshed and
 `lease_expires_at` falls into the past. A background loop in
-`sfmapi.server.main` lifespan runs `run_janitor_once` every
+`sceneapi.server.main` lifespan runs `run_janitor_once` every
 `janitor_interval_seconds`: it resets every `running` task with an
 expired lease back to `pending` (clearing `worker_id` /
 `lease_expires_at`) and re-enqueues it, since ARQ is push-based and a
@@ -147,7 +147,7 @@ Backend progress must remain best-effort. A reporter failure should be
 logged or ignored by the backend, not fail the reconstruction job.
 
 ```{eval-rst}
-.. automodule:: sfmapi.server.schemas.progress_event
+.. automodule:: sceneapi.server.schemas.progress_event
    :members:
    :no-index:
 ```
@@ -155,7 +155,7 @@ logged or ignored by the backend, not fail the reconstruction job.
 ## Resume
 
 ```{eval-rst}
-.. autofunction:: sfmapi.server.orchestrator.resume.resume_job
+.. autofunction:: sceneapi.server.orchestrator.resume.resume_job
    :no-index:
 ```
 

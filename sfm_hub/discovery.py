@@ -1,8 +1,9 @@
-"""Python entry-point discovery for installed sfmapi backend plugins."""
+"""Python entry-point discovery for installed sceneapi backend plugins."""
 
 from __future__ import annotations
 
 import logging
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import metadata
@@ -11,9 +12,31 @@ from typing import Any
 from sfm_hub.models import PluginManifest
 from sfm_hub.state import load_state
 
-ENTRY_POINT_GROUP = "sfmapi.backends"
+ENTRY_POINT_GROUP = "sceneapi.backends"
+# Legacy group honored for one release (removed in 0.2.0): plugins that
+# still declare ``[project.entry-points."sfmapi.backends"]`` keep
+# loading. Entries whose name also appears in the new group are deduped
+# (the new-group declaration wins).
+LEGACY_ENTRY_POINT_GROUP = "sfmapi.backends"
 
 _log = logging.getLogger(__name__)
+
+_legacy_group_warning_emitted = False
+
+
+def _warn_once_on_legacy_group(entry_point_names: list[str]) -> None:
+    global _legacy_group_warning_emitted
+    if _legacy_group_warning_emitted:
+        return
+    _legacy_group_warning_emitted = True
+    warnings.warn(
+        f"backend plugins declared under the legacy 'sfmapi.backends' "
+        f"entry-point group ({', '.join(sorted(entry_point_names))}) still "
+        f"load, but the group is deprecated and will stop being read in "
+        f"sceneapi 0.2.0; declare 'sceneapi.backends' instead.",
+        DeprecationWarning,
+        stacklevel=4,
+    )
 
 
 @dataclass(frozen=True)
@@ -37,7 +60,12 @@ class DiscoveredPlugin:
 
 def _entry_points() -> list[metadata.EntryPoint]:
     eps = metadata.entry_points()
-    return list(eps.select(group=ENTRY_POINT_GROUP))
+    primary = list(eps.select(group=ENTRY_POINT_GROUP))
+    seen_names = {ep.name for ep in primary}
+    legacy = [ep for ep in eps.select(group=LEGACY_ENTRY_POINT_GROUP) if ep.name not in seen_names]
+    if legacy:
+        _warn_once_on_legacy_group([ep.name for ep in legacy])
+    return primary + legacy
 
 
 def _dist_name(ep: metadata.EntryPoint) -> str | None:

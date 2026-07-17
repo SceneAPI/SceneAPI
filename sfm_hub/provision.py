@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from typing import Any
 
 try:
-    from sfmapi.server.core.public_outputs import (
+    from sceneapi.server.core.public_outputs import (
         sanitize_public_error_message,
         sanitize_public_outputs,
     )

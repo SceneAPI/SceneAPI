@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from sfmapi.server.adapters.stub_backend import StubBackend
-from sfmapi.server.plugin_server import (
+from sceneapi.server.adapters.stub_backend import StubBackend
+from sceneapi.server.plugin_server import (
     PROTOCOL,
     PROTOCOL_VERSION,
     build_plugin_server,

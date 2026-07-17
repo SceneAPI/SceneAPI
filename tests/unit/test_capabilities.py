@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sfmapi.server.core.capabilities import (
+from sceneapi.server.core.capabilities import (
     ALL_KNOWN,
     CAPABILITIES_SCHEMA_VERSION,
     CORE_CAPABILITIES,
@@ -78,9 +78,9 @@ def test_detect_capabilities_returns_known_backend() -> None:
 
 
 def test_legacy_spherical_capability_enables_projection_alias() -> None:
-    from sfmapi.server.adapters.registry import register_backend
-    from sfmapi.server.adapters.stub_backend import StubBackend
-    from sfmapi.server.core.capabilities import reset_capabilities_cache
+    from sceneapi.server.adapters.registry import register_backend
+    from sceneapi.server.adapters.stub_backend import StubBackend
+    from sceneapi.server.core.capabilities import reset_capabilities_cache
 
     class LegacySphericalBackend(StubBackend):
         def capabilities(self) -> set[str]:

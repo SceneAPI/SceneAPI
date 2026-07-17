@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from sfmapi.server.storage.blobs import FSBlobStore, TempUploadStore
+from sceneapi.server.storage.blobs import FSBlobStore, TempUploadStore
 
 pytestmark = pytest.mark.integration
 
@@ -59,7 +59,7 @@ def test_temp_upload_append_and_finalize() -> None:
 
 
 def test_temp_upload_rejects_out_of_order() -> None:
-    from sfmapi.server.core.errors import StorageError
+    from sceneapi.server.core.errors import StorageError
 
     temp = TempUploadStore()
     uid = "01HZTESTUPLOAD000000000001"

@@ -1,14 +1,14 @@
 # Authentication
 
 sfmapi has two authentication modes selected by the
-`SFMAPI_AUTH_MODE` environment variable.
+`SCENEAPI_AUTH_MODE` environment variable.
 
 ## `auth_mode=none` (default — dev / single-tenant)
 
 Every request resolves to the `default` tenant. No `Authorization`
 header is required; admin routes are open. Use this for local
 development, single-user deployments, and the ephemeral mode demo
-(`SFMAPI_EPHEMERAL=true`).
+(`SCENEAPI_EPHEMERAL=true`).
 
 Operationally this is the equivalent of "trust whatever's on the
 other side of the socket" — terminate at a reverse proxy or
@@ -26,7 +26,7 @@ Public routes (no key required): `GET /healthz`, `GET /readyz`,
 `GET /version`, `GET /spec`, `GET /metrics`.
 
 Keys are scoped to a single `tenant_id` and resolved on every
-request through `sfmapi.server.core.tenancy.current_tenant`. Cross-tenant
+request through `sceneapi.server.core.tenancy.current_tenant`. Cross-tenant
 reads and writes use the same `problem+json` error shape as other
 API errors.
 
@@ -78,7 +78,7 @@ client = Client(base_url="https://api.example.com", token="sfm_...")
 import { createSfmApiClient } from "@sfmapi/client/generated";
 const client = createSfmApiClient({
   baseUrl: "https://api.example.com",
-  apiKey: process.env.SFMAPI_KEY,
+  apiKey: process.env.SCENEAPI_KEY,
 });
 ```
 

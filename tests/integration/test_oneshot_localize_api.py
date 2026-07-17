@@ -15,7 +15,7 @@ async def test_oneshot_localize_route_registered(db_setup) -> None:
     """Route exists and reaches the recon-lookup. A non-existent
     recon_id returns 404 from the standard tenancy machinery."""
     _ = db_setup
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     app = create_app()
     async with (
@@ -29,19 +29,19 @@ async def test_oneshot_localize_route_registered(db_setup) -> None:
         )
         assert r.status_code == 404, r.text
         body = r.json()
-        # RFC7807 envelope from sfmapi/server/core/errors.py.
+        # RFC7807 envelope from sceneapi/server/core/errors.py.
         assert body.get("status") == 404
         assert "not found" in str(body.get("detail", "")).lower()
 
 
 async def test_oneshot_localize_rejects_oversized_body(monkeypatch) -> None:
     """Quota cap kicks in before recon lookup."""
-    monkeypatch.setenv("SFMAPI_ONESHOT_MAX_REQUEST_BYTES", "16")
-    from sfmapi.server.core.config import reset_settings_for_tests
+    monkeypatch.setenv("SCENEAPI_ONESHOT_MAX_REQUEST_BYTES", "16")
+    from sceneapi.server.core.config import reset_settings_for_tests
 
     reset_settings_for_tests()
     try:
-        from sfmapi.server.main import create_app
+        from sceneapi.server.main import create_app
 
         app = create_app()
         async with (
@@ -60,7 +60,7 @@ async def test_oneshot_localize_rejects_oversized_body(monkeypatch) -> None:
 
 async def test_oneshot_localize_requires_recon_id() -> None:
     """Missing the required ``recon_id`` query parameter → 422."""
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     app = create_app()
     async with (

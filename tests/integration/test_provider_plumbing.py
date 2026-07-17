@@ -50,7 +50,7 @@ async def _project_with_image(client, name: str = "p-provider") -> tuple[str, st
 
 async def _read_task_spec(session_factory, task_id: str) -> dict[str, Any]:
     """Read the persisted ``task_state_json['spec']`` from the DB."""
-    from sfmapi.server.db.models import Task
+    from sceneapi.server.db.models import Task
 
     async with session_factory() as session:
         row = await session.execute(select(Task).where(Task.task_id == task_id))
@@ -68,9 +68,9 @@ async def test_features_post_persists_provider_into_task_spec(client) -> None:
     the 202 envelope AND on every ``TaskOut`` in ``GET /v1/jobs/{id}`` —
     otherwise a routing-resolved provider would be invisible to clients.
     """
-    from sfmapi.server.adapters.registry import register_backend
-    from sfmapi.server.adapters.stub_backend import StubBackend
-    from sfmapi.server.db.session import get_session_factory
+    from sceneapi.server.adapters.registry import register_backend
+    from sceneapi.server.adapters.stub_backend import StubBackend
+    from sceneapi.server.db.session import get_session_factory
 
     register_backend("features_provider_backend", StubBackend, providers=["stub.features"])
 
@@ -116,19 +116,19 @@ async def test_artifact_convert_persists_provider_into_task_spec(
     regression that drops ``provider`` between the request and the
     task row is caught.
     """
-    from sfmapi.server.adapters.registry import register_backend
-    from sfmapi.server.core.capabilities import reset_capabilities_cache
-    from sfmapi.server.core.config import reset_settings_for_tests
-    from sfmapi.server.core.hashing import content_address
-    from sfmapi.server.core.ids import new_id
-    from sfmapi.server.db.models import Job, Project, StageArtifact, Task
-    from sfmapi.server.db.session import get_session_factory
+    from sceneapi.server.adapters.registry import register_backend
+    from sceneapi.server.core.capabilities import reset_capabilities_cache
+    from sceneapi.server.core.config import reset_settings_for_tests
+    from sceneapi.server.core.hashing import content_address
+    from sceneapi.server.core.ids import new_id
+    from sceneapi.server.db.models import Job, Project, StageArtifact, Task
+    from sceneapi.server.db.session import get_session_factory
     from tests.unit.test_artifact_contracts import (
         ArtifactConversionBackend,
         StubBackend,
     )
 
-    monkeypatch.setenv("SFMAPI_BACKEND", "stub")
+    monkeypatch.setenv("SCENEAPI_BACKEND", "stub")
     register_backend("stub", StubBackend)
     register_backend("artifact_convert", ArtifactConversionBackend, providers=["artifact.convert"])
     reset_settings_for_tests()

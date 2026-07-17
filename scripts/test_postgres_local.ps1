@@ -34,9 +34,9 @@ for ($i = 0; $i -lt 30; $i++) {
     Write-Host "." -NoNewline
 }
 
-$env:SFMAPI_DB_URL = "postgresql+psycopg://$($PgUser):$($PgPass)@localhost:$($PgPort)/$PgDb"
-$env:SFMAPI_AUTH_MODE = "none"
-$env:SFMAPI_PYCOLMAP_AVAILABLE = "false"
+$env:SCENEAPI_DB_URL = "postgresql+psycopg://$($PgUser):$($PgPass)@localhost:$($PgPort)/$PgDb"
+$env:SCENEAPI_AUTH_MODE = "none"
+$env:SCENEAPI_PYCOLMAP_AVAILABLE = "false"
 
 Write-Host "=== Postgres test run ===" -ForegroundColor Cyan
 & uv run alembic upgrade head

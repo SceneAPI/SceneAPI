@@ -4,7 +4,7 @@ sfmapi separates a thin always-on **web tier** from one or more
 **workers** that drive a registered SfM backend. The web tier never
 imports an engine library (pycolmap, torch, segment_anything, ...) —
 those live in backend packages outside this repo, accessed only
-through the backend protocols behind the `sfmapi/server/adapters/` boundary.
+through the backend protocols behind the `sceneapi/server/adapters/` boundary.
 Backends may implement a smaller protocol layer when they only expose
 native actions or a subset of portable stages.
 
@@ -66,14 +66,14 @@ flowchart LR
 
 | Layer | Imports | Notes |
 |---|---|---|
-| `sfmapi/server/api/` | only `sfmapi.server.{core,db,schemas,services,orchestrator}` | web process. Must start in <2s. |
-| `sfmapi/server/services/` | `sfmapi.server.{db,storage,orchestrator}` + the adapters contract layer | tenant-scoped CRUD, transactions, DAG construction |
-| `sfmapi/server/orchestrator/` | `sfmapi.server.db`, `sfmapi.server.workers.runner` | DAG, lease, scheduler, recipes, resume |
-| `sfmapi/server/workers/` | `sfmapi.server.adapters` only | per-task lease + heartbeat; calls backend through the registry |
-| `sfmapi/server/adapters/` | backend Protocols + registry only | no engine imports — engines ship in their own package |
+| `sceneapi/server/api/` | only `sceneapi.server.{core,db,schemas,services,orchestrator}` | web process. Must start in <2s. |
+| `sceneapi/server/services/` | `sceneapi.server.{db,storage,orchestrator}` + the adapters contract layer | tenant-scoped CRUD, transactions, DAG construction |
+| `sceneapi/server/orchestrator/` | `sceneapi.server.db`, `sceneapi.server.workers.runner` | DAG, lease, scheduler, recipes, resume |
+| `sceneapi/server/workers/` | `sceneapi.server.adapters` only | per-task lease + heartbeat; calls backend through the registry |
+| `sceneapi/server/adapters/` | backend Protocols + registry only | no engine imports — engines ship in their own package |
 
 A test (`tests/unit/test_app_starts.py`) enforces that importing
-`sfmapi.server.main` does not pull in any engine library (pycolmap, torch,
+`sceneapi.server.main` does not pull in any engine library (pycolmap, torch,
 cv2, segment_anything, ...). CI fails if any of those leak.
 
 ## Why a custom DAG instead of using ARQ chains

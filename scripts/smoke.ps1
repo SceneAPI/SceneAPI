@@ -43,13 +43,13 @@ Require-Cmd curl.exe
 Require-Cmd python
 
 Write-Host "==> bringing up stack on web=$WebPort pg=$PgPort redis=$RedisPort" -ForegroundColor Cyan
-$env:SFMAPI_WEB_PORT = "$WebPort"
-$env:SFMAPI_PG_PORT = "$PgPort"
-$env:SFMAPI_REDIS_PORT = "$RedisPort"
-$env:SFMAPI_AUTH_MODE = "none"
-$env:SFMAPI_PG_USER = "sfm"
-$env:SFMAPI_PG_PASS = "sfm"
-$env:SFMAPI_PG_DB = "sfmapi"
+$env:SCENEAPI_WEB_PORT = "$WebPort"
+$env:SCENEAPI_PG_PORT = "$PgPort"
+$env:SCENEAPI_REDIS_PORT = "$RedisPort"
+$env:SCENEAPI_AUTH_MODE = "none"
+$env:SCENEAPI_PG_USER = "sfm"
+$env:SCENEAPI_PG_PASS = "sfm"
+$env:SCENEAPI_PG_DB = "sfmapi"
 & docker compose -p $ProjectName -f $ComposeFile up -d --build --wait
 if ($LASTEXITCODE -ne 0) { throw "compose up failed" }
 

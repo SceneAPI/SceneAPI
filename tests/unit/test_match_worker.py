@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from sfmapi.server.core.errors import ValidationError
-from sfmapi.server.db.models import Task
-from sfmapi.server.workers.tasks import match as match_task
+from sceneapi.server.core.errors import ValidationError
+from sceneapi.server.db.models import Task
+from sceneapi.server.workers.tasks import match as match_task
 
 pytestmark = pytest.mark.unit
 

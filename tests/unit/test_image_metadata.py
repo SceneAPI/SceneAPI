@@ -4,7 +4,7 @@ import struct
 
 import pytest
 
-from sfmapi.server.core.image_metadata import read_image_metadata, sniff_image_extension
+from sceneapi.server.core.image_metadata import read_image_metadata, sniff_image_extension
 
 pytestmark = pytest.mark.unit
 

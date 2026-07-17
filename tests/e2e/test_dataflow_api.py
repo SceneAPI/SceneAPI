@@ -10,15 +10,15 @@ pytestmark = pytest.mark.anyio
 
 
 async def _client() -> AsyncClient:
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     return AsyncClient(transport=ASGITransport(app=create_app()), base_url="http://t")
 
 
 def _install_typed_plugin(monkeypatch: pytest.MonkeyPatch) -> None:
+    from sceneapi.server.services import dataflow_registry_service
     from sfm_hub.models import PluginManifest
     from sfm_hub.state import record_manual_install
-    from sfmapi.server.services import dataflow_registry_service
 
     manifest = PluginManifest.model_validate(
         {
@@ -373,9 +373,9 @@ async def test_legacy_plugin_processor_shape_is_not_discoverable_operation(
 
 
 async def test_active_plugin_registry_rejects_duplicate_plugin_ids(monkeypatch) -> None:
+    from sceneapi.server.services import dataflow_registry_service
     from sfm_hub.models import PluginManifest
     from sfm_hub.state import record_manual_install
-    from sfmapi.server.services import dataflow_registry_service
 
     def manifest(plugin_id: str) -> PluginManifest:
         return PluginManifest.model_validate(
@@ -434,9 +434,9 @@ async def test_active_plugin_registry_rejects_duplicate_plugin_ids(monkeypatch) 
 async def test_plugin_local_datatype_ids_are_canonicalized_per_plugin(
     monkeypatch,
 ) -> None:
+    from sceneapi.server.services import dataflow_registry_service
     from sfm_hub.models import PluginManifest
     from sfm_hub.state import record_manual_install
-    from sfmapi.server.services import dataflow_registry_service
 
     def manifest(plugin_id: str) -> PluginManifest:
         return PluginManifest.model_validate(

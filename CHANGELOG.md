@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **sfmapi** are recorded here.
+All notable changes to **sceneapi** (formerly **sfmapi**) are recorded here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -15,11 +15,50 @@ below and a new `Unreleased` block is started.
 
 _Drafted by release-drafter from merged PRs since the last tag._
 
-## [0.0.2] - 2026-07-17
+## [0.1.0] - 2026-07-17
 
-The lean-audit remediation release (see
-`docs/guides/lean_audit_2026.md` for the full ledger and
-`docs/guides/decisions.md` L37-L44 for the decisions).
+The SceneAPI rename release. Absorbs the never-tagged 0.0.2 lean-audit
+remediation work (see `docs/guides/lean_audit_2026.md` for the full
+ledger and `docs/guides/decisions.md` L37-L44 for the decisions) and
+lands the package-identity rename in the same release
+(`docs/_internal/sceneapi_migration_proposal.md`, Phase B).
+
+### Changed
+- **Breaking (pre-1.0): the project's package identity renamed from
+  `sfmapi` to `sceneapi`.** Distribution `sceneapi`, import package
+  `sceneapi` (public facades `sceneapi.runtime` / `sceneapi.backends` /
+  `sceneapi.errors` / `sceneapi.testing` / `sceneapi.plugin_service` /
+  `sceneapi.contracts`; internal tree `sceneapi.server`), CLI
+  `sceneapi` + `sceneapi-mcp`, env prefix `SCENEAPI_*`, backend
+  entry-point group `sceneapi.backends`, uvicorn target
+  `sceneapi.runtime:create_app`, ARQ worker entrypoint
+  `sceneapi.server.workers.runner.WorkerSettings`, OpenAPI
+  `info.title` now `SceneAPI`. **Wire identity is unchanged**
+  (SFMAPI-SPEC.md, `sfmapi.*.v1` format ids, `application/x-sfm-*`
+  media types, `https://sfmapi.github.io/errors/*` problem URIs, the
+  `/version` response field `sfmapi`, and the `sfmapi-plugin-http-v1`
+  container-plugin protocol all stay until migration Phase C).
+
+### Deprecated
+- The `sfmapi` import package is now a one-release alias shim over
+  `sceneapi`: every `sfmapi.*` import keeps working and resolves to
+  the same module objects, but emits a `DeprecationWarning`. Removed
+  in 0.2.0.
+- `SFMAPI_*` environment variables: honored via a construction-time
+  alias (one `DeprecationWarning` per process) when the `SCENEAPI_*`
+  form is absent. Removed in 0.2.0.
+- The `sfmapi.backends` entry-point group: still loaded (deduped
+  against the new group, one `DeprecationWarning` per process) so
+  existing plugin declarations keep working. Removed in 0.2.0.
+- The `sfmapi` / `sfmapi-mcp` console scripts remain as alias scripts
+  for the renamed `sceneapi` / `sceneapi-mcp` commands. Removed in
+  0.2.0.
+
+### Removed
+- The deprecated top-level `app` compatibility shim over the server
+  package (scheduled L44 removal; never shipped in a tagged release).
+  Import `sceneapi.server.*` (internal) or the public `sceneapi.*`
+  facades instead.
 
 ### Added
 - Preview conformance tier: admin routing, dataflow/processor

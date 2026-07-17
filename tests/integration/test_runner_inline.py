@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-from sfmapi.server.core.hashing import canonical_json, content_address
-from sfmapi.server.core.ids import new_id
-from sfmapi.server.db.models import (
+from sceneapi.server.core.hashing import canonical_json, content_address
+from sceneapi.server.core.ids import new_id
+from sceneapi.server.db.models import (
     Dataset,
     ImageSource,
     Job,
@@ -21,8 +21,8 @@ from sfmapi.server.db.models import (
     SubModel,
     Task,
 )
-from sfmapi.server.orchestrator.dag import TaskNode
-from sfmapi.server.orchestrator.scheduler import submit_job_dag
+from sceneapi.server.orchestrator.dag import TaskNode
+from sceneapi.server.orchestrator.scheduler import submit_job_dag
 
 pytestmark = pytest.mark.integration
 
@@ -148,7 +148,7 @@ async def test_cache_short_circuit(session) -> None:
 
 
 async def test_map_task_persists_submodels(session, monkeypatch) -> None:
-    from sfmapi.server.workers import dispatcher
+    from sceneapi.server.workers import dispatcher
 
     p = Project(tenant_id="default", name="t-map-submodels")
     session.add(p)
@@ -284,7 +284,7 @@ async def test_map_task_persists_submodels(session, monkeypatch) -> None:
 
 
 async def test_failed_radiance_train_marks_evaluation_failed(session, monkeypatch) -> None:
-    from sfmapi.server.workers import dispatcher
+    from sceneapi.server.workers import dispatcher
 
     p = Project(tenant_id="default", name="t-radiance-train-failure")
     session.add(p)

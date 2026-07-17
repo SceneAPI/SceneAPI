@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sfmapi.server.core.capabilities import CORE_CAPABILITIES
+from sceneapi.server.core.capabilities import CORE_CAPABILITIES
 
 pytestmark = pytest.mark.e2e
 
@@ -23,7 +23,7 @@ async def test_capabilities_returns_backend_and_features(client) -> None:
 async def test_capabilities_features_have_canonical_names(client) -> None:
     """Every reported flag is either CORE or OPTIONAL, never an
     invented name. Backends MAY add extra keys but we don't here."""
-    from sfmapi.server.core.capabilities import ALL_KNOWN
+    from sceneapi.server.core.capabilities import ALL_KNOWN
 
     resp = await client.get("/v1/capabilities")
     body = resp.json()

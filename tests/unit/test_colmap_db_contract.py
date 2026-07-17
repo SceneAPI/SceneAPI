@@ -1,4 +1,4 @@
-"""Locks the COLMAP scene-database core contract (sfmapi.contracts.colmap_db).
+"""Locks the COLMAP scene-database core contract (sceneapi.contracts.colmap_db).
 
 The contract mirrors the extended colmap_mod schema. These tests pin
 the version, the fork-extension surface, and the pair_id encoding so
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from sfmapi.contracts import colmap_db as db
+from sceneapi.contracts import colmap_db as db
 
 
 def test_database_version_number_matches_colmap_mod() -> None:

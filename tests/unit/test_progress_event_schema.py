@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import TypeAdapter
 
-from sfmapi.server.schemas.progress_event import ProgressEvent
+from sceneapi.server.schemas.progress_event import ProgressEvent
 
 pytestmark = pytest.mark.unit
 

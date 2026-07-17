@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from sfmapi.server.storage.snapshots import SnapshotStore
+from sceneapi.server.storage.snapshots import SnapshotStore
 
 pytestmark = pytest.mark.integration
 

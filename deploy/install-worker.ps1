@@ -7,7 +7,7 @@
     ../colmap_mod) is built against the host CUDA + cuDSS stack and
     cannot live in a non-NVIDIA-runtime container easily. Instead, we
     register the worker as an nssm service that runs in a venv, with
-    `SFMAPI_DB_URL` and `SFMAPI_REDIS_URL` pointing at the docker-compose
+    `SCENEAPI_DB_URL` and `SCENEAPI_REDIS_URL` pointing at the docker-compose
     stack on the same machine (or a remote host).
 
 .PARAMETER ServiceName
@@ -21,10 +21,10 @@
     Repo root the worker should run from. Defaults to script's parent.
 
 .PARAMETER DbUrl
-    `SFMAPI_DB_URL` env var (default: postgres on localhost:5432).
+    `SCENEAPI_DB_URL` env var (default: postgres on localhost:5432).
 
 .PARAMETER RedisUrl
-    `SFMAPI_REDIS_URL` env var (default: redis on localhost:6379).
+    `SCENEAPI_REDIS_URL` env var (default: redis on localhost:6379).
 
 .PARAMETER GpuUuid
     Optional CUDA_VISIBLE_DEVICES value (e.g. "0").
@@ -83,7 +83,7 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $stdoutLog = Join-Path $logDir "$ServiceName.stdout.log"
 $stderrLog = Join-Path $logDir "$ServiceName.stderr.log"
 
-# ARQ entrypoint:  arq sfmapi.server.workers.runner.WorkerSettings
+# ARQ entrypoint:  arq sceneapi.server.workers.runner.WorkerSettings
 $arqExe = Join-Path $VenvPath "Scripts\arq.exe"
 if (-not (Test-Path $arqExe)) {
     throw "arq not installed in venv. Run `uv pip install -e .` first."
@@ -97,7 +97,7 @@ if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
 }
 
 Write-Host "Installing service '$ServiceName'..." -ForegroundColor Cyan
-& nssm install $ServiceName $arqExe sfmapi.server.workers.runner.WorkerSettings
+& nssm install $ServiceName $arqExe sceneapi.server.workers.runner.WorkerSettings
 & nssm set $ServiceName AppDirectory $WorkingDir
 & nssm set $ServiceName AppStdout $stdoutLog
 & nssm set $ServiceName AppStderr $stderrLog
@@ -107,19 +107,19 @@ Write-Host "Installing service '$ServiceName'..." -ForegroundColor Cyan
 
 # Environment block (one VAR=VALUE per line, NUL-separated under the hood).
 $envLines = @(
-    "SFMAPI_DB_URL=$DbUrl",
-    "SFMAPI_REDIS_URL=$RedisUrl",
-    "SFMAPI_PYCOLMAP_AVAILABLE=true",
-    "SFMAPI_LOG_LEVEL=$LogLevel",
-    "SFMAPI_LEASE_TTL_SECONDS=$LeaseTtlSeconds",
-    "SFMAPI_INLINE_TASKS=false",
+    "SCENEAPI_DB_URL=$DbUrl",
+    "SCENEAPI_REDIS_URL=$RedisUrl",
+    "SCENEAPI_PYCOLMAP_AVAILABLE=true",
+    "SCENEAPI_LOG_LEVEL=$LogLevel",
+    "SCENEAPI_LEASE_TTL_SECONDS=$LeaseTtlSeconds",
+    "SCENEAPI_INLINE_TASKS=false",
     "PYTHONUNBUFFERED=1"
 )
 if ($GpuUuid) {
     $envLines += "CUDA_VISIBLE_DEVICES=$GpuUuid"
-    $envLines += "SFMAPI_WORKER_ID=$ServiceName-gpu$GpuUuid"
+    $envLines += "SCENEAPI_WORKER_ID=$ServiceName-gpu$GpuUuid"
 } else {
-    $envLines += "SFMAPI_WORKER_ID=$ServiceName"
+    $envLines += "SCENEAPI_WORKER_ID=$ServiceName"
 }
 & nssm set $ServiceName AppEnvironmentExtra $envLines
 

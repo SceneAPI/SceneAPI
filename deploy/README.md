@@ -21,13 +21,13 @@ number of GPU worker hosts.
 
 ```bash
 cp deploy/.env.example deploy/.env
-# edit deploy/.env: set SFMAPI_PG_PASS, SFMAPI_AUTH_MODE, etc.
-# Multi-instance flips: SFMAPI_QUEUE_BACKEND=arq, SFMAPI_DB_URL=postgresql://...
+# edit deploy/.env: set SCENEAPI_PG_PASS, SCENEAPI_AUTH_MODE, etc.
+# Multi-instance flips: SCENEAPI_QUEUE_BACKEND=arq, SCENEAPI_DB_URL=postgresql://...
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
 ```
 
 The web container runs `alembic upgrade head` on start, then serves
-`uvicorn sfmapi.server.main:app` on `:8080`. `/healthz`, `/readyz`, `/version`,
+`uvicorn sceneapi.server.main:app` on `:8080`. `/healthz`, `/readyz`, `/version`,
 `/metrics` are exposed.
 
 Issue an API key (in `api_key` mode):
@@ -43,7 +43,7 @@ curl -sX POST http://localhost:8080/v1/admin/api-keys \
 Workers need:
 
 - The same CUDA / driver stack the backend package was built against.
-- A backend package that satisfies `sfmapi.backends.SfmBackend`
+- A backend package that satisfies `sceneapi.backends.SfmBackend`
   installed in the worker venv (e.g. an editable checkout of your
   pycolmap fork plus a thin `register_backend()` wrapper).
 - `sfmapi` itself, also installed editable.
@@ -56,7 +56,7 @@ uv venv
 # install your backend package — replace with your own URL
 uv pip install -e <path-to-your-backend-package>
 uv pip install -e ".[dev]"
-$env:SFMAPI_BACKEND = "<your-backend-name>"
+$env:SCENEAPI_BACKEND = "<your-backend-name>"
 ```
 
 Install (Administrator):
@@ -94,8 +94,8 @@ Uninstall:
 - Run `docker compose` once on a control plane host (or replace
   postgres + redis with managed services).
 - Install the worker service on each GPU host with your chosen
-  backend package and pointed at the central `SFMAPI_DB_URL` +
-  `SFMAPI_REDIS_URL`.
+  backend package and pointed at the central `SCENEAPI_DB_URL` +
+  `SCENEAPI_REDIS_URL`.
 - The fair-share scheduler interleaves work across tenants;
   per-host concurrency-1 is enforced by the supervisor + ARQ
   defaults.
@@ -116,7 +116,7 @@ Once Docker is running:
 ```bash
 bash scripts/smoke.sh                 # bring up, run flow, tear down
 bash scripts/smoke.sh --keep          # leave stack up on success
-SFMAPI_WEB_PORT=18080 bash scripts/smoke.sh
+SCENEAPI_WEB_PORT=18080 bash scripts/smoke.sh
 ```
 
 Or on Windows:
@@ -137,7 +137,7 @@ logs before tearing the stack down (unless `--keep` / `-Keep`).
 ## Troubleshooting
 
 - **Worker won't start**: `arq` missing from venv → re-run
-  `uv pip install -e .`. Or `SFMAPI_BACKEND` set to a name not in
+  `uv pip install -e .`. Or `SCENEAPI_BACKEND` set to a name not in
   the registry → check the backend package registers itself on
   import.
 - **`/healthz` 503 from web**: check container logs; usually the
@@ -145,7 +145,7 @@ logs before tearing the stack down (unless `--keep` / `-Keep`).
   should prevent this).
 - **No tasks running**: confirm the worker can reach Redis
   (`redis-cli -h <host> ping` from the worker host) and that
-  `SFMAPI_QUEUE_BACKEND=arq` (the standalone-default `inline`
+  `SCENEAPI_QUEUE_BACKEND=arq` (the standalone-default `inline`
   queue runs in-process and ignores Redis).
 - **501 CapabilityUnavailableError everywhere**: no backend
   registered. The stub backend ships with sfmapi for tests; in

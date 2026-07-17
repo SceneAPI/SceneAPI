@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from sfmapi.server.core.errors import ValidationError
-from sfmapi.server.workers._materialize import (
+from sceneapi.server.core.errors import ValidationError
+from sceneapi.server.workers._materialize import (
     link_or_copy,
     materialize_image_set,
     resolve_image_path,
@@ -32,7 +32,7 @@ def test_link_or_copy_raises_when_copy_fallback_fails(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import sfmapi.server.workers._materialize as mod
+    import sceneapi.server.workers._materialize as mod
 
     src = tmp_path / "src.bin"
     dst = tmp_path / "dst.bin"
@@ -108,13 +108,13 @@ def test_materialize_rejects_stage_name_escape(tmp_path: Path) -> None:
 
 
 def test_materialize_upload_links_blobs_into_stage(tmp_path: Path, monkeypatch) -> None:
-    from sfmapi.server.storage.blobs import InMemoryBlobStore
+    from sceneapi.server.storage.blobs import InMemoryBlobStore
 
     bs = InMemoryBlobStore()
     sha_a, _ = bs.put_bytes(b"AAA")
     sha_b, _ = bs.put_bytes(b"BBB")
 
-    import sfmapi.server.workers._materialize as mod
+    import sceneapi.server.workers._materialize as mod
 
     monkeypatch.setattr(mod, "get_blob_store", lambda: bs)
 

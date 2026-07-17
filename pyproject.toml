@@ -1,6 +1,6 @@
 [project]
-name = "sfmapi"
-version = "0.0.2"
+name = "sceneapi"
+version = "0.1.0"
 description = "Generic HTTP/REST API and wire contract for Structure-from-Motion tasks."
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -33,12 +33,16 @@ dependencies = [
 ]
 
 [project.scripts]
-sfmapi = "sfmapi.server.cli:main"
-sfmapi-mcp = "sfmapi.server.mcp.server:main"
+sceneapi = "sceneapi.server.cli:main"
+sceneapi-mcp = "sceneapi.server.mcp.server:main"
+# Deprecated alias scripts (one release, removed in 0.2.0): same mains,
+# old names — keeps existing operator muscle memory / launchers working.
+sfmapi = "sceneapi.server.cli:main"
+sfmapi-mcp = "sceneapi.server.mcp.server:main"
 
 [project.optional-dependencies]
-# sfmapi ships no concrete SfM backend; install a third-party
-# package implementing `sfmapi.backends.SfmBackend` and
+# sceneapi ships no concrete SfM backend; install a third-party
+# package implementing `sceneapi.backends.SfmBackend` and
 # register it at app startup. This `pyproject.toml` does not
 # declare any backend or segmentation dependency on purpose —
 # they all belong in separate packages.
@@ -68,9 +72,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-# `app` is the deprecated one-release compatibility shim over
-# `sfmapi.server` (removed in 0.1.0).
-packages = ["sfmapi", "sfm_hub", "app"]
+# `sfmapi` is the deprecated one-release compatibility shim over
+# `sceneapi` (removed in 0.2.0).
+packages = ["sceneapi", "sfm_hub", "sfmapi"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -82,7 +86,7 @@ markers = [
     "e2e: full app, may hit redis",
     "conformance: tests/conformance — verifies SFMAPI-SPEC.md against any server",
     "contract: tests/contract — replays recorded fixtures through the SDK types",
-    "needs_postgres: requires SFMAPI_DB_URL pointing at postgres",
+    "needs_postgres: requires SCENEAPI_DB_URL pointing at postgres",
 ]
 
 [tool.ruff]

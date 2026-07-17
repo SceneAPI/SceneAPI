@@ -2,7 +2,7 @@
 
 A manifest is the contract a backend ships; malformed values here are
 invisible until install / discovery time, so validate the shapes up front.
-Provider-id pattern lives in sfmapi.server.core.ids (single source); the other
+Provider-id pattern lives in sceneapi.server.core.ids (single source); the other
 patterns are sfm_hub-specific and stay here.
 """
 
@@ -299,10 +299,10 @@ def _validate_public_build_args(args: dict[str, str]) -> dict[str, str]:
 
 
 def _provider_id_re() -> re.Pattern[str]:
-    """Late import: ``sfmapi.server.core.ids`` ships only stdlib but
-    ``sfmapi.server`` and ``sfm_hub`` cross-import elsewhere, so resolve
+    """Late import: ``sceneapi.server.core.ids`` ships only stdlib but
+    ``sceneapi.server`` and ``sfm_hub`` cross-import elsewhere, so resolve
     lazily to avoid Python's module-import-cycle serialization."""
-    from sfmapi.server.core.ids import PROVIDER_ID_RE
+    from sceneapi.server.core.ids import PROVIDER_ID_RE
 
     return PROVIDER_ID_RE
 
@@ -310,30 +310,30 @@ def _provider_id_re() -> re.Pattern[str]:
 def _known_capabilities() -> frozenset[str]:
     """The canonical capability vocabulary, imported lazily.
 
-    Late import: ``sfmapi.server.core.capabilities`` depends only on stdlib and never
+    Late import: ``sceneapi.server.core.capabilities`` depends only on stdlib and never
     imports ``sfm_hub``, so this adds no import cycle — but keeping it inside
     the function avoids a module-load-time edge from the lower-level hub
     package up into ``app``.
     """
-    from sfmapi.server.core.capabilities import ALL_KNOWN
+    from sceneapi.server.core.capabilities import ALL_KNOWN
 
     return ALL_KNOWN
 
 
 def _core_datatype_ids() -> frozenset[str]:
-    from sfmapi.server.core.datatypes import CORE_DATA_TYPES_BY_ID
+    from sceneapi.server.core.datatypes import CORE_DATA_TYPES_BY_ID
 
     return frozenset(CORE_DATA_TYPES_BY_ID)
 
 
 def _core_processor_ids() -> frozenset[str]:
-    from sfmapi.server.core.processors import PROCESSORS_BY_ID
+    from sceneapi.server.core.processors import PROCESSORS_BY_ID
 
     return frozenset(PROCESSORS_BY_ID)
 
 
 def _core_pipeline_ids() -> frozenset[str]:
-    from sfmapi.server.core.pipelines import CANONICAL_PIPELINES
+    from sceneapi.server.core.pipelines import CANONICAL_PIPELINES
 
     return frozenset(CANONICAL_PIPELINES)
 

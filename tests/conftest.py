@@ -23,35 +23,38 @@ def _isolate_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Itera
     ws = tmp_path / "ws"
     ws.mkdir()
     db_path = tmp_path / "test.db"
-    monkeypatch.setenv("SFMAPI_DB_URL", f"sqlite+aiosqlite:///{db_path.as_posix()}")
-    monkeypatch.setenv("SFMAPI_WORKSPACE_ROOT", str(ws))
-    monkeypatch.setenv("SFMAPI_BLOB_ROOT", str(ws / "_blobs"))
-    monkeypatch.setenv("SFMAPI_S3_CACHE_ROOT", str(ws / "_cache" / "s3"))
-    monkeypatch.setenv("SFMAPI_PLUGIN_STATE", str(tmp_path / "plugins.json"))
-    monkeypatch.setenv("SFMAPI_AUTH_MODE", "none")
-    monkeypatch.setenv("SFMAPI_DEFAULT_TENANT", "default")
-    monkeypatch.setenv("SFMAPI_LEASE_TTL_SECONDS", "5")
-    monkeypatch.setenv("SFMAPI_MCP_MODE", "off")
-    monkeypatch.setenv("SFMAPI_MCP_ENABLED", "false")
+    monkeypatch.setenv("SCENEAPI_DB_URL", f"sqlite+aiosqlite:///{db_path.as_posix()}")
+    monkeypatch.setenv("SCENEAPI_WORKSPACE_ROOT", str(ws))
+    monkeypatch.setenv("SCENEAPI_BLOB_ROOT", str(ws / "_blobs"))
+    monkeypatch.setenv("SCENEAPI_S3_CACHE_ROOT", str(ws / "_cache" / "s3"))
+    monkeypatch.setenv("SCENEAPI_PLUGIN_STATE", str(tmp_path / "plugins.json"))
+    monkeypatch.setenv("SCENEAPI_AUTH_MODE", "none")
+    monkeypatch.setenv("SCENEAPI_DEFAULT_TENANT", "default")
+    monkeypatch.setenv("SCENEAPI_LEASE_TTL_SECONDS", "5")
+    monkeypatch.setenv("SCENEAPI_MCP_MODE", "off")
+    monkeypatch.setenv("SCENEAPI_MCP_ENABLED", "false")
     # Avoid touching Redis in tests; route every task through inline runner.
-    monkeypatch.setenv("SFMAPI_INLINE_TASKS", "true")
+    monkeypatch.setenv("SCENEAPI_INLINE_TASKS", "true")
     # sfmapi ships no concrete backend; register a test stub so
     # `get_backend()` resolves. Tests must NOT auto-load whatever
     # plugins happen to be installed in the venv — that would couple
     # test outcomes to install state.
-    monkeypatch.setenv("SFMAPI_BACKEND", "stub")
-    monkeypatch.setenv("SFMAPI_AUTO_LOAD_BACKEND_PLUGINS", "false")
+    monkeypatch.setenv("SCENEAPI_BACKEND", "stub")
+    monkeypatch.setenv("SCENEAPI_AUTO_LOAD_BACKEND_PLUGINS", "false")
 
     import sfm_hub.discovery as discovery
-    from sfmapi.server.adapters.registry import _PROVIDER_REGISTRY, _REGISTRY, register_backend
-    from sfmapi.server.adapters.stub_backend import StubBackend
-    from sfmapi.server.core import config as config_mod
-    from sfmapi.server.core.capabilities import reset_capabilities_cache
-    from sfmapi.server.db import session as session_mod
+    from sceneapi.server.adapters.registry import _PROVIDER_REGISTRY, _REGISTRY, register_backend
+    from sceneapi.server.adapters.stub_backend import StubBackend
+    from sceneapi.server.core import config as config_mod
+    from sceneapi.server.core.capabilities import reset_capabilities_cache
+    from sceneapi.server.db import session as session_mod
 
     class EmptyEntryPoints(list[object]):
         def select(self, *, group: str) -> list[object]:
-            assert group == discovery.ENTRY_POINT_GROUP
+            assert group in (
+                discovery.ENTRY_POINT_GROUP,
+                discovery.LEGACY_ENTRY_POINT_GROUP,
+            )
             return []
 
     config_mod._settings = None
@@ -75,12 +78,12 @@ async def db_setup() -> AsyncIterator[None]:
     """Create the schema for the per-test sqlite db."""
     # IMPORTANT: import models BEFORE touching Base.metadata so that all
     # ORM classes register their tables. Without this, a fresh process
-    # whose first test never imports `sfmapi.server.db.models` (directly or
+    # whose first test never imports `sceneapi.server.db.models` (directly or
     # transitively) ends up with empty metadata, and `create_all`
     # silently produces a database with zero tables.
-    from sfmapi.server.db import models  # noqa: F401  (registers tables)
-    from sfmapi.server.db.base import Base
-    from sfmapi.server.db.session import get_engine
+    from sceneapi.server.db import models  # noqa: F401  (registers tables)
+    from sceneapi.server.db.base import Base
+    from sceneapi.server.db.session import get_engine
 
     engine = get_engine()
     async with engine.begin() as conn:
@@ -92,7 +95,7 @@ async def db_setup() -> AsyncIterator[None]:
 
 @pytest_asyncio.fixture()
 async def session(db_setup: None) -> AsyncIterator[AsyncSession]:
-    from sfmapi.server.db.session import get_session_factory
+    from sceneapi.server.db.session import get_session_factory
 
     factory = get_session_factory()
     async with factory() as s:
@@ -101,7 +104,7 @@ async def session(db_setup: None) -> AsyncIterator[AsyncSession]:
 
 @pytest_asyncio.fixture()
 async def client(db_setup: None) -> AsyncIterator[AsyncClient]:
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     app = create_app()
     transport = ASGITransport(app=app)

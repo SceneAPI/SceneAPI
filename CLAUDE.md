@@ -4,13 +4,18 @@ Guidance for Claude Code working in this repository.
 
 ## Project Overview
 
-`sfmapi` is the **wire spec + orchestration shell** for SfM-as-a-service.
+`sceneapi` (formerly `sfmapi`; renamed in 0.1.0) is the **wire spec +
+orchestration shell** for SfM-as-a-service.
 It is a generic HTTP/REST API for Structure-from-Motion tasks; backend
 implementations (pycolmap forks, OpenSfM, hloc, custom engines) live in
 **separate packages** and register at startup via
-`sfmapi.runtime.register_backend("name", Backend)` — the public facade
-(plugins never import the internal `sfmapi.server.*` tree; its
-pre-rename `app.*` alias is a deprecated one-release shim, gone in 0.1.0).
+`sceneapi.runtime.register_backend("name", Backend)` — the public facade
+(plugins never import the internal `sceneapi.server.*` tree). The
+pre-rename `sfmapi` import package is a deprecated one-release alias
+shim over `sceneapi`, gone in 0.2.0; `SFMAPI_*` env vars and the
+`sfmapi.backends` entry-point group are honored via the same one-release
+deprecation aliases. Wire identity (SFMAPI-SPEC.md, `sfmapi.*.v1`
+format ids, media types, error URIs) is unchanged until Phase C.
 
 The repo ships:
 - A FastAPI web tier with no engine-library imports.
@@ -19,8 +24,8 @@ The repo ships:
   + recipe sugar (`/pipelines/{incremental|global|hierarchical|spherical}`).
 - Sealed-snapshot progress feed for light interactivity during long-running runs.
 - Three SDKs (Python, TypeScript, C++) generated from the same OpenAPI spec.
-- A no-op `StubBackend` (`sfmapi.server.adapters.stub_backend`) for tests + the
-  `SFMAPI_EPHEMERAL=true` self-contained demo runtime.
+- A no-op `StubBackend` (`sceneapi.server.adapters.stub_backend`) for tests + the
+  `SCENEAPI_EPHEMERAL=true` self-contained demo runtime.
 
 There is **no** concrete SfM engine in this repo. Routes that need a backend
 return `501 CapabilityUnavailableError` until a real backend package is
@@ -53,25 +58,25 @@ canonical source for "what is settled here?".
   lookup, cancellation) + ARQ as the per-task executor. One Task = one ARQ
   job. Don't encode DAG edges in ARQ enqueue chains.
 - **Storage backends are pluggable.**
-  - `BlobStore` (`sfmapi/server/storage/blobs.py`) is a Protocol; `get_blob_store()`
+  - `BlobStore` (`sceneapi/server/storage/blobs.py`) is a Protocol; `get_blob_store()`
     chooses `FSBlobStore` (default), `S3BlobStore`, or `InMemoryBlobStore`
-    from `SFMAPI_BLOB_BACKEND` (`fs`|`s3`|`memory`). Callers must use
+    from `SCENEAPI_BLOB_BACKEND` (`fs`|`s3`|`memory`). Callers must use
     `local_path(sha)` (cross-backend) rather than `path_for(sha)` (FS-only).
-  - `Queue` (`sfmapi/server/orchestrator/queue.py`) is a Protocol; `get_queue()`
+  - `Queue` (`sceneapi/server/orchestrator/queue.py`) is a Protocol; `get_queue()`
     chooses `ArqQueue` (default) or `InlineQueue` from
-    `SFMAPI_QUEUE_BACKEND` (legacy `SFMAPI_INLINE_TASKS=true` still forces
+    `SCENEAPI_QUEUE_BACKEND` (legacy `SCENEAPI_INLINE_TASKS=true` still forces
     inline). All enqueue paths go through the protocol — never construct
     an ARQ pool directly.
-  - Task execution is queue-agnostic: ``sfmapi/server/workers/dispatcher.py``
+  - Task execution is queue-agnostic: ``sceneapi/server/workers/dispatcher.py``
     holds ``execute_task(task_id)`` (lease + heartbeat + handler dispatch
-    + status transitions). ``sfmapi/server/workers/runner.py`` is now a thin ARQ
+    + status transitions). ``sceneapi/server/workers/runner.py`` is now a thin ARQ
     shim that calls into the dispatcher; new queue backends (Celery,
     SQS) wrap ``execute_task`` the same way.
   - Worker tasks never inline their own materialization logic — use
-    ``sfmapi.server.workers._materialize.materialize_image_set()`` (full set) or
+    ``sceneapi.server.workers._materialize.materialize_image_set()`` (full set) or
     ``resolve_image_path()`` (single image). Adding kind-specific
     handling there reaches every task automatically.
-- **Ephemeral mode** (`SFMAPI_EPHEMERAL=true`) — single-process, zero
+- **Ephemeral mode** (`SCENEAPI_EPHEMERAL=true`) — single-process, zero
   persistence: in-memory SQLite (`StaticPool`) + `InMemoryBlobStore` +
   `InlineQueue` + `tempfile.mkdtemp()` workspace, schema bootstrapped on
   startup, tempdir wiped on shutdown. Intended for demos, embedded use,
@@ -84,7 +89,7 @@ canonical source for "what is settled here?".
   `PATCH /uploads/{id}` with `Content-Range`, `POST /uploads/{id}/finalize`.
   `Idempotency-Key` from day 1.
 - **Points serialization**: binary, fixed-width 26 B/point + 44 B header
-  (see `sfmapi/server/schemas/points_binary.py`). `Content-Type:
+  (see `sceneapi/server/schemas/points_binary.py`). `Content-Type:
   application/x-sfm-points-v1`. Cursor pagination via HTTP `Range`.
 - **Realtime**: SSE is the primary progress feed (events + log replay via
   `Last-Event-ID`). WebSocket ships at `/ws/v1/jobs/{job_id}` (SPEC §8)
@@ -94,10 +99,10 @@ canonical source for "what is settled here?".
 ## Layout
 
 ```
-sfmapi/                  public facades for plugins/embedders
+sceneapi/                public facades for plugins/embedders
   runtime.py backends.py errors.py testing.py plugin_service.py
   contracts/             colmap_db.py — off-wire data-format contracts
-sfmapi/server/           the FastAPI service (internal; was top-level `app/`)
+sceneapi/server/         the FastAPI service (internal; was `sfmapi/server/`)
   main.py                FastAPI app, lifespan, router registration
   api/v1/                HTTP — never imports pycolmap/torch
     health.py            /healthz /readyz /version /metrics
@@ -125,7 +130,7 @@ sfmapi/server/           the FastAPI service (internal; was top-level `app/`)
     api/                 request/response models per resource
   sources/
     base.py              ImageSource protocol, ImageMaterialization
-    upload.py            UploadSource (sfmapi owns bytes via blob store)
+    upload.py            UploadSource (sceneapi owns bytes via blob store)
     local.py             LocalPathSource (fingerprint, no copy)
     s3.py                S3Source (lazy download to LRU cache; Phase 5 GA)
   storage/
@@ -138,7 +143,7 @@ sfmapi/server/           the FastAPI service (internal; was top-level `app/`)
     readiness.py         single-source dependency-readiness vocabulary
                          ({succeeded, skipped} = ready)
     janitor.py           lease reclaim, upload GC, opt-in retention sweep
-                         (SFMAPI_RETENTION_DAYS; unset = keep forever)
+                         (SCENEAPI_RETENTION_DAYS; unset = keep forever)
     queue.py             Queue Protocol (ArqQueue | InlineQueue)
     lease.py resume.py   lease helpers, job resume
   services/              tenant-scoped CRUD; uses sessions + storage/orchestrator
@@ -154,10 +159,10 @@ sfmapi/server/           the FastAPI service (internal; was top-level `app/`)
   adapters/              backend Protocol + registry only — no engine imports
     backend.py           SfmBackend Protocol (the contract every backend implements)
     registry.py          register_backend() + get_backend()
-    stub_backend.py      no-op stub used by tests + SFMAPI_EPHEMERAL=true
+    stub_backend.py      no-op stub used by tests + SCENEAPI_EPHEMERAL=true
     image_adapter.py     PIL + EXIF (pure-python, no engine dep)
-app/                     DEPRECATED alias shim over sfmapi.server
-                         (__init__.py only; removed in 0.1.0)
+sfmapi/                  DEPRECATED alias shim over sceneapi
+                         (__init__.py only; removed in 0.2.0)
 tests/
   unit/                  fast, no IO
   integration/           hits db + filesystem
@@ -176,16 +181,16 @@ scripts/                 dev / ops scripts
 ## Conventions
 
 ### Imports
-- Web layer (`sfmapi/server/api/`, `sfmapi/server/main.py`) **never** imports `pycolmap`, `torch`,
+- Web layer (`sceneapi/server/api/`, `sceneapi/server/main.py`) **never** imports `pycolmap`, `torch`,
   `segment_anything`, or `cv2`. The web process must start in <2s.
 - `adapters/` is the **only** module that imports those. Adapters are
   **sync**.
-- Workers (`sfmapi/server/workers/`) call adapters via `anyio.to_thread.run_sync` or
+- Workers (`sceneapi/server/workers/`) call adapters via `anyio.to_thread.run_sync` or
   via fork-per-task subprocess (the supervisor model).
 - `services/` calls `storage/`, `orchestrator/`, and `db/`. It may import
   the adapters **public contract layer** only — `backend`, `registry`,
   `backend_config`, `backend_actions`, `backend_artifacts`; public names,
-  never `_private` symbols. Everything else under `sfmapi/server/adapters/` (stub
+  never `_private` symbols. Everything else under `sceneapi/server/adapters/` (stub
   backend, image adapter, ...) is off-limits to services. AST-enforced by
   `tests/unit/test_repo_boundary_guards.py`.
 
@@ -210,10 +215,10 @@ scripts/                 dev / ops scripts
   `postgresql_*` kwargs; if you must, branch on `op.get_bind().dialect.name`.
 
 ### IDs
-- Generate with `sfmapi.server.core.ids.new_id()` → returns 26-char ULID string. Sortable.
+- Generate with `sceneapi.server.core.ids.new_id()` → returns 26-char ULID string. Sortable.
 
 ### Errors
-- Domain errors subclass `sfmapi.server.core.errors.SfmApiError`. FastAPI exception
+- Domain errors subclass `sceneapi.server.core.errors.SfmApiError`. FastAPI exception
   handler maps to RFC7807 problem+json. Never raise raw `HTTPException` from
   services.
 - A backend that cannot load its engine raises `BackendUnavailableError`
@@ -257,7 +262,7 @@ scripts/                 dev / ops scripts
   response untyped in the OpenAPI spec; SDK codegen then falls back
   to `Any` and clients lose all typing for that route. The canonical
   202 envelope for any job-submitting endpoint is
-  :class:`sfmapi.server.schemas.api.jobs.JobAcceptedResponse`.
+  :class:`sceneapi.server.schemas.api.jobs.JobAcceptedResponse`.
 - The remaining "untyped" routes are intentionally non-JSON:
   204 deletes, binary file streams (`*.bin`, `bytes`, `thumbnail`),
   the SSE event stream, and large precomputed JSON files served as
@@ -325,7 +330,7 @@ scripts/                 dev / ops scripts
   ``std::this_thread::sleep_for``. C++ also exposes ``ParseJobDetail``
   / ``JobDetailFromJson`` / ``TaskRowFromJson`` for typed access to
   job bodies. The helpers depend on
-  ``sfmapi/server/workers/dispatcher.py::_maybe_finalize_job`` rolling
+  ``sceneapi/server/workers/dispatcher.py::_maybe_finalize_job`` rolling
   ``Job.status`` up from its constituent ``Task`` rows on every task
   transition; do NOT remove that rollup without also reworking the
   helpers.
@@ -385,7 +390,7 @@ scripts/                 dev / ops scripts
   shipped any pending events. Without this exit condition,
   ``submit_and_stream`` consumers block forever on a job that
   already finished. The terminal vocabulary is shared with
-  ``sfmapi/server/workers/dispatcher.py::_maybe_finalize_job``.
+  ``sceneapi/server/workers/dispatcher.py::_maybe_finalize_job``.
 
 ### C++ live-server testing intentionally omitted
 - C++ ships no built-in HTTP transport (consumers BYO libcurl /
@@ -422,7 +427,7 @@ scripts/                 dev / ops scripts
     protocol that single-job tests miss (e.g. cross-job state
     bleed in ``_maybe_finalize_job`` or a SSE handler keyed on a
     process-level singleton).
-  Skips when ``uv`` isn't available or when ``SFMAPI_LIVE_SKIP=1``.
+  Skips when ``uv`` isn't available or when ``SCENEAPI_LIVE_SKIP=1``.
   Symmetric to the Python live tests — proves the TS SDK actually
   composes against the running server, not just against
   ``msw``-stubbed transports.
@@ -436,7 +441,7 @@ scripts/                 dev / ops scripts
   protects.
 
 ### `InMemoryBlobStore` is a process-local singleton
-- ``sfmapi/server/storage/blobs.py::get_blob_store()`` caches the in-memory
+- ``sceneapi/server/storage/blobs.py::get_blob_store()`` caches the in-memory
   backend instance because its bytes live in a per-instance dict.
   Constructing a fresh instance per call (as the FS / S3 backends
   do) means an upload via one call and a read via the worker land
@@ -484,20 +489,20 @@ cp .env.example .env             # defaults: SQLite + fs blobs + inline queue
 uv run alembic upgrade head
 
 # Run
-uv run uvicorn sfmapi.server.main:app --reload
+uv run uvicorn sceneapi.server.main:app --reload
 
 # Test
 uv run pytest -q
 
 # Dual-DB CI runs (must both pass)
-SFMAPI_DB_URL=sqlite+aiosqlite:///./test.db \
+SCENEAPI_DB_URL=sqlite+aiosqlite:///./test.db \
   uv run pytest -q -m "not needs_postgres"
-SFMAPI_DB_URL=postgresql+psycopg://sfm:sfm@localhost:5432/sfmapi_test \
+SCENEAPI_DB_URL=postgresql+psycopg://sfm:sfm@localhost:5432/sfmapi_test \
   uv run pytest -q
 
 # Ruff stack (same command CI runs)
-uv run ruff check sfmapi sfm_hub tests scripts
-uv run ruff format --check sfmapi sfm_hub tests scripts
+uv run ruff check sceneapi sfm_hub sfmapi tests scripts
+uv run ruff format --check sceneapi sfm_hub sfmapi tests scripts
 ```
 
 ## Backend integration notes
@@ -505,19 +510,19 @@ uv run ruff format --check sfmapi sfm_hub tests scripts
 - The web tier must work without any concrete backend installed (calls
   that need one return `501 CapabilityUnavailableError`). The
   `StubBackend` ships in this repo for tests + the
-  `SFMAPI_EPHEMERAL=true` demo runtime; production deployments install
+  `SCENEAPI_EPHEMERAL=true` demo runtime; production deployments install
   a third-party backend package and call
-  `sfmapi.runtime.register_backend()` at startup.
-- Plugins integrate through the public `sfmapi.*` facades only:
-  `sfmapi.backends` (protocols), `sfmapi.runtime` (in-process
-  registration + `create_app`), and `sfmapi.plugin_service` —
+  `sceneapi.runtime.register_backend()` at startup.
+- Plugins integrate through the public `sceneapi.*` facades only:
+  `sceneapi.backends` (protocols), `sceneapi.runtime` (in-process
+  registration + `create_app`), and `sceneapi.plugin_service` —
   `build_plugin_server()` / `ManifestBackend` / `PROTOCOL_VERSION`
   (1.1) — for container-service plugins speaking
   `sfmapi-plugin-http-v1`. Never hand-roll a plugin server/protocol
-  module, and never import `sfmapi.server.*` (or its deprecated
-  `app.*` alias) from a plugin (internal).
+  module, and never import `sceneapi.server.*` (or its deprecated
+  `sfmapi.server.*` alias) from a plugin (internal).
 - The COLMAP scene-database schema contract lives at
-  `sfmapi.contracts.colmap_db` (public). `sfmapi.server.core.colmap_db` is a
+  `sceneapi.contracts.colmap_db` (public). `sceneapi.server.core.colmap_db` is a
   deprecated re-export shim kept for one release.
 - Backends mutate fast (defaults change frequently). Cache invalidation
   uses the backend-defined `runtime_version_id` opaque string returned
@@ -537,7 +542,7 @@ uv run ruff format --check sfmapi sfm_hub tests scripts
 - Don't import any engine library (pycolmap, torch, cv2, segment_anything,
   ...) from the web process. Ever. The
   `test_app_does_not_import_pycolmap_or_torch` unit test enforces this.
-- Don't add a default backend to `sfmapi.server.adapters.registry` — sfmapi ships
+- Don't add a default backend to `sceneapi.server.adapters.registry` — sceneapi ships
   no engine on purpose.
 - Don't read the backend's live working state from the API. Sealed
   snapshots only.

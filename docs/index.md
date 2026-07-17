@@ -1,9 +1,9 @@
-# sfmapi
+# sceneapi
 
 **An HTTP API for running Structure-from-Motion workflows without tying
 clients to one SfM engine.**
 
-sfmapi defines the server contract, long-running job model, progress
+sceneapi (formerly sfmapi) defines the server contract, long-running job model, progress
 streaming, chunked uploads that finalize into content-addressed blobs,
 sealed reconstruction snapshots, and SDK-facing endpoints. Concrete SfM
 engines live in backend packages and register with the server at
@@ -122,7 +122,7 @@ guides/jobs_and_progress
 ```
 
 ```{toctree}
-:caption: Operate sfmapi
+:caption: Operate sceneapi
 :hidden:
 :maxdepth: 2
 

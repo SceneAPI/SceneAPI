@@ -8,13 +8,13 @@ pytestmark = pytest.mark.unit
 
 
 def test_app_openapi_3_1_with_expected_paths() -> None:
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     app = create_app()
     spec = app.openapi()
 
     assert spec["openapi"].startswith("3.")
-    assert spec["info"]["title"] == "sfmapi"
+    assert spec["info"]["title"] == "SceneAPI"
 
     paths = spec.get("paths", {})
     # Critical surface that downstream SDKs and the docs rely on:
@@ -65,7 +65,7 @@ def test_app_openapi_3_1_with_expected_paths() -> None:
 
 
 def test_upload_patch_declares_binary_request_body() -> None:
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     request_body = (
         create_app().openapi()["paths"]["/v1/uploads/{upload_id}"]["patch"].get("requestBody")

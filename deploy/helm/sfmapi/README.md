@@ -24,9 +24,9 @@ The chart never templates credentials with defaults. Two hooks:
 
 - **Database password** — create a Secret and point the chart at it.
   The Bitnami postgresql subchart provisions the DB user from the same
-  secret, and the web/worker pods build `SFMAPI_DB_URL` around a
-  `valueFrom.secretKeyRef` env var (`SFMAPI_DB_PASSWORD`, expanded by
-  the kubelet via `$(SFMAPI_DB_PASSWORD)`), so the password never
+  secret, and the web/worker pods build `SCENEAPI_DB_URL` around a
+  `valueFrom.secretKeyRef` env var (`SCENEAPI_DB_PASSWORD`, expanded by
+  the kubelet via `$(SCENEAPI_DB_PASSWORD)`), so the password never
   appears in the rendered manifests:
 
   ```bash
@@ -45,8 +45,8 @@ The chart never templates credentials with defaults. Two hooks:
   credentials, S3 keys, ...) — put them in a Secret whose keys are
   env-var names and set `env.existingSecret=<name>`; it is injected
   via `envFrom.secretRef` into both web and worker pods. When the
-  bundled subcharts are disabled the chart omits `SFMAPI_DB_URL` /
-  `SFMAPI_REDIS_URL` rather than rendering them empty, so
+  bundled subcharts are disabled the chart omits `SCENEAPI_DB_URL` /
+  `SCENEAPI_REDIS_URL` rather than rendering them empty, so
   secret-provided values take effect.
 
 ## Production values
@@ -81,8 +81,8 @@ worker:
 postgresql:
   enabled: false           # use a managed Postgres
 env:
-  # Secret with key SFMAPI_DB_URL=postgresql+psycopg://sfm:...@db.svc.local:5432/sfmapi
-  # (plaintext alternative: env.extraEnv.SFMAPI_DB_URL)
+  # Secret with key SCENEAPI_DB_URL=postgresql+psycopg://sfm:...@db.svc.local:5432/sfmapi
+  # (plaintext alternative: env.extraEnv.SCENEAPI_DB_URL)
   existingSecret: sfmapi-env
 ```
 

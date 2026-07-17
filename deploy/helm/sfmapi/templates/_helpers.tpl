@@ -56,24 +56,24 @@ so one secret serves both the subchart and the sfmapi pods.
 {{- end -}}
 
 {{/*
-Compute the SFMAPI_DB_URL value. Prefer the bundled Postgres subchart
-when enabled; otherwise the operator must set `env.extraEnv.SFMAPI_DB_URL`
+Compute the SCENEAPI_DB_URL value. Prefer the bundled Postgres subchart
+when enabled; otherwise the operator must set `env.extraEnv.SCENEAPI_DB_URL`
 (or ship it via `env.existingSecret`). When postgresql.auth.existingSecret
 is set, the password segment is the Kubernetes dependent-env reference
-$(SFMAPI_DB_PASSWORD) — expanded by the kubelet from the secretKeyRef env
-var emitted just before SFMAPI_DB_URL in "sfmapi.commonEnv" — so no
+$(SCENEAPI_DB_PASSWORD) — expanded by the kubelet from the secretKeyRef env
+var emitted just before SCENEAPI_DB_URL in "sfmapi.commonEnv" — so no
 plaintext password lands in the pod spec. Without an existingSecret, a
 plaintext postgresql.auth.password is required (render fails otherwise).
 */}}
 {{- define "sfmapi.dbUrl" -}}
 {{- if .Values.postgresql.enabled -}}
 {{- if .Values.postgresql.auth.existingSecret -}}
-postgresql+psycopg://{{ .Values.postgresql.auth.username }}:$(SFMAPI_DB_PASSWORD)@{{ .Release.Name }}-postgresql:5432/{{ .Values.postgresql.auth.database }}
+postgresql+psycopg://{{ .Values.postgresql.auth.username }}:$(SCENEAPI_DB_PASSWORD)@{{ .Release.Name }}-postgresql:5432/{{ .Values.postgresql.auth.database }}
 {{- else -}}
 postgresql+psycopg://{{ .Values.postgresql.auth.username }}:{{ required "postgresql.enabled=true needs a database password: set postgresql.auth.existingSecret (recommended) or postgresql.auth.password" .Values.postgresql.auth.password }}@{{ .Release.Name }}-postgresql:5432/{{ .Values.postgresql.auth.database }}
 {{- end -}}
 {{- else -}}
-{{ default "" (index .Values.env.extraEnv "SFMAPI_DB_URL") }}
+{{ default "" (index .Values.env.extraEnv "SCENEAPI_DB_URL") }}
 {{- end -}}
 {{- end -}}
 
@@ -81,7 +81,7 @@ postgresql+psycopg://{{ .Values.postgresql.auth.username }}:{{ required "postgre
 {{- if .Values.redis.enabled -}}
 redis://{{ .Release.Name }}-redis-master:6379/0
 {{- else -}}
-{{ default "" (index .Values.env.extraEnv "SFMAPI_REDIS_URL") }}
+{{ default "" (index .Values.env.extraEnv "SCENEAPI_REDIS_URL") }}
 {{- end -}}
 {{- end -}}
 
@@ -109,39 +109,39 @@ redis://{{ .Release.Name }}-redis-master:6379/0
 
 {{/*
 Common environment block injected into both web and worker pods.
-SFMAPI_DB_PASSWORD must precede SFMAPI_DB_URL: Kubernetes expands the
-$(SFMAPI_DB_PASSWORD) reference only from env vars defined earlier in
-the list. SFMAPI_DB_URL / SFMAPI_REDIS_URL are omitted (not emitted
+SCENEAPI_DB_PASSWORD must precede SCENEAPI_DB_URL: Kubernetes expands the
+$(SCENEAPI_DB_PASSWORD) reference only from env vars defined earlier in
+the list. SCENEAPI_DB_URL / SCENEAPI_REDIS_URL are omitted (not emitted
 empty) when unset here, so values supplied via env.existingSecret
 (envFrom) are not shadowed by explicit empty entries.
 */}}
 {{- define "sfmapi.commonEnv" -}}
 {{- if and .Values.postgresql.enabled .Values.postgresql.auth.existingSecret }}
-- name: SFMAPI_DB_PASSWORD
+- name: SCENEAPI_DB_PASSWORD
   valueFrom:
     secretKeyRef:
       name: {{ .Values.postgresql.auth.existingSecret | quote }}
       key: {{ include "sfmapi.dbPasswordKey" . | quote }}
 {{- end }}
 {{- with include "sfmapi.dbUrl" . }}
-- name: SFMAPI_DB_URL
+- name: SCENEAPI_DB_URL
   value: {{ . | quote }}
 {{- end }}
 {{- with include "sfmapi.redisUrl" . }}
-- name: SFMAPI_REDIS_URL
+- name: SCENEAPI_REDIS_URL
   value: {{ . | quote }}
 {{- end }}
-- name: SFMAPI_AUTH_MODE
+- name: SCENEAPI_AUTH_MODE
   value: {{ .Values.env.authMode | quote }}
-- name: SFMAPI_LOG_LEVEL
+- name: SCENEAPI_LOG_LEVEL
   value: {{ .Values.env.logLevel | quote }}
-- name: SFMAPI_INLINE_TASKS
+- name: SCENEAPI_INLINE_TASKS
   value: {{ .Values.env.inlineTasks | quote }}
-- name: SFMAPI_WORKSPACE_ROOT
+- name: SCENEAPI_WORKSPACE_ROOT
   value: "/workspaces"
-- name: SFMAPI_BLOB_ROOT
+- name: SCENEAPI_BLOB_ROOT
   value: "/workspaces/_blobs"
-- name: SFMAPI_S3_CACHE_ROOT
+- name: SCENEAPI_S3_CACHE_ROOT
   value: "/workspaces/_cache/s3"
 {{- range $k, $v := .Values.env.extraEnv }}
 - name: {{ $k }}

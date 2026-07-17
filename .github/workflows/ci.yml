@@ -34,16 +34,16 @@ jobs:
           uv pip install -e "$SFMAPI_SDK_REPO/python"
           uv pip install -e "$SFMAPI_SDK_REPO/python/sfmapi_client_gen"
       - name: Ruff lint
-        run: uv run ruff check sfmapi sfm_hub tests scripts
+        run: uv run ruff check sceneapi sfm_hub sfmapi tests scripts
       - name: Ruff format check
-        run: uv run ruff format --check sfmapi sfm_hub tests scripts
+        run: uv run ruff format --check sceneapi sfm_hub sfmapi tests scripts
 
   test-sqlite:
     runs-on: ubuntu-latest
     env:
-      SFMAPI_DB_URL: "sqlite+aiosqlite:///./test_sqlite.db"
-      SFMAPI_AUTH_MODE: "none"
-      SFMAPI_PYCOLMAP_AVAILABLE: "false"
+      SCENEAPI_DB_URL: "sqlite+aiosqlite:///./test_sqlite.db"
+      SCENEAPI_AUTH_MODE: "none"
+      SCENEAPI_PYCOLMAP_AVAILABLE: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -76,9 +76,9 @@ jobs:
           --health-timeout 5s
           --health-retries 12
     env:
-      SFMAPI_DB_URL: "postgresql+psycopg://sfm:sfm@localhost:5432/sfmapi_test"
-      SFMAPI_AUTH_MODE: "none"
-      SFMAPI_PYCOLMAP_AVAILABLE: "false"
+      SCENEAPI_DB_URL: "postgresql+psycopg://sfm:sfm@localhost:5432/sfmapi_test"
+      SCENEAPI_AUTH_MODE: "none"
+      SCENEAPI_PYCOLMAP_AVAILABLE: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -123,9 +123,9 @@ jobs:
         env:
           # Use isolated host ports so this job can't collide with other
           # services on the runner. The script auto-passes these into compose.
-          SFMAPI_WEB_PORT: "18080"
-          SFMAPI_PG_PORT: "55432"
-          SFMAPI_REDIS_PORT: "56379"
+          SCENEAPI_WEB_PORT: "18080"
+          SCENEAPI_PG_PORT: "55432"
+          SCENEAPI_REDIS_PORT: "56379"
         run: bash scripts/smoke.sh
       - name: Dump compose logs on failure
         if: failure()

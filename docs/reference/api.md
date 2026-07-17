@@ -66,7 +66,7 @@ flowchart LR
   `backend_options` and are discoverable from
   `/v1/backend/config-schemas`.
 - **Plugin hub**: install and enable backend plugins with the
-  `sfmapi plugins ...` CLI or `/v1/admin/plugins...` operator routes.
+  `sceneapi plugins ...` CLI or `/v1/admin/plugins...` operator routes.
   Public SfM job APIs never install plugins implicitly; HTTP execution
   requires `allow_unsafe_execution=true`.
 - **Idempotency**: `Idempotency-Key` header on `POST /v1/uploads`
@@ -121,8 +121,8 @@ read one action, when a UI needs form fields. `:run` enqueues a normal
 optional `action_id`, `backend`, and `provider` fields in the
 accepted-job body. Pass `provider` when inspecting or running a
 backend installed through sfm_hub without making it the process-wide
-`SFMAPI_BACKEND`.
-When `SFMAPI_MCP_MODE=local` or `SFMAPI_MCP_ENABLED=true` mounts MCP
+`SCENEAPI_BACKEND`.
+When `SCENEAPI_MCP_MODE=local` or `SCENEAPI_MCP_ENABLED=true` mounts MCP
 into the API process, `GET /v1/backend` also advertises `_links.mcp`
 and `_links.mcp_status`.
 
@@ -466,7 +466,7 @@ For "right now" use cases that don't need a Project/Dataset row.
 | POST | `/v1/oneshot/localize` | image bytes + `?recon_id=&type=&provider=&max_num_features=&use_gpu=&seed=` | `OneShotLocalizeResponse` |
 
 Bytes are tempfile'd then deleted; no DB row is created. Capped at
-`SFMAPI_ONESHOT_MAX_REQUEST_BYTES` (50 MiB default).
+`SCENEAPI_ONESHOT_MAX_REQUEST_BYTES` (50 MiB default).
 
 One-shot feature extraction is gated by the requested
 `features.extract.<type>` capability. One-shot localization is gated by
@@ -555,8 +555,8 @@ run installs may include `request_id` as a UUID-style idempotency key. The
 provisioning result exposes `env_keys`, `redacted_env`, and `outputs`; raw
 environment values are not returned.
 Backend packages can expose
-`[project.entry-points."sfmapi.backends"]`; `sfmapi plugins
-entry-points --load` and `sfmapi check-backend --load-entry-points`
+`[project.entry-points."sceneapi.backends"]`; `sceneapi plugins
+entry-points --load` and `sceneapi check-backend --load-entry-points`
 validate those contracts.
 
 Dry-run repo-address install example:
@@ -585,8 +585,8 @@ secret values:
   "provisioning_error": null,
   "provisioning": {
     "provisioned": false,
-    "env_keys": ["SFMAPI_CUSTOM_HOME"],
-    "redacted_env": {"SFMAPI_CUSTOM_TOKEN": "***"},
+    "env_keys": ["SCENEAPI_CUSTOM_HOME"],
+    "redacted_env": {"SCENEAPI_CUSTOM_TOKEN": "***"},
     "outputs": {},
     "metadata": {}
   }
@@ -632,7 +632,7 @@ fields.
 ## ProgressEvent
 
 ```{eval-rst}
-.. automodule:: sfmapi.server.schemas.progress_event
+.. automodule:: sceneapi.server.schemas.progress_event
    :members:
    :no-index:
 ```
@@ -640,7 +640,7 @@ fields.
 ## Pipeline specs
 
 ```{eval-rst}
-.. automodule:: sfmapi.server.schemas.pipeline_spec
+.. automodule:: sceneapi.server.schemas.pipeline_spec
    :members:
    :no-index:
 ```
@@ -651,7 +651,7 @@ fields.
 26 bytes per point.
 
 ```{eval-rst}
-.. automodule:: sfmapi.server.schemas.points_binary
+.. automodule:: sceneapi.server.schemas.points_binary
    :members:
    :no-index:
 ```

@@ -64,7 +64,7 @@ string is *not* the same id across them:
 
 | Class | What it identifies | Example | Validated as |
 |---|---|---|---|
-| **capability** | A portable feature/stage the backend implements (`ALL_KNOWN`) | `features.extract.sift`, `radiance.train`, `pairs.from_poses` | `enum` of `sfmapi/server/core/capabilities.py::ALL_KNOWN` |
+| **capability** | A portable feature/stage the backend implements (`ALL_KNOWN`) | `features.extract.sift`, `radiance.train`, `pairs.from_poses` | `enum` of `sceneapi/server/core/capabilities.py::ALL_KNOWN` |
 | **config_id** | A `BackendConfigSchemaOut` row (option schema for `backend_options`) | `colmap.features.sift`, `radiance.train`, `vismatch.matcher` | `^[A-Za-z0-9][A-Za-z0-9_-]*(\.[A-Za-z0-9][A-Za-z0-9_-]*)+$` |
 | **action_id** | A `BackendActionOut` row (engine-native verb) | `colmap.feature_extractor`, `vismatch.list_models` | namespaced (must contain `.`) |
 | **provider_id** | A provider/backend identity within a plugin | `colmap`, `gsplat`, `hloc` | `^[A-Za-z0-9][A-Za-z0-9_.-]*$` |

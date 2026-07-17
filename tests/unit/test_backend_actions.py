@@ -7,10 +7,10 @@ from typing import Any
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from sfmapi.server.adapters.registry import register_backend
-from sfmapi.server.adapters.stub_backend import StubBackend
-from sfmapi.server.core.capabilities import detect_capabilities, reset_capabilities_cache
-from sfmapi.server.core.config import reset_settings_for_tests
+from sceneapi.server.adapters.registry import register_backend
+from sceneapi.server.adapters.stub_backend import StubBackend
+from sceneapi.server.core.capabilities import detect_capabilities, reset_capabilities_cache
+from sceneapi.server.core.config import reset_settings_for_tests
 
 pytestmark = pytest.mark.unit
 
@@ -161,11 +161,11 @@ async def _client_for_backend(
     backend_name: str,
     backend_cls: type[StubBackend],
 ) -> AsyncClient:
-    monkeypatch.setenv("SFMAPI_BACKEND", backend_name)
+    monkeypatch.setenv("SCENEAPI_BACKEND", backend_name)
     register_backend(backend_name, backend_cls)
     reset_settings_for_tests()
     reset_capabilities_cache()
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     return AsyncClient(
         transport=ASGITransport(app=create_app()),
@@ -239,12 +239,12 @@ async def test_backend_action_api_can_target_provider_alias(
     db_setup: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("SFMAPI_BACKEND", "echo")
+    monkeypatch.setenv("SCENEAPI_BACKEND", "echo")
     register_backend("echo", EchoBackend)
     register_backend("provider_echo", ProviderEchoBackend, providers=["provider.echo"])
     reset_settings_for_tests()
     reset_capabilities_cache()
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     async with AsyncClient(
         transport=ASGITransport(app=create_app()),
@@ -284,8 +284,8 @@ async def test_backend_action_validate_uses_project_routing_profile(
     db_setup: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from sceneapi.server.services import backend_action_service
     from sfm_hub.state import PluginState, RoutingProfile
-    from sfmapi.server.services import backend_action_service
 
     class EmptyBackend(StubBackend):
         name = "empty"
@@ -293,7 +293,7 @@ async def test_backend_action_validate_uses_project_routing_profile(
         def list_backend_actions(self) -> list[dict[str, Any]]:
             return []
 
-    monkeypatch.setenv("SFMAPI_BACKEND", "empty")
+    monkeypatch.setenv("SCENEAPI_BACKEND", "empty")
     register_backend("empty", EmptyBackend, providers=["bad.provider"])
     register_backend("echo", EchoBackend, providers=["good.provider"])
     reset_settings_for_tests()
@@ -332,7 +332,7 @@ async def test_backend_action_validate_uses_project_routing_profile(
     monkeypatch.setattr(backend_action_service, "provider_records", lambda state=None: rows)
     monkeypatch.setattr(backend_action_service, "load_state", lambda: state)
 
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     async with AsyncClient(
         transport=ASGITransport(app=create_app()),
@@ -366,10 +366,10 @@ async def test_backend_action_validate_uses_project_routing_profile(
 def test_backend_action_routing_uses_actions_profile(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from sceneapi.server.services import backend_action_service as service
     from sfm_hub.models import ProviderManifest
     from sfm_hub.routing import ProviderRecord
     from sfm_hub.state import RoutingProfile, load_state, save_state
-    from sfmapi.server.services import backend_action_service as service
 
     rows = [
         ProviderRecord(
@@ -415,9 +415,9 @@ def test_backend_action_routing_uses_actions_profile(
 def test_backend_action_routing_uses_single_candidate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from sceneapi.server.services import backend_action_service as service
     from sfm_hub.models import ProviderManifest
     from sfm_hub.routing import ProviderRecord
-    from sfmapi.server.services import backend_action_service as service
 
     rows = [
         ProviderRecord(
@@ -441,9 +441,9 @@ def test_backend_action_routing_uses_single_candidate(
 def test_backend_action_routing_rejects_ambiguous_candidates(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from sceneapi.server.services import backend_action_service as service
     from sfm_hub.models import ProviderManifest
     from sfm_hub.routing import ProviderAmbiguityError, ProviderRecord
-    from sfmapi.server.services import backend_action_service as service
 
     rows = [
         ProviderRecord(
@@ -483,9 +483,9 @@ def test_backend_action_routing_rejects_ambiguous_candidates(
 def test_backend_catalog_rejects_ambiguous_bare_provider(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from sceneapi.server.services import backend_action_service as service
     from sfm_hub.models import ProviderManifest
     from sfm_hub.routing import ProviderAmbiguityError, ProviderRecord
-    from sfmapi.server.services import backend_action_service as service
 
     rows = [
         ProviderRecord(
@@ -565,7 +565,7 @@ async def test_colmap_command_surface_is_adapted_as_backend_actions(
 
 
 def test_explicit_backend_action_descriptor_wins_over_colmap_compat_adapter() -> None:
-    from sfmapi.server.adapters.backend_actions import (
+    from sceneapi.server.adapters.backend_actions import (
         assert_backend_action_contract,
         get_backend_action,
         list_backend_actions,

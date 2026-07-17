@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from sfmapi.server.adapters.export_formats import (
+from sceneapi.server.adapters.export_formats import (
     export_gaussian_splatting,
     export_instant_ngp,
     export_kapture,

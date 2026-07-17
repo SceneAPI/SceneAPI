@@ -25,11 +25,11 @@ jobs:
     runs-on: [self-hosted, gpu-cuda]
     timeout-minutes: 240
     env:
-      SFMAPI_BASE_URL: "http://localhost:8080"
+      SCENEAPI_BASE_URL: "http://localhost:8080"
       SFMAPI_SDK_REPO: ${{ github.workspace }}/.cache/sfmapi-sdk
       # The backend that will execute the bench is whatever's
-      # registered on the runner. Set SFMAPI_BACKEND to its name.
-      SFMAPI_BACKEND: "${{ vars.SFMAPI_BENCH_BACKEND || 'colmap_mod' }}"
+      # registered on the runner. Set SCENEAPI_BACKEND to its name.
+      SCENEAPI_BACKEND: "${{ vars.SFMAPI_BENCH_BACKEND || 'colmap_mod' }}"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4

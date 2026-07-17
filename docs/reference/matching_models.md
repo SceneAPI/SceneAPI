@@ -10,8 +10,8 @@ and how each backend family is expected to declare and route it.
 
 A matching model touches two contracts:
 
-1. **Portable capability + match-format layer** (`sfmapi/server/core/capabilities.py`,
-   `sfmapi/server/core/artifacts.py`). Capabilities like `features.extract.superpoint`,
+1. **Portable capability + match-format layer** (`sceneapi/server/core/capabilities.py`,
+   `sceneapi/server/core/artifacts.py`). Capabilities like `features.extract.superpoint`,
    `matchers.lightglue`, `matchers.loftr` advertise *what* a backend can
    do; the match-artifact formats describe *how* correspondences are
    carried:
@@ -84,7 +84,7 @@ Regardless of family, the cross-extractor invariant is the same and is
 the part the contract actually enforces: **a match may only join two
 descriptor sets produced by the same extractor type.** A backend must not
 match SuperPoint descriptors against SIFT descriptors. The contract
-helper `sfmapi.contracts.colmap_db.matches_are_type_compatible(a, b)` expresses
+helper `sceneapi.contracts.colmap_db.matches_are_type_compatible(a, b)` expresses
 this, and it holds for arbitrary extractor ids — not just the
 `colmap_mod` seed.
 

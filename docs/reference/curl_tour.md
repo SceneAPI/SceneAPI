@@ -14,7 +14,7 @@ which is fine for tracing the wire shape).
 
 ```bash
 # Start the server in ephemeral mode (in-memory DB, inline queue).
-SFMAPI_EPHEMERAL=true uv run uvicorn sfmapi.runtime:create_app --factory --port 8000 &
+SCENEAPI_EPHEMERAL=true uv run uvicorn sceneapi.runtime:create_app --factory --port 8000 &
 BASE=http://localhost:8000
 ```
 

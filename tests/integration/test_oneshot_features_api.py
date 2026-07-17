@@ -14,7 +14,7 @@ pytestmark = pytest.mark.integration
 
 
 async def _client():
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     app = create_app()
     return app, AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
@@ -22,7 +22,7 @@ async def _client():
 
 async def test_oneshot_features_route_registered() -> None:
     """The route exists, responds, and goes through the auth dep."""
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     app = create_app()
     async with (
@@ -41,12 +41,12 @@ async def test_oneshot_features_route_registered() -> None:
 
 async def test_oneshot_features_rejects_oversized_body(monkeypatch) -> None:
     """Quota cap kicks in before any pycolmap work."""
-    monkeypatch.setenv("SFMAPI_ONESHOT_MAX_REQUEST_BYTES", "16")
-    from sfmapi.server.core.config import reset_settings_for_tests
+    monkeypatch.setenv("SCENEAPI_ONESHOT_MAX_REQUEST_BYTES", "16")
+    from sceneapi.server.core.config import reset_settings_for_tests
 
     reset_settings_for_tests()
     try:
-        from sfmapi.server.main import create_app
+        from sceneapi.server.main import create_app
 
         app = create_app()
         async with (
@@ -69,7 +69,7 @@ async def test_oneshot_features_rejects_oversized_body(monkeypatch) -> None:
 async def test_oneshot_features_rejects_bad_content_type() -> None:
     """A clearly-non-image content type fails fast at the service
     boundary with a 422."""
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     app = create_app()
     async with (

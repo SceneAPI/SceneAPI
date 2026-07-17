@@ -1,6 +1,6 @@
 """Inline request models reject unknown fields.
 
-The schema models in ``sfmapi/server/schemas/api/`` use ``extra="forbid"`` so a
+The schema models in ``sceneapi/server/schemas/api/`` use ``extra="forbid"`` so a
 typo'd field 422s loudly. The request models defined *inline* in the
 route modules historically didn't — a typo'd ``provder`` was silently
 dropped and the job ran on the wrong backend. These tests pin

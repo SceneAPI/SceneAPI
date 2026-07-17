@@ -347,7 +347,7 @@ def _core_processor_ports() -> dict[
     str,
     tuple[dict[str, object], dict[str, object]],
 ]:
-    from sfmapi.server.core.processors import PROCESSORS_BY_ID
+    from sceneapi.server.core.processors import PROCESSORS_BY_ID
 
     return {
         processor_id: (processor.consumer, processor.supplier)
@@ -364,7 +364,7 @@ def _plugin_processor_ports(
 
 
 def _core_processor_attributes() -> dict[str, list[PluginAttributeManifest]]:
-    from sfmapi.server.core.processors import PROCESSORS_BY_ID
+    from sceneapi.server.core.processors import PROCESSORS_BY_ID
 
     return {
         processor_id: [

@@ -5,9 +5,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from sfmapi.server.core.errors import CapabilityUnavailableError
-from sfmapi.server.core.errors import ValidationError as SfmValidationError
-from sfmapi.server.core.projection_engine import project_image_directory
+from sceneapi.server.core.errors import CapabilityUnavailableError
+from sceneapi.server.core.errors import ValidationError as SfmValidationError
+from sceneapi.server.core.projection_engine import project_image_directory
 
 PILImage = pytest.importorskip("PIL.Image")
 
@@ -52,7 +52,7 @@ def test_equirectangular_to_cubemap_projects_face_centers(tmp_path: Path) -> Non
         },
     )
 
-    assert result["engine"] == "sfmapi.core.projection_engine"
+    assert result["engine"] == "sceneapi.core.projection_engine"
     assert len(result["source_images"]) == 1
     assert len(result["output_images"]) == 6
     assert result["derived_dataset"]["name"] == "cube"

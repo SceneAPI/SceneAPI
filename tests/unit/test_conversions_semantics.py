@@ -15,7 +15,7 @@ Two kinds, per the design:
 
 from __future__ import annotations
 
-from sfmapi.server.core import artifacts, pipelines
+from sceneapi.server.core import artifacts, pipelines
 
 
 def test_cross_format_coercion_is_type_preserving() -> None:

@@ -1,11 +1,11 @@
-"""Locks the operation registry core contract (sfmapi.server.core.operations)."""
+"""Locks the operation registry core contract (sceneapi.server.core.operations)."""
 
 from __future__ import annotations
 
 import json
 
-from sfmapi.server.core import datatypes as dt
-from sfmapi.server.core import operations as ops
+from sceneapi.server.core import datatypes as dt
+from sceneapi.server.core import operations as ops
 
 
 def test_all_edges_reference_known_datatypes() -> None:
@@ -29,7 +29,7 @@ def test_operation_capability_families_are_valid_and_disjoint() -> None:
     # gate that keeps the typed operation layer and the portable capability
     # vocabulary in lockstep (no operation claims a family that does not exist;
     # no family is claimed by two operations).
-    from sfmapi.server.core.capabilities import ALL_KNOWN
+    from sceneapi.server.core.capabilities import ALL_KNOWN
 
     claimed: dict[str, str] = {}
     for op in ops.CORE_OPERATIONS:
@@ -49,7 +49,7 @@ def test_every_capability_is_an_operation_or_explicit_infrastructure() -> None:
     # infrastructure family. Both sides are positive APIs; neither module
     # reimplements prefix logic. A new capability that links to no operation and
     # whose family is undeclared fails here with an actionable message.
-    from sfmapi.server.core.capabilities import (
+    from sceneapi.server.core.capabilities import (
         ALL_KNOWN,
         capability_family,
         is_infrastructure_capability,
@@ -60,7 +60,7 @@ def test_every_capability_is_an_operation_or_explicit_infrastructure() -> None:
         is_infra = is_infrastructure_capability(cap)
         assert is_op or is_infra, (
             f"unclassified capability {cap!r} (family {capability_family(cap)!r}): "
-            f"link it to an operation in sfmapi.server.core.operations, or declare its "
+            f"link it to an operation in sceneapi.server.core.operations, or declare its "
             f"family in INFRASTRUCTURE_CAPABILITY_FAMILIES"
         )
         assert not (is_op and is_infra), (
@@ -91,7 +91,7 @@ def test_every_artifact_datatype_is_produced_by_an_operation() -> None:
     # pipeline (some operation produces it), else it could never appear in a
     # run. Scene inputs (image_sequence, camera, camera_collection) are EXEMPT
     # -- they are provided/optional calibration inputs, not pipeline outputs.
-    from sfmapi.server.core import datatypes as dt
+    from sceneapi.server.core import datatypes as dt
 
     produced = {t for op in ops.CORE_OPERATIONS for t in op.produces}
     artifact_types = {t.type_id for t in dt.CORE_DATA_TYPES if t.kind == "artifact"}
@@ -106,7 +106,7 @@ def test_config_stage_links_to_a_valid_param_stage() -> None:
     # An operation's config_stage points at the backend config-schema stage
     # carrying its parameters (the algorithm knobs). When set it must be a real
     # config stage; the SfM spine + refine carry parameters.
-    from sfmapi.server.core.config_stages import VALID_CONFIG_STAGES
+    from sceneapi.server.core.config_stages import VALID_CONFIG_STAGES
 
     for op in ops.CORE_OPERATIONS:
         if op.config_stage is not None:

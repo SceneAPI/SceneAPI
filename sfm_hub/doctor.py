@@ -14,9 +14,9 @@ from urllib.request import Request, urlopen
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError as PydanticValidationError
 
+from sceneapi.server.core.public_outputs import sanitize_public_error_message
 from sfm_hub.models import PluginManifest, _public_url_issue
 from sfm_hub.state import PluginState, load_state
-from sfmapi.server.core.public_outputs import sanitize_public_error_message
 
 
 class DoctorCheck(BaseModel):
@@ -115,7 +115,7 @@ def detect_external_tools(manifests: list[PluginManifest]) -> dict[str, list[Too
 def _probe_uv_plugin(manifest: PluginManifest) -> DoctorCheck:
     """Is a uv-installed plugin actually importable in this environment?
 
-    A discoverable ``sfmapi.backends`` entry point is the real signal that
+    A discoverable ``sceneapi.backends`` entry point is the real signal that
     the package is installed and loadable — far more than "the manifest
     parsed". Imported lazily to avoid a load-time hub-internal cycle.
     """
@@ -131,7 +131,7 @@ def _probe_uv_plugin(manifest: PluginManifest) -> DoctorCheck:
         name="loadable",
         status="fail",
         detail=(
-            f"{manifest.plugin_id} declares a uv runtime but no sfmapi.backends "
+            f"{manifest.plugin_id} declares a uv runtime but no sceneapi.backends "
             "entry point is discoverable — is the package installed here?"
         ),
     )

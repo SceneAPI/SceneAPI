@@ -118,7 +118,7 @@ def _start_gsplat_pseudo_service(
             inputs = payload["inputs"]
             max_steps = int(spec["max_steps"])
             radiance_field_id = inputs["radiance_field_id"]
-            from sfmapi.server.core.paths import Paths
+            from sceneapi.server.core.paths import Paths
 
             out_dir = (
                 Paths().radiance_field_root(
@@ -423,7 +423,7 @@ async def test_radiance_train_rejects_non_container_radiance_provider(
     client,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from sfmapi.server.services import radiance_service
+    from sceneapi.server.services import radiance_service
 
     monkeypatch.setattr(
         radiance_service,
@@ -459,7 +459,7 @@ async def test_radiance_train_resolves_omitted_provider(
     client,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from sfmapi.server.services import radiance_service
+    from sceneapi.server.services import radiance_service
 
     captured: dict[str, Any] = {}
 
@@ -502,10 +502,10 @@ async def test_radiance_train_result_rejects_snapshot_path_outside_workspace(
     session,
     tmp_path: Path,
 ) -> None:
-    from sfmapi.server.core.errors import ValidationError
-    from sfmapi.server.core.ids import new_id
-    from sfmapi.server.db.models import Project, RadianceField
-    from sfmapi.server.services.radiance_service import record_radiance_train_result
+    from sceneapi.server.core.errors import ValidationError
+    from sceneapi.server.core.ids import new_id
+    from sceneapi.server.db.models import Project, RadianceField
+    from sceneapi.server.services.radiance_service import record_radiance_train_result
 
     outside = tmp_path / "outside-provider"
     outside.mkdir()
@@ -551,11 +551,11 @@ async def test_radiance_train_result_rejects_snapshot_path_outside_workspace(
 async def test_radiance_train_result_rejects_snapshot_path_from_other_field(
     session,
 ) -> None:
-    from sfmapi.server.core.errors import ValidationError
-    from sfmapi.server.core.ids import new_id
-    from sfmapi.server.core.paths import Paths
-    from sfmapi.server.db.models import Project, RadianceField
-    from sfmapi.server.services.radiance_service import record_radiance_train_result
+    from sceneapi.server.core.errors import ValidationError
+    from sceneapi.server.core.ids import new_id
+    from sceneapi.server.core.paths import Paths
+    from sceneapi.server.db.models import Project, RadianceField
+    from sceneapi.server.services.radiance_service import record_radiance_train_result
 
     project_id = new_id()
     radiance_field_id = new_id()
@@ -601,14 +601,14 @@ async def test_radiance_train_result_rejects_snapshot_path_from_other_field(
 async def test_radiance_results_store_only_public_provider_outputs(session) -> None:
     from sqlalchemy import select
 
-    from sfmapi.server.core.ids import new_id
-    from sfmapi.server.db.models import (
+    from sceneapi.server.core.ids import new_id
+    from sceneapi.server.db.models import (
         Project,
         RadianceEvaluation,
         RadianceField,
         RadianceSnapshot,
     )
-    from sfmapi.server.services.radiance_service import record_radiance_train_result
+    from sceneapi.server.services.radiance_service import record_radiance_train_result
 
     project_id = new_id()
     radiance_field_id = new_id()
@@ -742,11 +742,11 @@ async def test_radiance_train_result_rejects_live_snapshot_symlink_escapes(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    from sfmapi.server.core.errors import ValidationError
-    from sfmapi.server.core.ids import new_id
-    from sfmapi.server.core.paths import Paths
-    from sfmapi.server.db.models import Project, RadianceField
-    from sfmapi.server.services import radiance_service
+    from sceneapi.server.core.errors import ValidationError
+    from sceneapi.server.core.ids import new_id
+    from sceneapi.server.core.paths import Paths
+    from sceneapi.server.db.models import Project, RadianceField
+    from sceneapi.server.services import radiance_service
 
     project_id = new_id()
     radiance_field_id = new_id()
@@ -808,11 +808,11 @@ async def test_radiance_train_result_rejects_live_snapshot_symlink_escapes(
 async def test_radiance_train_result_rejects_missing_absolute_live_snapshot_path(
     session,
 ) -> None:
-    from sfmapi.server.core.errors import ValidationError
-    from sfmapi.server.core.ids import new_id
-    from sfmapi.server.core.paths import Paths
-    from sfmapi.server.db.models import Project, RadianceField
-    from sfmapi.server.services.radiance_service import record_radiance_train_result
+    from sceneapi.server.core.errors import ValidationError
+    from sceneapi.server.core.ids import new_id
+    from sceneapi.server.core.paths import Paths
+    from sceneapi.server.db.models import Project, RadianceField
+    from sceneapi.server.services.radiance_service import record_radiance_train_result
 
     project_id = new_id()
     radiance_field_id = new_id()
@@ -863,10 +863,10 @@ async def test_radiance_train_result_rejects_non_explicit_local_snapshot_path(
     session,
     snapshot_path: str,
 ) -> None:
-    from sfmapi.server.core.errors import ValidationError
-    from sfmapi.server.core.ids import new_id
-    from sfmapi.server.db.models import Project, RadianceField
-    from sfmapi.server.services.radiance_service import record_radiance_train_result
+    from sceneapi.server.core.errors import ValidationError
+    from sceneapi.server.core.ids import new_id
+    from sceneapi.server.db.models import Project, RadianceField
+    from sceneapi.server.services.radiance_service import record_radiance_train_result
 
     project_id = new_id()
     radiance_field_id = new_id()
@@ -911,10 +911,10 @@ async def test_radiance_train_result_rejects_invalid_snapshot_seq(
     session,
     snapshot_seq: object,
 ) -> None:
-    from sfmapi.server.core.errors import ValidationError
-    from sfmapi.server.core.ids import new_id
-    from sfmapi.server.db.models import Project, RadianceField
-    from sfmapi.server.services.radiance_service import record_radiance_train_result
+    from sceneapi.server.core.errors import ValidationError
+    from sceneapi.server.core.ids import new_id
+    from sceneapi.server.db.models import Project, RadianceField
+    from sceneapi.server.services.radiance_service import record_radiance_train_result
 
     project_id = new_id()
     radiance_field_id = new_id()
@@ -962,8 +962,8 @@ async def test_gsplat_container_service_pseudo_train_3000_steps(
 ) -> None:
     from sqlalchemy import select
 
-    from sfmapi.server.core.paths import Paths
-    from sfmapi.server.db.models import RadianceSnapshot
+    from sceneapi.server.core.paths import Paths
+    from sceneapi.server.db.models import RadianceSnapshot
 
     snapshot_root = Paths().workspace_root / "_test_pseudo_gsplat_snapshots" / tmp_path.name
     captured: dict[str, Any] = {}

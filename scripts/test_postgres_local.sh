@@ -33,9 +33,9 @@ for _ in $(seq 1 30); do
     sleep 1
 done
 
-export SFMAPI_DB_URL="postgresql+psycopg://${PG_USER}:${PG_PASS}@localhost:${PG_PORT}/${PG_DB}"
-export SFMAPI_AUTH_MODE=none
-export SFMAPI_PYCOLMAP_AVAILABLE=false
+export SCENEAPI_DB_URL="postgresql+psycopg://${PG_USER}:${PG_PASS}@localhost:${PG_PORT}/${PG_DB}"
+export SCENEAPI_AUTH_MODE=none
+export SCENEAPI_PYCOLMAP_AVAILABLE=false
 
 echo "=== Postgres test run ==="
 uv run alembic upgrade head

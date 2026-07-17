@@ -7,7 +7,7 @@
 # Usage:
 #   bash scripts/smoke.sh                 # default ports, default tenant
 #   bash scripts/smoke.sh --keep          # leave the stack running on success
-#   SFMAPI_WEB_PORT=18080 bash scripts/smoke.sh   # override web port
+#   SCENEAPI_WEB_PORT=18080 bash scripts/smoke.sh   # override web port
 #
 # Requirements:
 #   - docker / docker compose
@@ -22,9 +22,9 @@ set -euo pipefail
 
 KEEP=0
 PROJECT_NAME="${COMPOSE_PROJECT_NAME:-sfmapi-smoke}"
-WEB_PORT="${SFMAPI_WEB_PORT:-8080}"
-PG_PORT="${SFMAPI_PG_PORT:-55432}"
-REDIS_PORT="${SFMAPI_REDIS_PORT:-56379}"
+WEB_PORT="${SCENEAPI_WEB_PORT:-8080}"
+PG_PORT="${SCENEAPI_PG_PORT:-55432}"
+REDIS_PORT="${SCENEAPI_REDIS_PORT:-56379}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPOSE_FILE="$REPO_ROOT/deploy/docker-compose.yml"
@@ -95,11 +95,11 @@ print(obj)" "$1" "$2"
 }
 
 echo "==> bringing up stack on web=$WEB_PORT pg=$PG_PORT redis=$REDIS_PORT"
-SFMAPI_WEB_PORT="$WEB_PORT" \
-SFMAPI_PG_PORT="$PG_PORT" \
-SFMAPI_REDIS_PORT="$REDIS_PORT" \
-SFMAPI_AUTH_MODE=none \
-SFMAPI_PG_USER=sfm SFMAPI_PG_PASS=sfm SFMAPI_PG_DB=sfmapi \
+SCENEAPI_WEB_PORT="$WEB_PORT" \
+SCENEAPI_PG_PORT="$PG_PORT" \
+SCENEAPI_REDIS_PORT="$REDIS_PORT" \
+SCENEAPI_AUTH_MODE=none \
+SCENEAPI_PG_USER=sfm SCENEAPI_PG_PASS=sfm SCENEAPI_PG_DB=sfmapi \
 docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" up -d --build --wait
 
 echo "==> waiting for /healthz"

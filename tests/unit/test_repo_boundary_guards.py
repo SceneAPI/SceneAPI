@@ -6,18 +6,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-# The framework core: the API + server tree (sfmapi.server), the public
-# backend-authoring facades (sfmapi.*), and the plugin hub. ``app`` is the
-# deprecated one-release alias shim over ``sfmapi.server`` (removed in
-# 0.1.0) and is held to the same invariant while it ships. None of these
+# The framework core: the API + server tree (sceneapi.server), the public
+# backend-authoring facades (sceneapi.*), and the plugin hub. ``sfmapi``
+# is the deprecated one-release alias shim over ``sceneapi`` (removed in
+# 0.2.0) and is held to the same invariant while it ships. None of these
 # may import a backend *plugin* distribution (sfmapi_colmap, sfmapi_hloc,
-# ...) or the client SDK (sfmapi_client*). The dependency must always
-# flow plugin -> core, never the reverse.
-_CORE_PACKAGES = ("sfmapi", "sfm_hub", "app")
+# ...) or the client SDK (sfmapi_client* / sceneapi_client*). The
+# dependency must always flow plugin -> core, never the reverse.
+_CORE_PACKAGES = ("sceneapi", "sfm_hub", "sfmapi")
 
-# Underscore-suffixed distributions are separate packages (plugins + SDK).
-# The core's own package is bare ``sfmapi`` (no underscore), which is fine.
-_PLUGIN_DIST_RE = re.compile(r"^sfmapi_\w+")
+# Underscore-suffixed distributions are separate packages (plugins + SDK)
+# under either naming era (sfmapi_* today, sceneapi_* post-W8). The
+# core's own packages are bare ``sceneapi`` / ``sfmapi`` (no underscore),
+# which is fine.
+_PLUGIN_DIST_RE = re.compile(r"^(?:sfmapi|sceneapi)_\w+")
 
 
 def _read_text(path: Path) -> str:
@@ -74,8 +76,9 @@ def test_workflows_do_not_reference_removed_in_repo_clients() -> None:
 def test_public_docs_use_public_runtime_entrypoint() -> None:
     # Neither the internal module path nor its deprecated pre-rename
     # alias may appear as a uvicorn target in public docs; the public
-    # entrypoint is ``sfmapi.runtime:create_app``.
+    # entrypoint is ``sceneapi.runtime:create_app``.
     stale_markers = (
+        "sceneapi.server.main" + ":app",
         "sfmapi.server.main" + ":app",
         "app.main" + ":app",
     )
@@ -91,15 +94,15 @@ def test_public_docs_use_public_runtime_entrypoint() -> None:
     assert not failures, "\n".join(failures)
 
 
-def test_app_shim_stays_tiny() -> None:
-    """The deprecated ``app`` package is an alias shim over
-    ``sfmapi.server`` and nothing else: exactly one ``__init__.py``, no
-    real modules. Server code belongs under ``sfmapi/server/``; grow
-    this shim and the 0.1.0 removal stops being a delete."""
-    shim = ROOT / "app"
+def test_sfmapi_shim_stays_tiny() -> None:
+    """The deprecated ``sfmapi`` package is an alias shim over
+    ``sceneapi`` and nothing else: exactly one ``__init__.py``, no
+    real modules. Server code belongs under ``sceneapi/``; grow
+    this shim and the 0.2.0 removal stops being a delete."""
+    shim = ROOT / "sfmapi"
     entries = sorted(p.name for p in shim.iterdir() if p.name != "__pycache__")
     assert entries == ["__init__.py"], (
-        f"app/ must contain only __init__.py (the sfmapi.server alias shim), found: {entries}"
+        f"sfmapi/ must contain only __init__.py (the sceneapi alias shim), found: {entries}"
     )
 
 
@@ -107,7 +110,7 @@ def test_app_shim_stays_tiny() -> None:
 # services MAY import the adapters *contract layer* -- the backend
 # Protocols, the registry, and the three descriptor surfaces -- because
 # those modules are pure contract/registry code (no engine imports).
-# Everything else under ``sfmapi.server.adapters`` (stub backend, image adapter,
+# Everything else under ``sceneapi.server.adapters`` (stub backend, image adapter,
 # ...) and any private leading-underscore symbol stays off-limits.
 _SERVICES_ALLOWED_ADAPTER_MODULES = frozenset(
     {
@@ -123,8 +126,8 @@ _SERVICES_ALLOWED_ADAPTER_MODULES = frozenset(
 # Both the canonical adapters package and its deprecated alias prefix;
 # services must satisfy the layering rule under either spelling.
 _ADAPTER_PREFIXES = (
+    ["sceneapi", "server", "adapters"],
     ["sfmapi", "server", "adapters"],
-    ["app", "adapters"],
 )
 
 
@@ -153,7 +156,7 @@ def _adapter_import_violations(tree: ast.AST) -> list[str]:
             if idx is None:
                 continue
             if len(parts) == idx:
-                # ``from sfmapi.server.adapters import <name>`` -- <name> must be an
+                # ``from sceneapi.server.adapters import <name>`` -- <name> must be an
                 # allowed contract-layer submodule, never a symbol.
                 violations.extend(
                     f"from {node.module} import {alias.name}"
@@ -178,11 +181,11 @@ def test_services_import_only_public_adapter_contract_surface() -> None:
     services legitimately need backend discovery/dispatch, so the rule is
     amended to allow the contract-layer modules listed in
     ``_SERVICES_ALLOWED_ADAPTER_MODULES`` -- public names only. Importing
-    any other ``sfmapi.server.adapters`` module (or any ``_private`` symbol) from
-    ``sfmapi/server/services`` fails here; either use the public seam or extend the
+    any other ``sceneapi.server.adapters`` module (or any ``_private`` symbol) from
+    ``sceneapi/server/services`` fails here; either use the public seam or extend the
     contract layer deliberately.
     """
-    service_files = sorted((ROOT / "sfmapi" / "server" / "services").glob("*.py"))
+    service_files = sorted((ROOT / "sceneapi" / "server" / "services").glob("*.py"))
     assert service_files, "services package not found — layering guard walked a stale path"
 
     failures: list[str] = []

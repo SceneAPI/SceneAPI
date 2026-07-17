@@ -17,13 +17,13 @@ Database:
   bundled postgresql — inline password (dev only; value not shown)
 {{- end }}
 {{- else }}
-  external — SFMAPI_DB_URL supplied via env.extraEnv / env.existingSecret
+  external — SCENEAPI_DB_URL supplied via env.extraEnv / env.existingSecret
 {{- end }}
 Redis:
 {{- if .Values.redis.enabled }}
   bundled at {{ .Release.Name }}-redis-master:6379
 {{- else }}
-  external — SFMAPI_REDIS_URL supplied via env.extraEnv / env.existingSecret
+  external — SCENEAPI_REDIS_URL supplied via env.extraEnv / env.existingSecret
 {{- end }}
 
 {{- if not .Values.worker.enabled }}

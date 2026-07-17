@@ -1,7 +1,7 @@
 """Smoke tests that the schema creates cleanly under the configured engine.
 
 The same test runs under both SQLite (default) and Postgres in CI by setting
-SFMAPI_DB_URL — see scripts/test_dual_db.{sh,ps1}.
+SCENEAPI_DB_URL — see scripts/test_dual_db.{sh,ps1}.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import inspect
 
-from sfmapi.server.db.session import get_engine
+from sceneapi.server.db.session import get_engine
 
 pytestmark = pytest.mark.integration
 

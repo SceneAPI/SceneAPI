@@ -1,7 +1,7 @@
 """End-to-end demonstration: COLMAP CLI + RealityScan CLI loaded as two
 plugins in the SAME running sfmapi instance.
 
-Boots the app in ephemeral mode (which auto-discovers sfmapi.backends
+Boots the app in ephemeral mode (which auto-discovers sceneapi.backends
 entry points), then verifies the multi-plugin invariants on every
 surface: the in-process registry, the sfm_hub routing layer, the HTTP
 discovery endpoints, per-provider job submission, and capability
@@ -10,10 +10,10 @@ detection.
 Run with::
 
     uv pip install -e ../sfmapi_colmap_cli -e ../sfmapi_realityscan
-    SFMAPI_EPHEMERAL=true uv run python scripts/multi_plugin_demo.py
+    SCENEAPI_EPHEMERAL=true uv run python scripts/multi_plugin_demo.py
 
-``SFMAPI_AUTO_LOAD_BACKEND_PLUGINS`` defaults to true, so ``pip install``
-of any ``sfmapi.backends`` entry-point plugin is enough — no separate
+``SCENEAPI_AUTO_LOAD_BACKEND_PLUGINS`` defaults to true, so ``pip install``
+of any ``sceneapi.backends`` entry-point plugin is enough — no separate
 opt-in flag is needed.
 """
 
@@ -24,11 +24,11 @@ import os
 import sys
 
 # Force ephemeral mode for self-contained boot + plugin discovery.
-os.environ.setdefault("SFMAPI_EPHEMERAL", "true")
+os.environ.setdefault("SCENEAPI_EPHEMERAL", "true")
 
 from httpx import ASGITransport, AsyncClient
 
-from sfmapi.server.main import create_app
+from sceneapi.server.main import create_app
 
 
 def heading(title: str) -> None:
@@ -39,7 +39,7 @@ async def main() -> None:
     app = create_app()
     async with app.router.lifespan_context(app):
         # ---- Layer 1: the in-process registry sees both plugins.
-        from sfmapi.server.adapters.registry import list_backend_providers, list_backends
+        from sceneapi.server.adapters.registry import list_backend_providers, list_backends
 
         heading("Layer 1 — in-process registry")
         backends = list_backends()
@@ -50,7 +50,7 @@ async def main() -> None:
         assert "realityscan_cli" in providers, "realityscan_cli provider not registered"
 
         # ---- Layer 2: get_backend(provider=...) routes to distinct backends.
-        from sfmapi.server.adapters.registry import get_backend
+        from sceneapi.server.adapters.registry import get_backend
 
         heading("Layer 2 — per-provider resolution")
         c = get_backend(provider="colmap_cli")

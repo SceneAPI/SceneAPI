@@ -4,8 +4,8 @@ import asyncio
 
 import pytest
 
-from sfmapi.server.core.ids import new_id
-from sfmapi.server.db.models import RuntimeVersion, Task
+from sceneapi.server.core.ids import new_id
+from sceneapi.server.db.models import RuntimeVersion, Task
 
 pytestmark = pytest.mark.integration
 
@@ -19,7 +19,7 @@ async def _seed_task(session) -> str:
     session.add(rv)
     await session.flush()
     # Need a parent job: skip job FK by inserting a dummy job via SQL
-    from sfmapi.server.db.models import Job, Project
+    from sceneapi.server.db.models import Job, Project
 
     p = Project(tenant_id="default", name="leasep")
     session.add(p)
@@ -44,7 +44,7 @@ async def _seed_task(session) -> str:
 
 
 async def test_lease_acquire_blocks_second_worker(session) -> None:
-    from sfmapi.server.orchestrator.lease import try_acquire_lease
+    from sceneapi.server.orchestrator.lease import try_acquire_lease
 
     tid = await _seed_task(session)
     a = await try_acquire_lease(
@@ -74,7 +74,7 @@ async def test_lease_acquire_blocks_second_worker(session) -> None:
 
 
 async def test_lease_reclaimable_after_expiry(session) -> None:
-    from sfmapi.server.orchestrator.lease import try_acquire_lease
+    from sceneapi.server.orchestrator.lease import try_acquire_lease
 
     tid = await _seed_task(session)
     await try_acquire_lease(

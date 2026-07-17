@@ -1,5 +1,5 @@
-"""Tests for the canonical sfmapi.backends.Plugin base class — the
-dataclass shape every [sfmapi.backends] entry point converged on,
+"""Tests for the canonical sceneapi.backends.Plugin base class — the
+dataclass shape every [sceneapi.backends] entry point converged on,
 factored out so plugin authors don't re-implement the same boilerplate.
 """
 
@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from sfmapi.backends import Plugin
+from sceneapi.backends import Plugin
 
 
 def _manifest_with_providers(*provider_ids: str) -> dict[str, Any]:

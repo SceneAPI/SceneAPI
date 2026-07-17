@@ -4,8 +4,8 @@ import hashlib
 
 import pytest
 
-from sfmapi.server.core.errors import StorageError
-from sfmapi.server.storage.models import artifact_path, install_artifact, verify_sha
+from sceneapi.server.core.errors import StorageError
+from sceneapi.server.storage.models import artifact_path, install_artifact, verify_sha
 
 pytestmark = pytest.mark.integration
 

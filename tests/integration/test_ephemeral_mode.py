@@ -1,4 +1,4 @@
-"""End-to-end smoke for SFMAPI_EPHEMERAL=true.
+"""End-to-end smoke for SCENEAPI_EPHEMERAL=true.
 
 Asserts that with ``ephemeral=true`` the app boots, picks the right
 backends, serves a basic upload+create-project flow, and leaves no
@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from sfmapi.server.core.config import Settings, reset_settings_for_tests
+from sceneapi.server.core.config import Settings, reset_settings_for_tests
 
 pytestmark = pytest.mark.integration
 
@@ -21,16 +21,16 @@ pytestmark = pytest.mark.integration
 def ephemeral_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     # Strip the conftest overrides so ephemeral defaults can win.
     for key in (
-        "SFMAPI_DB_URL",
-        "SFMAPI_WORKSPACE_ROOT",
-        "SFMAPI_BLOB_ROOT",
-        "SFMAPI_S3_CACHE_ROOT",
-        "SFMAPI_INLINE_TASKS",
-        "SFMAPI_QUEUE_BACKEND",
-        "SFMAPI_BLOB_BACKEND",
+        "SCENEAPI_DB_URL",
+        "SCENEAPI_WORKSPACE_ROOT",
+        "SCENEAPI_BLOB_ROOT",
+        "SCENEAPI_S3_CACHE_ROOT",
+        "SCENEAPI_INLINE_TASKS",
+        "SCENEAPI_QUEUE_BACKEND",
+        "SCENEAPI_BLOB_BACKEND",
     ):
         monkeypatch.delenv(key, raising=False)
-    monkeypatch.setenv("SFMAPI_EPHEMERAL", "true")
+    monkeypatch.setenv("SCENEAPI_EPHEMERAL", "true")
     return reset_settings_for_tests()
 
 
@@ -46,7 +46,7 @@ def test_ephemeral_settings_apply_overrides(ephemeral_settings: Settings) -> Non
 
 
 async def _reset_engine() -> None:
-    from sfmapi.server.db import session as session_mod
+    from sceneapi.server.db import session as session_mod
 
     if session_mod._engine is not None:
         await session_mod._engine.dispose()
@@ -56,7 +56,7 @@ async def _reset_engine() -> None:
 
 async def test_ephemeral_app_boot_health(ephemeral_settings: Settings) -> None:
     await _reset_engine()
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     app = create_app()
     async with (
@@ -78,7 +78,7 @@ async def test_ephemeral_app_boot_health(ephemeral_settings: Settings) -> None:
 
 async def test_ephemeral_create_project_round_trip(ephemeral_settings: Settings) -> None:
     await _reset_engine()
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     app = create_app()
     async with (
@@ -100,7 +100,7 @@ async def test_ephemeral_workspace_cleaned_after_shutdown(
     ephemeral_settings: Settings,
 ) -> None:
     await _reset_engine()
-    from sfmapi.server.main import create_app
+    from sceneapi.server.main import create_app
 
     app = create_app()
     workspace = ephemeral_settings.workspace_root

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from sfmapi.server.core.hashing import canonical_json, content_address
-from sfmapi.server.core.ids import new_id
-from sfmapi.server.db.models import (
+from sceneapi.server.core.hashing import canonical_json, content_address
+from sceneapi.server.core.ids import new_id
+from sceneapi.server.db.models import (
     Job,
     Reconstruction,
     RuntimeVersion,
@@ -12,7 +12,7 @@ from sfmapi.server.db.models import (
     SubModel,
     Task,
 )
-from sfmapi.server.storage.snapshots import SnapshotStore
+from sceneapi.server.storage.snapshots import SnapshotStore
 
 pytestmark = pytest.mark.e2e
 
@@ -26,7 +26,7 @@ async def _seed_recon(session, tmp_workspace) -> tuple[str, str, str]:
     session.add(rv)
     await session.flush()
 
-    from sfmapi.server.db.models import Dataset, ImageSource, Project
+    from sceneapi.server.db.models import Dataset, ImageSource, Project
 
     p = Project(tenant_id="default", name="recon-p")
     session.add(p)
@@ -92,8 +92,8 @@ async def test_get_reconstruction_and_list_submodels(client, session, tmp_path) 
 
 
 async def test_snapshot_endpoints_serve_sealed_files(client, session) -> None:
-    from sfmapi.server.core.config import get_settings
-    from sfmapi.server.core.paths import Paths
+    from sceneapi.server.core.config import get_settings
+    from sceneapi.server.core.paths import Paths
 
     pid, _did, rid = await _seed_recon(session, None)
     await session.commit()
@@ -127,8 +127,8 @@ async def test_snapshot_endpoints_serve_sealed_files(client, session) -> None:
 
 
 async def test_submodel_snapshot_endpoint_serves_component_files(client, session) -> None:
-    from sfmapi.server.core.config import get_settings
-    from sfmapi.server.core.paths import Paths
+    from sceneapi.server.core.config import get_settings
+    from sceneapi.server.core.paths import Paths
 
     pid, _did, rid = await _seed_recon(session, None)
     await session.commit()
@@ -154,7 +154,7 @@ async def test_submodel_snapshot_endpoint_serves_component_files(client, session
 
 
 async def test_artifact_endpoints_list_typed_outputs(client, session) -> None:
-    from sfmapi.server.core.config import get_settings
+    from sceneapi.server.core.config import get_settings
 
     pid, did, rid = await _seed_recon(session, None)
     job = Job(tenant_id="default", project_id=pid, recipe="test", status="succeeded")

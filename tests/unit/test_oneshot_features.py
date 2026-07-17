@@ -11,11 +11,11 @@ from typing import Any
 
 import pytest
 
-from sfmapi.server.adapters.registry import register_backend
-from sfmapi.server.adapters.stub_backend import StubBackend
-from sfmapi.server.core.errors import ValidationError
-from sfmapi.server.schemas.pipeline_spec import FeaturesSpec
-from sfmapi.server.services import oneshot_service
+from sceneapi.server.adapters.registry import register_backend
+from sceneapi.server.adapters.stub_backend import StubBackend
+from sceneapi.server.core.errors import ValidationError
+from sceneapi.server.schemas.pipeline_spec import FeaturesSpec
+from sceneapi.server.services import oneshot_service
 
 pytestmark = pytest.mark.unit
 

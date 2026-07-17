@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from sfmapi.server.storage import vlad
+from sceneapi.server.storage import vlad
 
 pytestmark = pytest.mark.unit
 
