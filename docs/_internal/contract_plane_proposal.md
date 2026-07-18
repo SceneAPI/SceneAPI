@@ -80,6 +80,16 @@ option preserved); (3) both may import `data/`.
    pipelines.py; StubBackend grows v1 twins. **This is the one core
    release MapAnything needs — it does not land "without touching
    core" and the plan says so honestly.**
+   *Execution note (Step 4, 2026-07-18): shipped as a distinct
+   `map_feed_forward` Processor (image_sequence → sparse_model,
+   capability `map.feed_forward`) instead of making `map`'s matches
+   port optional — the classical `map` keeps its nominal
+   feature_set + verified match_graph contract, the
+   "features→map is rejected" type-bridge pin stays law, and no
+   capability-conditioned validation branch is needed. Recipe id:
+   `feed_forward` (CANONICAL_PIPELINES, `/pipelines/{recipe}`,
+   `pipelines:run` via the one-step `["map_feed_forward"]` chain,
+   `FeedForwardSpec` in the PipelineSpec union).*
 5. Core dual dispatch: worker tasks prefer `isinstance(backend,
    sceneapi_io.mapping.Mapper)`; v0 Path-protocols remain the
    fallback (sunset decision deferred).

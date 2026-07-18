@@ -162,6 +162,9 @@ def _portable_contracts_from_capabilities(backend: Any) -> list[dict[str, Any]]:
             )
         elif capability.startswith("map."):
             kind = capability.removeprefix("map.")
+            # Feed-forward mapping consumes the raw image set directly —
+            # advertising a verified-matches input would be dishonest.
+            accepts = [] if kind == "feed_forward" else ["matches.verified.v1"]
             rows.append(
                 {
                     "contract_id": f"{backend_name}.mapping.{kind}",
@@ -169,7 +172,7 @@ def _portable_contracts_from_capabilities(backend: Any) -> list[dict[str, Any]]:
                     "capability": capability,
                     "provider": backend_name,
                     "display_name": f"{backend_name} {kind} reconstruction outputs",
-                    "accepts": ["matches.verified.v1"],
+                    "accepts": accepts,
                     "emits": ["reconstruction.sparse.v1", "reconstruction.snapshot"],
                     "preferred": "reconstruction.sparse.v1",
                 }

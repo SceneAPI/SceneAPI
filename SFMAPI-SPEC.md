@@ -749,9 +749,12 @@ CLIs that prefer polling over holding an SSE connection open.
 |--------|-----------------------------------------------------|-----------------------------------------------------|---------|
 | POST   | `/v1/projects/{pid}/pipelines/{recipe}` *(deprecated)* | `{dataset_id, spec, features?, pairs?, matcher?, verify?}` | 202 + LRO |
 
-`recipe ∈ {incremental, global, hierarchical, spherical}` and
+`recipe ∈ {incremental, global, hierarchical, spherical, feed_forward}` and
 `spec.kind` **MUST** match `recipe` or the request **MUST** be rejected
-with 422.
+with 422. The `feed_forward` recipe composes the one-stage
+`image_set → map` DAG (no feature/pair/match/verify stages; the
+`features` / `pairs` / `matcher` / `verify` request sections are
+ignored) and is gated by the `map.feed_forward` capability.
 
 > **Deprecation note (custom-verb normalization, pre-1.0).** The
 > `/{recipe}` path-segment form is deprecated in favour of the AIP-136

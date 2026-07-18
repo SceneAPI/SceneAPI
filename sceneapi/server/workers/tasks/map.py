@@ -1,9 +1,14 @@
-"""Mapping task — incremental | global | hierarchical | spherical.
+"""Mapping task — incremental | global | hierarchical | spherical | feed_forward.
 
-Dispatches to ``backend.run_mapping(kind=...)`` and then runs the
-sfmapi-side post-processing: per-submodel snapshot emit, primary-
+Dual dispatch: a backend that implements the sceneapi-io ``Mapper``
+contract is preferred (``sceneapi.server.workers._io_map`` bridges the
+materialized image set into ``ViewInput``s and the ``MappingResult``
+back into the existing snapshot emission path); otherwise the v0
+``backend.run_mapping(kind=...)`` protocol runs unchanged, followed by
+the sfmapi-side post-processing: per-submodel snapshot emit, primary-
 submodel emit at the flat ``sparse/`` root for the legacy snapshot
-read endpoint, and a sealed snapshot.
+read endpoint, and a sealed snapshot. ``kind="feed_forward"`` has no v0
+form — without an io Mapper it is an honest 501 (``map.feed_forward``).
 
 Resume support is internal to the backend — the colmap_mod backend
 writes ``MappingInput`` checkpoints into ``jobs/{job_id}/checkpoints/``
@@ -20,13 +25,15 @@ from typing import Any, cast
 from sceneapi.server.adapters.backend import require_backend_method
 from sceneapi.server.adapters.progress import call_with_optional_progress
 from sceneapi.server.core.config import get_settings
-from sceneapi.server.core.errors import ValidationError
+from sceneapi.server.core.errors import CapabilityUnavailableError, ValidationError
 from sceneapi.server.core.paths import Paths
 from sceneapi.server.db.models import Task
 from sceneapi.server.schemas.progress_event import Phase
 from sceneapi.server.services import reconstruction_service
 from sceneapi.server.storage.snapshot_emit import emit_snapshot_files
 from sceneapi.server.storage.snapshots import SnapshotStore
+from sceneapi.server.workers._io_dispatch import io_mapper
+from sceneapi.server.workers._io_map import run_io_mapping
 from sceneapi.server.workers._materialize import materialize_image_set
 from sceneapi.server.workers._task_io import read_state
 from sceneapi.server.workers.backend_resolver import backend_for_stage
@@ -39,6 +46,7 @@ MAPPING_PHASE_BY_KIND: dict[str, Phase] = {
     "global": "global_positioning",
     "hierarchical": "hierarchical_cluster",
     "spherical": "spherical",
+    "feed_forward": "feed_forward",
 }
 
 
@@ -112,7 +120,7 @@ def run(task: Task) -> dict[str, Any]:
     job_dir.mkdir(parents=True, exist_ok=True)
 
     kind = spec.get("kind", "incremental")
-    if kind not in ("incremental", "global", "hierarchical", "spherical"):
+    if kind not in MAPPING_PHASE_BY_KIND:
         raise ValidationError(f"Unknown mapping kind: {kind!r}")
 
     progress = get_progress_reporter()
@@ -123,35 +131,67 @@ def run(task: Task) -> dict[str, Any]:
     if progress is not None:
         progress.phase_started(phase)
     backend = backend_for_stage(spec)
-    run_mapping = require_backend_method(
-        backend,
-        "run_mapping",
-        capability=f"map.{kind}",
-    )
-    summaries, recs = call_with_optional_progress(
-        run_mapping,
-        progress=progress,
-        kind=kind,
-        db_path=db_path,
-        image_root=image_root,
-        sparse_root=sparse_root,
-        job_dir=job_dir,
-        spec=options,
-        pose_priors=pose_priors,
-    )
+    mapper = io_mapper(backend)
+    if mapper is not None:
+        # Preferred path: the backend implements the neutral sceneapi-io
+        # Mapper contract. The bridge emits the snapshot files itself and
+        # returns the one submodel summary (unregistered views recorded
+        # in it); dense outputs land as job-dir files referenced from it.
+        summaries = [
+            run_io_mapping(
+                mapper,
+                kind=kind,
+                image_root=image_root,
+                image_list=list(materialization.get("image_list") or []),
+                sparse_root=sparse_root,
+                job_dir=job_dir,
+                spec=spec,
+                pose_priors=pose_priors,
+                input_artifacts=inputs.get("input_artifacts"),
+            )
+        ]
+    elif kind == "feed_forward":
+        # No v0 protocol expresses feed-forward mapping: run_mapping's
+        # kind vocabulary is the classical family. Honest 501 rather
+        # than handing an engine adapter a kind it never defined.
+        raise CapabilityUnavailableError(
+            capability="map.feed_forward",
+            reason=(
+                "feed-forward mapping requires a backend implementing the "
+                "sceneapi-io Mapper contract; the v0 run_mapping protocol "
+                "has no feed-forward form"
+            ),
+        )
+    else:
+        run_mapping = require_backend_method(
+            backend,
+            "run_mapping",
+            capability=f"map.{kind}",
+        )
+        summaries, recs = call_with_optional_progress(
+            run_mapping,
+            progress=progress,
+            kind=kind,
+            db_path=db_path,
+            image_root=image_root,
+            sparse_root=sparse_root,
+            job_dir=job_dir,
+            spec=options,
+            pose_priors=pose_priors,
+        )
 
-    # Convert each in-memory Reconstruction into the JSON+binary files
-    # the API serves; the largest one is also written flat at sparse_root
-    # so legacy `GET /snapshots/{seq}/{name}` callers see a sensible
-    # default. Multi-submodel breakdown is preserved under sparse/<idx>/.
-    if recs:
-        if len(recs) == 1:
-            emit_snapshot_files(recs[0], sparse_root)
-        else:
-            for idx, rec in enumerate(recs):
-                emit_snapshot_files(rec, sparse_root / str(idx))
-            primary = max(recs, key=_num_reg_images)
-            emit_snapshot_files(primary, sparse_root)
+        # Convert each in-memory Reconstruction into the JSON+binary files
+        # the API serves; the largest one is also written flat at sparse_root
+        # so legacy `GET /snapshots/{seq}/{name}` callers see a sensible
+        # default. Multi-submodel breakdown is preserved under sparse/<idx>/.
+        if recs:
+            if len(recs) == 1:
+                emit_snapshot_files(recs[0], sparse_root)
+            else:
+                for idx, rec in enumerate(recs):
+                    emit_snapshot_files(rec, sparse_root / str(idx))
+                primary = max(recs, key=_num_reg_images)
+                emit_snapshot_files(primary, sparse_root)
 
     snapshots = SnapshotStore(rec_root)
     seq = (snapshots.latest() or 0) + 1

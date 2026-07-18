@@ -35,3 +35,14 @@ def test_cross_type_bridge_must_be_explicit() -> None:
     # ...and is bridged only by inserting the operations that PRODUCE the
     # missing type (matches/verify produce match_graph) -- an explicit step.
     assert pipelines.validate_pipeline(["features", "pairs", "matches", "verify", "map"]) == []
+
+
+def test_feed_forward_path_is_expressible_without_weakening_the_bridge_rule() -> None:
+    # P8 Step 4 decision: feed-forward mapping is a DISTINCT processor
+    # (map_feed_forward: image_sequence -> sparse_model), NOT an optional
+    # matches port on `map`. The classical `map` keeps its nominal
+    # contract (the rejection above stays law), while the feed-forward
+    # family composes from raw images alone.
+    assert pipelines.validate_pipeline(["map_feed_forward"]) == []
+    # The classical bridge rule is untouched even next to the new processor.
+    assert pipelines.validate_pipeline(["features", "map"])

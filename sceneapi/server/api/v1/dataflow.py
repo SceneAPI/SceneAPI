@@ -28,6 +28,8 @@ from sceneapi.server.schemas.api.common import ProblemResponse
 from sceneapi.server.schemas.api.dataflow import (
     PipelineStepIn,
     core_steps,
+    is_executable_legacy_feed_forward_pipeline,
+    is_executable_legacy_pipeline,
     is_executable_legacy_sfm_pipeline,
     legacy_operation_ids,
     provider_errors,
@@ -316,6 +318,40 @@ def _initial_input_errors(
     return errors
 
 
+def _chain_errors_from_validation_error(exc: ValidationError) -> list[pipelines.ChainError]:
+    raw_errors = exc.extras.get("errors")
+    if not isinstance(raw_errors, list):
+        return [
+            pipelines.ChainError(
+                "pipeline",
+                exc.detail,
+                "invalid_attribute",
+                None,
+            )
+        ]
+    errors: list[pipelines.ChainError] = []
+    for item in raw_errors:
+        if not isinstance(item, dict):
+            continue
+        ctx = item.get("ctx") if isinstance(item.get("ctx"), dict) else {}
+        errors.append(
+            pipelines.ChainError(
+                str(ctx.get("where") or "pipeline"),
+                str(item.get("msg") or exc.detail),
+                str(ctx.get("reason") or item.get("type") or "invalid_attribute"),
+                str(ctx.get("path")) if ctx.get("path") is not None else None,
+            )
+        )
+    return errors or [
+        pipelines.ChainError(
+            "pipeline",
+            exc.detail,
+            "invalid_attribute",
+            None,
+        )
+    ]
+
+
 def _legacy_sfm_param_errors(
     steps: list[str | PipelineStepIn],
 ) -> list[pipelines.ChainError]:
@@ -324,37 +360,19 @@ def _legacy_sfm_param_errors(
     try:
         pipeline_routes._legacy_sfm_specs(steps)
     except ValidationError as exc:
-        raw_errors = exc.extras.get("errors")
-        if not isinstance(raw_errors, list):
-            return [
-                pipelines.ChainError(
-                    "pipeline",
-                    exc.detail,
-                    "invalid_attribute",
-                    None,
-                )
-            ]
-        errors: list[pipelines.ChainError] = []
-        for item in raw_errors:
-            if not isinstance(item, dict):
-                continue
-            ctx = item.get("ctx") if isinstance(item.get("ctx"), dict) else {}
-            errors.append(
-                pipelines.ChainError(
-                    str(ctx.get("where") or "pipeline"),
-                    str(item.get("msg") or exc.detail),
-                    str(ctx.get("reason") or item.get("type") or "invalid_attribute"),
-                    str(ctx.get("path")) if ctx.get("path") is not None else None,
-                )
-            )
-        return errors or [
-            pipelines.ChainError(
-                "pipeline",
-                exc.detail,
-                "invalid_attribute",
-                None,
-            )
-        ]
+        return _chain_errors_from_validation_error(exc)
+    return []
+
+
+def _legacy_feed_forward_param_errors(
+    steps: list[str | PipelineStepIn],
+) -> list[pipelines.ChainError]:
+    from sceneapi.server.api.v1 import pipelines as pipeline_routes
+
+    try:
+        pipeline_routes._legacy_feed_forward_spec(steps)
+    except ValidationError as exc:
+        return _chain_errors_from_validation_error(exc)
     return []
 
 
@@ -435,6 +453,8 @@ async def validate_pipeline(body: PipelineValidateRequest) -> PipelineValidateRe
     steps: list[str] | list[pipelines.PipelineStep]
     use_legacy_validation = should_use_legacy_validation(body.steps)
     executable_legacy_sfm = is_executable_legacy_sfm_pipeline(body.steps)
+    executable_legacy_ff = is_executable_legacy_feed_forward_pipeline(body.steps)
+    executable_legacy = is_executable_legacy_pipeline(body.steps)
     if use_legacy_validation:
         errors.extend(input_errors)
         errors.extend(legacy_operation_projection_errors(body.steps))
@@ -447,15 +467,17 @@ async def validate_pipeline(body: PipelineValidateRequest) -> PipelineValidateRe
                 processor_lookup=registry.processor_for,
             )
         )
-        if not executable_legacy_sfm:
+        if executable_legacy_sfm:
+            errors.extend(_legacy_sfm_param_errors(body.steps))
+        elif executable_legacy_ff:
+            errors.extend(_legacy_feed_forward_param_errors(body.steps))
+        else:
             errors.extend(
                 pipelines.validate_step_attributes(
                     attr_steps,
                     processor_lookup=registry.processor_for,
                 )
             )
-        else:
-            errors.extend(_legacy_sfm_param_errors(body.steps))
     else:
         errors.extend(input_errors)
         steps = _canonicalize_initial_input_wires(
@@ -470,7 +492,7 @@ async def validate_pipeline(body: PipelineValidateRequest) -> PipelineValidateRe
         errors.extend(
             error for error in validation_errors if error.reason != "duplicate_initial_input"
         )
-    if use_legacy_validation and not executable_legacy_sfm:
+    if use_legacy_validation and not executable_legacy:
         errors.extend(provider_errors(body.steps))
     return PipelineValidateResponse(
         valid=not errors,

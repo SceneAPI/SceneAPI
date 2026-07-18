@@ -88,8 +88,10 @@ from sceneapi.server.services._sfm_stage_dataset import (
     validate_verify_config,
 )
 from sceneapi.server.services._sfm_stage_recipes import (
+    build_feed_forward_dag,
     build_recipe_dag,
     collect_pose_priors_by_name,
+    validate_feed_forward_stage_configs,
     validate_recipe_stage_configs,
 )
 from sceneapi.server.services._sfm_stage_recon import (
@@ -117,6 +119,7 @@ from sceneapi.server.services._sfm_stage_recon import (
 
 __all__ = [
     "BA_MODE_CAPABILITIES",
+    "build_feed_forward_dag",
     "build_recipe_dag",
     "collect_pose_priors_by_name",
     "derive_materialization",
@@ -145,6 +148,7 @@ __all__ = [
     "submit_video_frames",
     "submit_vlad_index",
     "validate_features_config",
+    "validate_feed_forward_stage_configs",
     "validate_mapping_config",
     "validate_matches_config",
     "validate_recipe_stage_configs",

@@ -17,14 +17,18 @@ from sceneapi.server.adapters.backend import require_backend_method
 from sceneapi.server.adapters.progress import call_with_optional_progress
 from sceneapi.server.core.config import get_settings
 from sceneapi.server.core.errors import ValidationError
+from sceneapi.server.core.logging import get_logger
 from sceneapi.server.core.paths import Paths
 from sceneapi.server.db.models import Task
 from sceneapi.server.storage.blobs import get_blob_store
 from sceneapi.server.storage.correspondence_emit import export_correspondence_graph
+from sceneapi.server.workers._io_dispatch import io_pair_matcher
 from sceneapi.server.workers._task_io import read_state
 from sceneapi.server.workers.backend_resolver import backend_for_match_stage
 from sceneapi.server.workers.progress import get_progress_reporter
 from sceneapi.server.workers.tasks._registry import task_handler
+
+_log = get_logger("sceneapi.workers.tasks.match")
 
 
 def _pair_text_from_json_artifact(source: Path) -> str:
@@ -174,6 +178,12 @@ def run(task: Task) -> dict[str, Any]:
     input_artifacts = inputs.get("input_artifacts") or {}
     strategy = pairs.get("strategy", "exhaustive")
     backend = backend_for_match_stage(pairs, matcher)
+    if io_pair_matcher(backend) is not None:
+        # Dual-dispatch scaffolding (P8 Step 5): the backend implements the
+        # sceneapi-io PairMatcher contract, but pair-loop orchestration over
+        # FeatureSet/ImageRef operands + match-database emission is Step-6
+        # engine work, so this honestly falls through to the v0 protocol.
+        _log.debug("io_dispatch.pair_matcher_present_fallthrough", backend=backend.name)
     match = require_backend_method(
         backend,
         "match",

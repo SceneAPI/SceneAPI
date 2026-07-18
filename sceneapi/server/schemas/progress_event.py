@@ -46,6 +46,7 @@ Phase = Literal[
     "hierarchical_merge",
     "panorama",
     "spherical",
+    "feed_forward",
     "bundle_adjust",
     "triangulate",
     "relocalize",

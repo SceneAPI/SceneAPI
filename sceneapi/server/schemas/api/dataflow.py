@@ -168,6 +168,8 @@ def legacy_operation_ids(steps: list[str | PipelineStepIn]) -> list[str]:
 
 EXECUTABLE_LEGACY_SFM_PIPELINE = ("features", "pairs", "matches", "verify", "map")
 
+EXECUTABLE_LEGACY_FEED_FORWARD_PIPELINE = ("map_feed_forward",)
+
 
 def is_executable_legacy_sfm_pipeline(steps: list[str | PipelineStepIn]) -> bool:
     return (
@@ -176,13 +178,31 @@ def is_executable_legacy_sfm_pipeline(steps: list[str | PipelineStepIn]) -> bool
     )
 
 
+def is_executable_legacy_feed_forward_pipeline(steps: list[str | PipelineStepIn]) -> bool:
+    """The one-step feed-forward chain routed by the recipe executor."""
+    return (
+        should_use_legacy_validation(steps)
+        and tuple(legacy_operation_ids(steps)) == EXECUTABLE_LEGACY_FEED_FORWARD_PIPELINE
+    )
+
+
+def is_executable_legacy_pipeline(steps: list[str | PipelineStepIn]) -> bool:
+    """Any flat legacy chain the recipe DAG executor can run."""
+    return is_executable_legacy_sfm_pipeline(steps) or is_executable_legacy_feed_forward_pipeline(
+        steps
+    )
+
+
 __all__ = [
+    "EXECUTABLE_LEGACY_FEED_FORWARD_PIPELINE",
     "EXECUTABLE_LEGACY_SFM_PIPELINE",
     "LegacyOperationStep",
     "PipelineStep",
     "PipelineStepIn",
     "ProcessorPipelineStep",
     "core_steps",
+    "is_executable_legacy_feed_forward_pipeline",
+    "is_executable_legacy_pipeline",
     "is_executable_legacy_sfm_pipeline",
     "is_flat_legacy_step",
     "legacy_operation_ids",

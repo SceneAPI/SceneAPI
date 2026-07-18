@@ -8,13 +8,17 @@ from typing import Any
 
 from sceneapi.server.adapters.backend import require_backend_method
 from sceneapi.server.adapters.progress import call_with_optional_progress
+from sceneapi.server.core.logging import get_logger
 from sceneapi.server.db.models import Task
 from sceneapi.server.storage.two_view_emit import export_two_view_geometries
+from sceneapi.server.workers._io_dispatch import io_geometric_verifier
 from sceneapi.server.workers._task_io import read_state
 from sceneapi.server.workers.backend_resolver import backend_for_stage
 from sceneapi.server.workers.options import stage_options
 from sceneapi.server.workers.progress import get_progress_reporter
 from sceneapi.server.workers.tasks._registry import task_handler
+
+_log = get_logger("sceneapi.workers.tasks.verify")
 
 
 @task_handler("verify")
@@ -22,6 +26,12 @@ def run(task: Task) -> dict[str, Any]:
     inputs, spec = read_state(task)
     db_path = Path(inputs["database_path"])
     backend = backend_for_stage(spec)
+    if io_geometric_verifier(backend) is not None:
+        # Dual-dispatch scaffolding (P8 Step 5): the backend implements the
+        # sceneapi-io GeometricVerifier contract, but per-pair verification
+        # over PairCorrespondences + database emission is Step-6 engine
+        # work, so this honestly falls through to the v0 protocol.
+        _log.debug("io_dispatch.geometric_verifier_present_fallthrough", backend=backend.name)
     options = stage_options(spec)
     if inputs.get("input_artifacts"):
         options["input_artifacts"] = inputs["input_artifacts"]

@@ -3,8 +3,11 @@
 A *recipe* (`incremental | global | hierarchical | spherical`) is sugar
 over the per-stage builders: ``build_recipe_dag`` strings extract →
 match → verify → map into one DAG so per-stage caching short-circuits
-as soon as any prefix is reused. The pipelines routes compose these
-helpers with the shared-core materialization / reconstruction helpers.
+as soon as any prefix is reused. The ``feed_forward`` recipe is the
+one-node counterpart (``build_feed_forward_dag``): raw views feed the
+map stage directly, no correspondence prefix. The pipelines routes
+compose these helpers with the shared-core materialization /
+reconstruction helpers.
 
 Import through :mod:`sceneapi.server.services.sfm_stage_service`; this
 underscore module is an internal layout detail.
@@ -40,6 +43,15 @@ def validate_recipe_stage_configs(
     validate_features_config(features_spec, project_id=project_id)
     validate_matches_config(matches_spec, project_id=project_id)
     validate_verify_config(verify_spec, project_id=project_id)
+    validate_mapping_config(pipeline_spec, project_id=project_id)
+
+
+def validate_feed_forward_stage_configs(
+    *,
+    pipeline_spec: dict[str, Any],
+    project_id: str | None = None,
+) -> None:
+    """The feed-forward recipe has exactly one stage: mapping."""
     validate_mapping_config(pipeline_spec, project_id=project_id)
 
 
@@ -159,3 +171,35 @@ def build_recipe_dag(
         kind="map", inputs=map_inputs, spec=pipeline_spec, depends_on=[verify.task_id]
     )
     return [extract, match, verify, map_node]
+
+
+def build_feed_forward_dag(
+    *,
+    project_id: str,
+    dataset_id: str,
+    recon_id: str,
+    materialization: dict[str, Any],
+    database_path: str,
+    pipeline_spec: dict[str, Any],
+    pose_priors: dict[str, dict[str, Any]] | None = None,
+    input_artifacts: dict[str, dict[str, Any]] | None = None,
+) -> list[TaskNode]:
+    """One-node DAG for the feed-forward recipe: image_set → map.
+
+    The map task materializes the image set itself and dispatches to
+    the backend's sceneapi-io ``Mapper``; there is no correspondence
+    prefix to cache-share, so the DAG is a single ``map`` node hashed
+    with the same shape as the recipe map stage.
+    """
+    map_inputs: dict[str, Any] = {
+        "project_id": project_id,
+        "recon_id": recon_id,
+        "dataset_id": dataset_id,
+        "database_path": database_path,
+        "materialization": materialization,
+    }
+    if pose_priors:
+        map_inputs["pose_priors"] = pose_priors
+    if input_artifacts:
+        map_inputs["input_artifacts"] = input_artifacts
+    return [_stage_node(kind="map", inputs=map_inputs, spec=pipeline_spec)]

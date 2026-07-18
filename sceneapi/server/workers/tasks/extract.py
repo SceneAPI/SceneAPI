@@ -20,14 +20,18 @@ from typing import Any
 from sceneapi.server.adapters.backend import require_backend_method
 from sceneapi.server.adapters.progress import call_with_optional_progress
 from sceneapi.server.core.config import get_settings
+from sceneapi.server.core.logging import get_logger
 from sceneapi.server.core.paths import Paths
 from sceneapi.server.db.models import Task
+from sceneapi.server.workers._io_dispatch import io_feature_extractor
 from sceneapi.server.workers._materialize import materialize_image_set
 from sceneapi.server.workers._task_io import read_state
 from sceneapi.server.workers.backend_resolver import backend_for_stage
 from sceneapi.server.workers.options import stage_options
 from sceneapi.server.workers.progress import get_progress_reporter
 from sceneapi.server.workers.tasks._registry import task_handler
+
+_log = get_logger("sceneapi.workers.tasks.extract")
 
 
 def _materialize(
@@ -63,6 +67,12 @@ def run(task: Task) -> dict[str, Any]:
     if inputs.get("input_artifacts"):
         options["input_artifacts"] = inputs["input_artifacts"]
     backend = backend_for_stage(spec)
+    if io_feature_extractor(backend) is not None:
+        # Dual-dispatch scaffolding (P8 Step 5): the backend implements the
+        # sceneapi-io FeatureExtractor contract, but the per-image FeatureSet
+        # -> feature-database/artifact bridge is Step-6 engine work, so this
+        # honestly falls through to the v0 extract_features protocol.
+        _log.debug("io_dispatch.feature_extractor_present_fallthrough", backend=backend.name)
     feature_type = str(spec.get("type", "sift"))
     extract_features = require_backend_method(
         backend,

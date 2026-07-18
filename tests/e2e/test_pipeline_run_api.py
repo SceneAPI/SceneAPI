@@ -139,6 +139,37 @@ async def test_valid_legacy_string_pipeline_submits_job(client) -> None:
     assert len(resp.json()["task_ids"]) == 4
 
 
+async def test_feed_forward_chain_submits_and_succeeds_on_stub(client) -> None:
+    """P8 Step 4: the one-step ``["map_feed_forward"]`` chain is an
+    executable legacy submission routed through the feed-forward recipe
+    executor (and the stub's io Mapper makes it succeed end-to-end)."""
+    pid, did = await _setup(client)
+    resp = await client.post(
+        f"/v1/projects/{pid}/pipelines:run",
+        json={"dataset_id": did, "steps": ["map_feed_forward"]},
+    )
+    assert resp.status_code == 202, resp.text
+    body = resp.json()
+    assert body["project_id"] == pid
+    assert body["dataset_id"] == did
+    assert len(body["task_ids"]) == 1
+    job = (await client.get(f"/v1/jobs/{body['job_id']}")).json()
+    assert job["status"] == "succeeded", job
+    assert job["recipe"] == "feed_forward"
+
+
+async def test_feed_forward_chain_validates_params(client) -> None:
+    pid, did = await _setup(client)
+    resp = await client.post(
+        f"/v1/projects/{pid}/pipelines:run",
+        json={
+            "dataset_id": did,
+            "steps": [{"op": "map_feed_forward", "params": {"max_views": 0}}],
+        },
+    )
+    assert resp.status_code == 422, resp.text
+
+
 async def test_initial_inputs_seed_partial_pipeline_until_executor_exists(client) -> None:
     pid, did = await _setup(client)
     resp = await client.post(

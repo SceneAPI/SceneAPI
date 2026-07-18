@@ -27,16 +27,20 @@ from sceneapi.server.schemas.api.common import ProblemResponse
 from sceneapi.server.schemas.api.dataflow import (
     PipelineStepIn,
     core_steps,
+    is_executable_legacy_feed_forward_pipeline,
+    is_executable_legacy_pipeline,
     is_executable_legacy_sfm_pipeline,
     legacy_operation_ids,
     provider_errors,
     should_use_legacy_validation,
     step_params,
+    step_processor_id,
     step_provider,
 )
 from sceneapi.server.schemas.api.jobs import JobAcceptedResponse
 from sceneapi.server.schemas.pipeline_spec import (
     FeaturesSpec,
+    FeedForwardSpec,
     GlobalSpec,
     HierarchicalSpec,
     IncrementalSpec,
@@ -90,6 +94,7 @@ _RECIPE_TO_KIND = {
     "global": GlobalSpec,
     "hierarchical": HierarchicalSpec,
     "spherical": SphericalSpec,
+    "feed_forward": FeedForwardSpec,
 }
 
 
@@ -101,7 +106,7 @@ _RECIPE_TO_KIND = {
 )
 async def run_recipe(
     project_id: str,
-    recipe: Literal["incremental", "global", "hierarchical", "spherical"],
+    recipe: Literal["incremental", "global", "hierarchical", "spherical", "feed_forward"],
     body: PipelineRequest,
     tenant_id: str = Depends(current_tenant),
     session: AsyncSession = Depends(get_db),
@@ -117,9 +122,12 @@ async def run_recipe(
 
     Composes ``features -> matches -> verify -> map`` into a single
     job DAG keyed on ``recipe`` (one of ``incremental``
-    | ``global`` | ``hierarchical`` | ``spherical``). The recipe MUST
-    match ``body.spec.kind`` — 422 ``ValidationError`` if not. Each
-    stage spec keeps optional provider selectors
+    | ``global`` | ``hierarchical`` | ``spherical``). The
+    ``feed_forward`` recipe is the one-stage counterpart: the image
+    set feeds mapping directly (capability ``map.feed_forward``) and
+    the features/pairs/matcher/verify sections are ignored. The recipe
+    MUST match ``body.spec.kind`` — 422 ``ValidationError`` if not.
+    Each stage spec keeps optional provider selectors
     so mixed deployments can route hloc and COLMAP implementations
     behind the same portable capability names. Each backend advertises
     which mapping stages it implements via the ``map.{kind}``
@@ -137,27 +145,41 @@ async def run_recipe(
         project_id=project_id,
     )
     spec_dict = body.spec.model_dump(mode="json")
-    features_spec = body.features.model_dump(mode="json")
-    verify_spec = body.verify.model_dump(mode="json")
-    matches_spec = {
-        "pairs": body.pairs.model_dump(mode="json"),
-        "matcher": body.matcher.model_dump(mode="json"),
-    }
-    input_artifacts = {
-        **body.features.input_artifacts,
-        **body.pairs.input_artifacts,
-        **body.matcher.input_artifacts,
-        **body.verify.input_artifacts,
-        **body.spec.input_artifacts,
-        **body.input_artifacts,
-    }
-    sfm_stage_service.validate_recipe_stage_configs(
-        features_spec=features_spec,
-        matches_spec=matches_spec,
-        verify_spec=verify_spec,
-        pipeline_spec=spec_dict,
-        project_id=project_id,
-    )
+    feed_forward = recipe == "feed_forward"
+    if feed_forward:
+        features_spec: dict[str, Any] = {}
+        verify_spec: dict[str, Any] = {}
+        matches_spec: dict[str, Any] = {}
+        input_artifacts = {
+            **body.spec.input_artifacts,
+            **body.input_artifacts,
+        }
+        sfm_stage_service.validate_feed_forward_stage_configs(
+            pipeline_spec=spec_dict,
+            project_id=project_id,
+        )
+    else:
+        features_spec = body.features.model_dump(mode="json")
+        verify_spec = body.verify.model_dump(mode="json")
+        matches_spec = {
+            "pairs": body.pairs.model_dump(mode="json"),
+            "matcher": body.matcher.model_dump(mode="json"),
+        }
+        input_artifacts = {
+            **body.features.input_artifacts,
+            **body.pairs.input_artifacts,
+            **body.matcher.input_artifacts,
+            **body.verify.input_artifacts,
+            **body.spec.input_artifacts,
+            **body.input_artifacts,
+        }
+        sfm_stage_service.validate_recipe_stage_configs(
+            features_spec=features_spec,
+            matches_spec=matches_spec,
+            verify_spec=verify_spec,
+            pipeline_spec=spec_dict,
+            project_id=project_id,
+        )
     resolved_artifacts = await artifact_service.resolve_input_artifacts(
         session,
         tenant_id=tenant_id,
@@ -174,25 +196,38 @@ async def run_recipe(
     pose_priors = await sfm_stage_service.collect_pose_priors_by_name(
         session, tenant_id=tenant_id, dataset_id=d.dataset_id
     )
-    nodes = sfm_stage_service.build_recipe_dag(
-        project_id=project_id,
-        dataset_id=d.dataset_id,
-        recon_id=r.recon_id,
-        materialization=materialization,
-        database_path=db_path,
-        features_spec=features_spec,
-        matches_spec=matches_spec,
-        verify_spec=verify_spec,
-        pipeline_spec=spec_dict,
-        pose_priors=pose_priors or None,
-        input_artifacts=resolved_artifacts,
-    )
-    job_spec: dict[str, Any] = {
-        "features": features_spec,
-        "matches": matches_spec,
-        "verify": verify_spec,
-        "spec": spec_dict,
-    }
+    if feed_forward:
+        nodes = sfm_stage_service.build_feed_forward_dag(
+            project_id=project_id,
+            dataset_id=d.dataset_id,
+            recon_id=r.recon_id,
+            materialization=materialization,
+            database_path=db_path,
+            pipeline_spec=spec_dict,
+            pose_priors=pose_priors or None,
+            input_artifacts=resolved_artifacts,
+        )
+        job_spec: dict[str, Any] = {"spec": spec_dict}
+    else:
+        nodes = sfm_stage_service.build_recipe_dag(
+            project_id=project_id,
+            dataset_id=d.dataset_id,
+            recon_id=r.recon_id,
+            materialization=materialization,
+            database_path=db_path,
+            features_spec=features_spec,
+            matches_spec=matches_spec,
+            verify_spec=verify_spec,
+            pipeline_spec=spec_dict,
+            pose_priors=pose_priors or None,
+            input_artifacts=resolved_artifacts,
+        )
+        job_spec = {
+            "features": features_spec,
+            "matches": matches_spec,
+            "verify": verify_spec,
+            "spec": spec_dict,
+        }
     if resolved_artifacts:
         job_spec["input_artifacts"] = resolved_artifacts
     job_id, tasks = await submit_job_dag(
@@ -280,6 +315,24 @@ def _legacy_sfm_specs(
     except PydanticValidationError as exc:
         raise _legacy_spec_validation_error("map", map_index, exc) from exc
     return features_spec, pairs_spec, matcher_spec, verify_spec, pipeline_spec
+
+
+def _legacy_feed_forward_spec(steps: list[str | PipelineStepIn]) -> dict[str, Any]:
+    """Validate the one-step ``["map_feed_forward"]`` chain's params as a
+    :class:`FeedForwardSpec` (the feed-forward twin of ``_legacy_sfm_specs``)."""
+    index, params = -1, {}
+    for i, step in enumerate(steps):
+        op_id = step if isinstance(step, str) else step_processor_id(step)
+        if op_id == "map_feed_forward":
+            index = i
+            params = step_params(step)
+            provider = step_provider(step)
+            if provider:
+                params["provider"] = provider
+    try:
+        return FeedForwardSpec.model_validate(params).model_dump(mode="json")
+    except PydanticValidationError as exc:
+        raise _legacy_spec_validation_error("map_feed_forward", index, exc) from exc
 
 
 def _legacy_spec_validation_error(
@@ -406,6 +459,8 @@ async def run_pipeline(
         tuple(legacy_operation_ids(body.steps)) if use_legacy_validation else ()
     )
     executable_legacy_sfm = is_executable_legacy_sfm_pipeline(body.steps)
+    executable_legacy_ff = is_executable_legacy_feed_forward_pipeline(body.steps)
+    executable_legacy = is_executable_legacy_pipeline(body.steps)
 
     if use_legacy_validation:
         errors.extend(input_errors)
@@ -417,7 +472,7 @@ async def run_pipeline(
                 processor_lookup=registry.processor_for,
             )
         )
-        if not executable_legacy_sfm:
+        if not executable_legacy:
             errors.extend(
                 core_pipelines.validate_step_attributes(
                     normalized_steps,
@@ -438,7 +493,7 @@ async def run_pipeline(
         errors.extend(
             error for error in validation_errors if error.reason != "duplicate_initial_input"
         )
-    if use_legacy_validation and not executable_legacy_sfm:
+    if use_legacy_validation and not executable_legacy:
         errors.extend(provider_errors(body.steps))
     if errors:
         detail = "; ".join(f"{e.where}: {e.message}" for e in errors)
@@ -452,6 +507,58 @@ async def run_pipeline(
         dataset_id=body.dataset_id,
         project_id=project_id,
     )
+    if use_legacy_validation and executable_legacy_ff:
+        pipeline_spec = _legacy_feed_forward_spec(body.steps)
+        sfm_stage_service.validate_feed_forward_stage_configs(
+            pipeline_spec=pipeline_spec,
+            project_id=project_id,
+        )
+        resolved_artifacts = await artifact_service.resolve_input_artifacts(
+            session,
+            tenant_id=tenant_id,
+            dataset_id=d.dataset_id,
+            input_artifacts=pipeline_spec.get("input_artifacts", {}),
+        )
+        materialization = await sfm_stage_service.derive_materialization(
+            session, tenant_id=tenant_id, dataset=d
+        )
+        r = await sfm_stage_service.ensure_reconstruction(
+            session, tenant_id=tenant_id, dataset=d, spec=pipeline_spec
+        )
+        db_path = sfm_stage_service.reconstruction_database_path(tenant_id, project_id, r.recon_id)
+        pose_priors = await sfm_stage_service.collect_pose_priors_by_name(
+            session, tenant_id=tenant_id, dataset_id=d.dataset_id
+        )
+        nodes = sfm_stage_service.build_feed_forward_dag(
+            project_id=project_id,
+            dataset_id=d.dataset_id,
+            recon_id=r.recon_id,
+            materialization=materialization,
+            database_path=db_path,
+            pipeline_spec=pipeline_spec,
+            pose_priors=pose_priors or None,
+            input_artifacts=resolved_artifacts,
+        )
+        job_spec_ff: dict[str, Any] = {"spec": pipeline_spec}
+        if resolved_artifacts:
+            job_spec_ff["input_artifacts"] = resolved_artifacts
+        job_id, tasks = await submit_job_dag(
+            session,
+            tenant_id=tenant_id,
+            project_id=project_id,
+            recipe="feed_forward",
+            spec=job_spec_ff,
+            nodes=nodes,
+        )
+        return accepted_response(
+            JobAcceptedResponse(
+                job_id=job_id,
+                project_id=project_id,
+                dataset_id=d.dataset_id,
+                task_ids=[t.task_id for t in tasks],
+                recon_id=r.recon_id,
+            )
+        )
     if use_legacy_validation and executable_legacy_sfm:
         (
             features_spec,

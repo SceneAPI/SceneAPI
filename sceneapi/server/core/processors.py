@@ -246,6 +246,11 @@ MAP_ATTRIBUTES: AttributeSet = (
     _attr("max_runtime_seconds", "int", "Optional runtime budget in seconds.", min=1),
 )
 
+MAP_FEED_FORWARD_ATTRIBUTES: AttributeSet = (
+    _attr("seed", "int", "Deterministic seed.", default=0, has_default=True),
+    _attr("max_runtime_seconds", "int", "Optional runtime budget in seconds.", min=1),
+)
+
 REFINE_ATTRIBUTES: AttributeSet = (
     _attr(
         "mode",
@@ -297,7 +302,11 @@ CORE_PROCESSORS: tuple[Processor, ...] = (
         {"matches": _port("match_graph", "Raw feature correspondences.")},
         MATCH_ATTRIBUTES,
         "Match features across the selected pairs.",
-        capabilities=("matchers",),
+        # ``match.detector_free`` / ``keypoints.persistent`` are
+        # matcher-trait capabilities (MatcherTraits in sceneapi-io):
+        # they describe HOW this processor's implementations match, so
+        # they classify under it in the capability partition.
+        capabilities=("matchers", "match.detector_free", "keypoints.persistent"),
         config_stage="matcher",
     ),
     Processor(
@@ -321,6 +330,23 @@ CORE_PROCESSORS: tuple[Processor, ...] = (
         MAP_ATTRIBUTES,
         "Reconstruct camera poses + sparse points (incremental, global, ...).",
         capabilities=("map",),
+        config_stage="mapping",
+    ),
+    # Deliberately a DISTINCT processor rather than making ``map``'s
+    # matches port optional: the classical ``map`` keeps its nominal
+    # feature_set + verified match_graph contract (and the type-bridge
+    # rule "features -> map is rejected without a match_graph producer"
+    # stays law), while the feed-forward family gets its own honest
+    # signature — raw views in, sparse model out. Dense per-view
+    # outputs are job-scoped files (no wire DataType until Phase C).
+    Processor(
+        "map_feed_forward",
+        "Feed-forward mapping",
+        {"images": _port("image_sequence", "Captured image sequence.")},
+        {"model": _port("sparse_model", "Sparse reconstruction model.")},
+        MAP_FEED_FORWARD_ATTRIBUTES,
+        "Map raw views directly with a feed-forward model (no correspondence stage).",
+        capabilities=("map.feed_forward",),
         config_stage="mapping",
     ),
     Processor(

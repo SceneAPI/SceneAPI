@@ -85,3 +85,43 @@ async def test_global_and_spherical_recipes_succeed(client) -> None:
             json={"dataset_id": did, "spec": {"kind": kind}},
         )
         assert resp.status_code == 202, (kind, resp.text)
+
+
+async def test_feed_forward_recipe_end_to_end_on_stub(client) -> None:
+    """P8 Step 5: the feed-forward recipe runs end-to-end on the stub's
+    sceneapi-io Mapper — one map task, job succeeds, snapshot serves the
+    stub's deterministic points."""
+    pid, did = await _setup(client)
+    resp = await client.post(
+        f"/v1/projects/{pid}/pipelines/feed_forward",
+        json={"dataset_id": did, "spec": {"kind": "feed_forward"}},
+    )
+    assert resp.status_code == 202, resp.text
+    body = resp.json()
+    assert len(body["task_ids"]) == 1
+
+    job = (await client.get(f"/v1/jobs/{body['job_id']}")).json()
+    assert job["status"] == "succeeded", job
+    assert [t["kind"] for t in job["tasks"]] == ["map"]
+    assert job["tasks"][0]["status"] == "succeeded"
+
+    rid = body["recon_id"]
+    seqs = (await client.get(f"/v1/reconstructions/{rid}/snapshots")).json()
+    assert seqs["seqs"] == [1]
+    points = await client.get(f"/v1/reconstructions/{rid}/snapshots/1/points.bin")
+    assert points.status_code == 200
+    # 44-byte header + 26 bytes/point; the stub registers 8 cube corners
+    assert len(points.content) == 44 + 8 * 26
+
+    summary = (await client.get(f"/v1/reconstructions/{rid}/snapshots/1/summary.json")).json()
+    assert summary["models"][0]["num_reg_images"] == 1
+    assert summary["models"][0]["unregistered_images"] == []  # single-image dataset
+
+
+async def test_feed_forward_recipe_kind_must_match(client) -> None:
+    pid, did = await _setup(client)
+    resp = await client.post(
+        f"/v1/projects/{pid}/pipelines/feed_forward",
+        json={"dataset_id": did, "spec": {"kind": "incremental"}},
+    )
+    assert resp.status_code == 422

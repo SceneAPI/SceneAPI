@@ -12,6 +12,7 @@ field:
 - ``global``      -> :class:`GlobalSpec`
 - ``hierarchical``-> :class:`HierarchicalSpec`
 - ``spherical``   -> :class:`SphericalSpec`
+- ``feed_forward``-> :class:`FeedForwardSpec`
 
 Forward-compatibility: SDKs MUST treat unknown ``kind`` values as
 ``unsupported`` rather than failing the whole response. Add new
@@ -110,8 +111,21 @@ class SphericalSpec(_SpecBase):
     panorama: bool = True
 
 
+class FeedForwardSpec(_SpecBase):
+    """Feed-forward mapping: raw views in, poses + geometry out.
+
+    No feature/pair/match/verify stages — the model consumes the image
+    set directly (capability ``map.feed_forward``). ``max_views``
+    optionally caps how many views the model ingests. Backend-specific
+    model knobs ride in ``backend_options``.
+    """
+
+    kind: Literal["feed_forward"] = "feed_forward"
+    max_views: int | None = Field(default=None, ge=1)
+
+
 PipelineSpec = Annotated[
-    IncrementalSpec | GlobalSpec | HierarchicalSpec | SphericalSpec,
+    IncrementalSpec | GlobalSpec | HierarchicalSpec | SphericalSpec | FeedForwardSpec,
     Field(discriminator="kind"),
 ]
 
@@ -473,6 +487,7 @@ __all__ = [
     "BundleAdjustmentSpec",
     "FeatureType",
     "FeaturesSpec",
+    "FeedForwardSpec",
     "GlobalSpec",
     "HierarchicalSpec",
     "ImagePairRef",

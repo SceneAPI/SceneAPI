@@ -55,6 +55,10 @@ class _Supply:
 # DEFAULT_INITIAL_INPUTS (enforced by the contract test).
 CANONICAL_PIPELINES: dict[str, tuple[str, ...]] = {
     "sfm": ("features", "pairs", "matches", "verify", "map"),
+    # The feed-forward family maps raw views directly — one step, no
+    # correspondence stage. Composes because map_feed_forward consumes
+    # image_sequence (an initial input) and supplies sparse_model.
+    "feed_forward": ("map_feed_forward",),
 }
 
 
