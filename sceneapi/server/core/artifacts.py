@@ -1,9 +1,22 @@
-"""Shared stage-artifact vocabulary and validation helpers."""
+"""Shared stage-artifact vocabulary and validation helpers.
+
+The format-id VOCABULARY (ids, the DataType each format serializes, and
+the descriptions) is owned by the contract plane
+(:data:`sceneapi_io.formats.CORE_FORMATS`); this module joins that
+registry with the core-side wire details that stay here (titles,
+``media_types`` tuples, manifest JSON schemas, examples) into the
+:class:`ArtifactFormatDefinition` rows the routes serve. Every id and
+served field is byte-identical to the pre-re-home literals — wire
+identity is untouched; drift between the two sides fails loudly at
+import.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+
+from sceneapi_io.formats import CORE_FORMATS as _IO_CORE_FORMATS
 
 # The artifact-key pattern is owned by sceneapi.server.core.ids (one home per id
 # class); re-exported here so callers keep using artifacts.ARTIFACT_KEY_RE.
@@ -85,20 +98,27 @@ def _manifest_schema(
     }
 
 
-CORE_ARTIFACT_FORMATS: dict[str, ArtifactFormatDefinition] = {
-    "sfmapi.features.local.v1": ArtifactFormatDefinition(
-        format_id="sfmapi.features.local.v1",
-        datatype="feature_set",
+@dataclass(frozen=True)
+class _CoreFormatWireDetails:
+    """The core-side half of one format row.
+
+    The id / datatype / description half lives in
+    :data:`sceneapi_io.formats.CORE_FORMATS` (``FormatSpec.kind`` IS the
+    artifact datatype); the wire details below stay core-side per the
+    Step-1 report and are joined with the contract-plane spec at import.
+    """
+
+    title: str
+    media_types: tuple[str, ...]
+    schema_required: tuple[str, ...]
+    examples: tuple[dict[str, Any], ...] = ()
+
+
+_CORE_FORMAT_WIRE_DETAILS: dict[str, _CoreFormatWireDetails] = {
+    "sfmapi.features.local.v1": _CoreFormatWireDetails(
         title="sfmapi local features",
-        description=(
-            "Versioned interchange manifest for per-image keypoints, descriptors, "
-            "descriptor dtype/layout, and detector metadata."
-        ),
-        schema_version=1,
         media_types=("application/json", "application/x-ndjson", "application/octet-stream"),
-        json_schema=_manifest_schema(
-            "sfmapi.features.local.v1", "feature_set", required=("images",)
-        ),
+        schema_required=("images",),
         examples=(
             {
                 "format_id": "sfmapi.features.local.v1",
@@ -109,18 +129,10 @@ CORE_ARTIFACT_FORMATS: dict[str, ArtifactFormatDefinition] = {
             },
         ),
     ),
-    "sfmapi.features.global.v1": ArtifactFormatDefinition(
-        format_id="sfmapi.features.global.v1",
-        datatype="feature_set",
+    "sfmapi.features.global.v1": _CoreFormatWireDetails(
         title="sfmapi global descriptors",
-        description="Versioned interchange manifest for per-image retrieval descriptors.",
-        schema_version=1,
         media_types=("application/json", "application/octet-stream"),
-        json_schema=_manifest_schema(
-            "sfmapi.features.global.v1",
-            "feature_set",
-            required=("images",),
-        ),
+        schema_required=("images",),
         examples=(
             {
                 "format_id": "sfmapi.features.global.v1",
@@ -131,18 +143,10 @@ CORE_ARTIFACT_FORMATS: dict[str, ArtifactFormatDefinition] = {
             },
         ),
     ),
-    "sfmapi.pairs.image_names.v1": ArtifactFormatDefinition(
-        format_id="sfmapi.pairs.image_names.v1",
-        datatype="pair_set",
+    "sfmapi.pairs.image_names.v1": _CoreFormatWireDetails(
         title="sfmapi image-name pairs",
-        description="Portable image-pair list keyed by dataset image names.",
-        schema_version=1,
         media_types=("text/plain", "application/json"),
-        json_schema=_manifest_schema(
-            "sfmapi.pairs.image_names.v1",
-            "pair_set",
-            required=("pairs",),
-        ),
+        schema_required=("pairs",),
         examples=(
             {
                 "format_id": "sfmapi.pairs.image_names.v1",
@@ -152,18 +156,10 @@ CORE_ARTIFACT_FORMATS: dict[str, ArtifactFormatDefinition] = {
             },
         ),
     ),
-    "sfmapi.matches.indexed.v1": ArtifactFormatDefinition(
-        format_id="sfmapi.matches.indexed.v1",
-        datatype="match_graph",
+    "sfmapi.matches.indexed.v1": _CoreFormatWireDetails(
         title="sfmapi indexed matches",
-        description="Portable match graph expressed as feature-index pairs.",
-        schema_version=1,
         media_types=("application/json", "application/octet-stream"),
-        json_schema=_manifest_schema(
-            "sfmapi.matches.indexed.v1",
-            "match_graph",
-            required=("pairs",),
-        ),
+        schema_required=("pairs",),
         examples=(
             {
                 "format_id": "sfmapi.matches.indexed.v1",
@@ -173,44 +169,20 @@ CORE_ARTIFACT_FORMATS: dict[str, ArtifactFormatDefinition] = {
             },
         ),
     ),
-    "sfmapi.matches.coordinates.v1": ArtifactFormatDefinition(
-        format_id="sfmapi.matches.coordinates.v1",
-        datatype="match_graph",
+    "sfmapi.matches.coordinates.v1": _CoreFormatWireDetails(
         title="sfmapi coordinate matches",
-        description="Portable detector-free match graph expressed as image coordinates.",
-        schema_version=1,
         media_types=("application/json", "application/octet-stream"),
-        json_schema=_manifest_schema(
-            "sfmapi.matches.coordinates.v1",
-            "match_graph",
-            required=("pairs",),
-        ),
+        schema_required=("pairs",),
     ),
-    "sfmapi.matches.dense.v1": ArtifactFormatDefinition(
-        format_id="sfmapi.matches.dense.v1",
-        datatype="match_graph",
+    "sfmapi.matches.dense.v1": _CoreFormatWireDetails(
         title="sfmapi dense matches",
-        description="Portable tiled dense or semi-dense correspondence field.",
-        schema_version=1,
         media_types=("application/json", "application/octet-stream"),
-        json_schema=_manifest_schema(
-            "sfmapi.matches.dense.v1",
-            "match_graph",
-            required=("tiles",),
-        ),
+        schema_required=("tiles",),
     ),
-    "sfmapi.matches.verified.v1": ArtifactFormatDefinition(
-        format_id="sfmapi.matches.verified.v1",
-        datatype="match_graph",
+    "sfmapi.matches.verified.v1": _CoreFormatWireDetails(
         title="sfmapi verified two-view geometry",
-        description="Portable verified correspondences with F/E/H matrices and inliers.",
-        schema_version=1,
         media_types=("application/json", "application/octet-stream"),
-        json_schema=_manifest_schema(
-            "sfmapi.matches.verified.v1",
-            "match_graph",
-            required=("pairs",),
-        ),
+        schema_required=("pairs",),
         examples=(
             {
                 "format_id": "sfmapi.matches.verified.v1",
@@ -227,59 +199,61 @@ CORE_ARTIFACT_FORMATS: dict[str, ArtifactFormatDefinition] = {
             },
         ),
     ),
-    "sfmapi.reconstruction.sparse.v1": ArtifactFormatDefinition(
-        format_id="sfmapi.reconstruction.sparse.v1",
-        datatype="sparse_model",
+    "sfmapi.reconstruction.sparse.v1": _CoreFormatWireDetails(
         title="sfmapi sparse reconstruction",
-        description="Portable cameras, image poses, rigs, tracks, and sparse points manifest.",
-        schema_version=1,
         media_types=("application/json", "application/octet-stream"),
-        json_schema=_manifest_schema(
-            "sfmapi.reconstruction.sparse.v1",
-            "sparse_model",
-            required=("files",),
-        ),
+        schema_required=("files",),
     ),
-    "sfmapi.reconstruction.snapshot.v1": ArtifactFormatDefinition(
-        format_id="sfmapi.reconstruction.snapshot.v1",
-        datatype="sparse_model",
+    "sfmapi.reconstruction.snapshot.v1": _CoreFormatWireDetails(
         title="sfmapi sealed snapshot",
-        description="Immutable snapshot directory containing portable sparse reconstruction files.",
-        schema_version=1,
         media_types=("application/json", "application/octet-stream"),
-        json_schema=_manifest_schema(
-            "sfmapi.reconstruction.snapshot.v1",
-            "sparse_model",
-            required=("files",),
-        ),
+        schema_required=("files",),
     ),
-    "sfmapi.reconstruction.submodel.v1": ArtifactFormatDefinition(
-        format_id="sfmapi.reconstruction.submodel.v1",
-        datatype="sparse_model",
+    "sfmapi.reconstruction.submodel.v1": _CoreFormatWireDetails(
         title="sfmapi reconstruction submodel",
-        description="One disconnected component inside a sparse reconstruction snapshot.",
-        schema_version=1,
         media_types=("application/json", "application/octet-stream"),
-        json_schema=_manifest_schema(
-            "sfmapi.reconstruction.submodel.v1",
-            "sparse_model",
-            required=("files",),
-        ),
+        schema_required=("files",),
     ),
-    "sfmapi.projection.images.v1": ArtifactFormatDefinition(
-        format_id="sfmapi.projection.images.v1",
-        datatype="projection",
+    "sfmapi.projection.images.v1": _CoreFormatWireDetails(
         title="sfmapi projected image set",
-        description="Projected image files plus a manifest with source/output geometry metadata.",
-        schema_version=1,
         media_types=("application/json", "image/jpeg", "image/png"),
-        json_schema=_manifest_schema(
-            "sfmapi.projection.images.v1",
-            "projection",
-            required=("source_images", "output_images"),
-        ),
+        schema_required=("source_images", "output_images"),
     ),
 }
+
+
+def _build_core_artifact_formats() -> dict[str, ArtifactFormatDefinition]:
+    """Join the contract-plane format registry with the core wire details.
+
+    Wire identity is the contract: the joined table must cover exactly
+    the sceneapi_io ids (no extras, no gaps) — a mismatch is a packaging
+    error and fails loudly at import instead of silently drifting.
+    """
+    io_ids = set(_IO_CORE_FORMATS)
+    core_ids = set(_CORE_FORMAT_WIRE_DETAILS)
+    if io_ids != core_ids:
+        raise ValueError(
+            f"core artifact formats out of sync with sceneapi_io.formats.CORE_FORMATS: "
+            f"missing core-side details for {sorted(io_ids - core_ids)}; "
+            f"core-side details with no contract-plane id {sorted(core_ids - io_ids)}"
+        )
+    out: dict[str, ArtifactFormatDefinition] = {}
+    for format_id, spec in _IO_CORE_FORMATS.items():
+        details = _CORE_FORMAT_WIRE_DETAILS[format_id]
+        out[format_id] = ArtifactFormatDefinition(
+            format_id=spec.id,
+            datatype=spec.kind,
+            title=details.title,
+            description=spec.description,
+            schema_version=1,
+            media_types=details.media_types,
+            json_schema=_manifest_schema(spec.id, spec.kind, required=details.schema_required),
+            examples=details.examples,
+        )
+    return out
+
+
+CORE_ARTIFACT_FORMATS: dict[str, ArtifactFormatDefinition] = _build_core_artifact_formats()
 
 
 def resolve_io_formats(
@@ -301,108 +275,108 @@ def resolve_io_formats(
     return [*plugin, *core]
 
 
+def _kind(
+    kind: str,
+    title: str,
+    description: str,
+    *,
+    durable: bool,
+    artifact_format: str,
+) -> ArtifactKindDefinition:
+    """One core kind row; its ``datatype`` is derived from the format it
+    defaults to (which mirrors ``FormatSpec.kind`` in the contract-plane
+    registry) — the kind table cannot drift from the format vocabulary."""
+    return ArtifactKindDefinition(
+        kind=kind,
+        datatype=CORE_ARTIFACT_FORMATS[artifact_format].datatype,
+        title=title,
+        description=description,
+        durable=durable,
+        artifact_format=artifact_format,
+        schema_version=1,
+    )
+
+
 CORE_ARTIFACT_KINDS: dict[str, ArtifactKindDefinition] = {
-    "features.local.v1": ArtifactKindDefinition(
-        kind="features.local.v1",
-        datatype="feature_set",
-        title="Local feature set",
-        description=(
+    "features.local.v1": _kind(
+        "features.local.v1",
+        "Local feature set",
+        (
             "Portable per-image local keypoints and descriptors. Supports SIFT-like "
             "and learned local features through manifest-declared layouts."
         ),
         durable=False,
         artifact_format="sfmapi.features.local.v1",
-        schema_version=1,
     ),
-    "features.global.v1": ArtifactKindDefinition(
-        kind="features.global.v1",
-        datatype="feature_set",
-        title="Global image descriptors",
-        description="Portable per-image retrieval descriptors such as VLAD or NetVLAD.",
+    "features.global.v1": _kind(
+        "features.global.v1",
+        "Global image descriptors",
+        "Portable per-image retrieval descriptors such as VLAD or NetVLAD.",
         durable=False,
         artifact_format="sfmapi.features.global.v1",
-        schema_version=1,
     ),
-    "pairs.image_names.v1": ArtifactKindDefinition(
-        kind="pairs.image_names.v1",
-        datatype="pair_set",
-        title="Image-name pairs",
-        description="Portable newline-delimited or manifest-addressed image pair list.",
+    "pairs.image_names.v1": _kind(
+        "pairs.image_names.v1",
+        "Image-name pairs",
+        "Portable newline-delimited or manifest-addressed image pair list.",
         durable=False,
         artifact_format="sfmapi.pairs.image_names.v1",
-        schema_version=1,
     ),
-    "matches.indexed.v1": ArtifactKindDefinition(
-        kind="matches.indexed.v1",
-        datatype="match_graph",
-        title="Indexed feature matches",
-        description="Portable raw matches expressed as keypoint-index pairs.",
+    "matches.indexed.v1": _kind(
+        "matches.indexed.v1",
+        "Indexed feature matches",
+        "Portable raw matches expressed as keypoint-index pairs.",
         durable=False,
         artifact_format="sfmapi.matches.indexed.v1",
-        schema_version=1,
     ),
-    "matches.coordinates.v1": ArtifactKindDefinition(
-        kind="matches.coordinates.v1",
-        datatype="match_graph",
-        title="Coordinate matches",
-        description="Portable detector-free matches expressed as image coordinate pairs.",
+    "matches.coordinates.v1": _kind(
+        "matches.coordinates.v1",
+        "Coordinate matches",
+        "Portable detector-free matches expressed as image coordinate pairs.",
         durable=False,
         artifact_format="sfmapi.matches.coordinates.v1",
-        schema_version=1,
     ),
-    "matches.dense.v1": ArtifactKindDefinition(
-        kind="matches.dense.v1",
-        datatype="match_graph",
-        title="Dense or semi-dense matches",
-        description="Portable tiled/chunked dense match field.",
+    "matches.dense.v1": _kind(
+        "matches.dense.v1",
+        "Dense or semi-dense matches",
+        "Portable tiled/chunked dense match field.",
         durable=False,
         artifact_format="sfmapi.matches.dense.v1",
-        schema_version=1,
     ),
-    "matches.verified.v1": ArtifactKindDefinition(
-        kind="matches.verified.v1",
-        datatype="match_graph",
-        title="Verified two-view geometry",
-        description="Portable verified matches with F/E/H matrices and inlier pairs.",
+    "matches.verified.v1": _kind(
+        "matches.verified.v1",
+        "Verified two-view geometry",
+        "Portable verified matches with F/E/H matrices and inlier pairs.",
         durable=False,
         artifact_format="sfmapi.matches.verified.v1",
-        schema_version=1,
     ),
-    "reconstruction.sparse.v1": ArtifactKindDefinition(
-        kind="reconstruction.sparse.v1",
-        datatype="sparse_model",
-        title="Sparse reconstruction",
-        description="Portable cameras, image poses, tracks, and sparse points manifest.",
+    "reconstruction.sparse.v1": _kind(
+        "reconstruction.sparse.v1",
+        "Sparse reconstruction",
+        "Portable cameras, image poses, tracks, and sparse points manifest.",
         durable=True,
         artifact_format="sfmapi.reconstruction.sparse.v1",
-        schema_version=1,
     ),
-    "reconstruction.snapshot": ArtifactKindDefinition(
-        kind="reconstruction.snapshot",
-        datatype="sparse_model",
-        title="Sealed reconstruction snapshot",
-        description="Immutable sealed snapshot directory for a reconstruction.",
+    "reconstruction.snapshot": _kind(
+        "reconstruction.snapshot",
+        "Sealed reconstruction snapshot",
+        "Immutable sealed snapshot directory for a reconstruction.",
         durable=True,
         artifact_format="sfmapi.reconstruction.snapshot.v1",
-        schema_version=1,
     ),
-    "reconstruction.submodel": ArtifactKindDefinition(
-        kind="reconstruction.submodel",
-        datatype="sparse_model",
-        title="Reconstruction submodel",
-        description="One disconnected mapping component inside a reconstruction snapshot.",
+    "reconstruction.submodel": _kind(
+        "reconstruction.submodel",
+        "Reconstruction submodel",
+        "One disconnected mapping component inside a reconstruction snapshot.",
         durable=True,
         artifact_format="sfmapi.reconstruction.submodel.v1",
-        schema_version=1,
     ),
-    "projection.images.v1": ArtifactKindDefinition(
-        kind="projection.images.v1",
-        datatype="projection",
-        title="Projected image set",
-        description="Images produced by a portable projection transform plus a manifest.",
+    "projection.images.v1": _kind(
+        "projection.images.v1",
+        "Projected image set",
+        "Images produced by a portable projection transform plus a manifest.",
         durable=True,
         artifact_format="sfmapi.projection.images.v1",
-        schema_version=1,
     ),
 }
 
