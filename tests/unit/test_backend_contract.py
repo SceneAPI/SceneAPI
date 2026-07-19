@@ -111,7 +111,11 @@ def test_backend_contract_rejects_malformed_config_schema() -> None:
     assert any("stage must be one of" in violation for violation in violations)
     assert any("provider must match" in violation for violation in violations)
     assert any("additionalProperties must be false" in violation for violation in violations)
-    assert any("runtime-managed option 'database_path'" in violation for violation in violations)
+    # Runtime-managed-option filtering is COLMAP vendor data, evicted to the
+    # COLMAP plugin family: core's generic contract checker no longer flags
+    # runtime-managed options (the providers filter them from their served
+    # schemas, covered in the sceneapi_map suite). ``database_path`` above is
+    # therefore now a benign property here.
     assert any("properties.freeform must be an object" in violation for violation in violations)
     assert any(
         "required contains unknown property 'missing'" in violation for violation in violations

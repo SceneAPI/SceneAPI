@@ -165,10 +165,10 @@ def test_worker_feature_options_keep_portable_and_backend_envelopes() -> None:
 
 class ColmapLikeBackend(StubBackend):
     """Fake COLMAP-family backend: advertises colmap capabilities and a
-    machine-readable command schema, but does NOT override
-    list_backend_config_schemas -- so the framework's canonical
-    _colmap_config_descriptors path (the single source the plugins now import)
-    is what builds the rows."""
+    machine-readable command schema. COLMAP stage-config vendor data now
+    lives in the COLMAP plugin family (evicted from core), so a bare
+    COLMAP-like backend serves no config schemas here — used below to prove
+    the radiance path stays capability-gated for a non-radiance backend."""
 
     name = "colmap_like"
     version = "1.0"
@@ -206,25 +206,13 @@ class RadianceLikeBackend(StubBackend):
         return {"radiance.train", "radiance.evaluate"}
 
 
-def test_framework_colmap_descriptors_are_single_source_with_from_poses() -> None:
-    rows = backend_config._colmap_config_descriptors(ColmapLikeBackend(), include_schema=True)
-    by_id = {r["config_id"]: r for r in rows}
-    # from_poses now lives in the canonical table and is served wherever the
-    # capability is advertised (previously only one of three plugins had it).
-    assert "colmap.pairs.from_poses" in by_id
-    fp = by_id["colmap.pairs.from_poses"]
-    assert fp["capability"] == "pairs.from_poses"
-    # description interpolates the capability (regression guard for the old
-    # literal "{capability}" f-string bug) and backtick-wraps it.
-    assert "{capability}" not in fp["description"]
-    assert "`pairs.from_poses`" in fp["description"]
-    # option schema keeps real options, drops runtime-managed ones.
-    props = fp["option_schema"]["properties"]
-    assert "SiftMatching.max_ratio" in props
-    assert "database_path" not in props
-    # capability-gated: map.global isn't advertised, so it isn't served.
-    assert "colmap.mapping.global" not in by_id
-    # the framework-served colmap schemas must satisfy the contract checker.
+def test_bare_colmap_like_backend_serves_no_framework_config_schemas() -> None:
+    # COLMAP stage-config vendor data was evicted to the plugin family; a
+    # backend that only exposes the duck-typed colmap_command_schema (and does
+    # not implement list_backend_config_schemas) no longer gets config rows
+    # synthesized by core. The three real COLMAP providers self-serve via
+    # discovery (covered in the sceneapi_map suite).
+    assert backend_config.list_backend_config_schemas(ColmapLikeBackend()) == []
     assert backend_config.backend_config_contract_violations(ColmapLikeBackend()) == []
 
 

@@ -50,7 +50,6 @@ from sceneapi.server.adapters.backend_artifacts import (
     list_backend_artifact_contracts,
 )
 from sceneapi.server.adapters.backend_config import (
-    COLMAP_STAGE_CONFIGS,
     BackendConfigSchemaProvider,
     assert_backend_config_contract,
     backend_config_contract_violations,
@@ -162,7 +161,6 @@ class Plugin:
 
 
 __all__ = [
-    "COLMAP_STAGE_CONFIGS",
     "ArtifactConversionBackend",
     "Backend",
     "BackendActionProvider",

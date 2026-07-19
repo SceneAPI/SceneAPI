@@ -35,48 +35,11 @@ _STAGE_ORDER = {
 }
 _VALID_STAGES = frozenset(_STAGE_ORDER)
 
-_COLMAP_STAGE_CONFIGS: tuple[tuple[str, str, str, str, str], ...] = (
-    ("colmap.features.sift", "features", "features.extract.sift", "colmap", "feature_extractor"),
-    ("colmap.pairs.exhaustive", "pairs", "pairs.exhaustive", "colmap", "exhaustive_matcher"),
-    ("colmap.pairs.sequential", "pairs", "pairs.sequential", "colmap", "sequential_matcher"),
-    ("colmap.pairs.spatial", "pairs", "pairs.spatial", "colmap", "spatial_matcher"),
-    ("colmap.pairs.vocabtree", "pairs", "pairs.vocabtree", "colmap", "vocab_tree_matcher"),
-    ("colmap.pairs.explicit", "pairs", "pairs.explicit", "colmap", "matches_importer"),
-    # from_poses selects pairs by camera-position proximity, reusing the
-    # spatial_matcher option surface (same COLMAP command).
-    ("colmap.pairs.from_poses", "pairs", "pairs.from_poses", "colmap", "spatial_matcher"),
-    ("colmap.matcher.sift", "matcher", "matchers.nn-mutual", "colmap", "exhaustive_matcher"),
-    ("colmap.verify", "verify", "matches.verify", "colmap", "geometric_verifier"),
-    ("colmap.mapping.incremental", "mapping", "map.incremental", "colmap", "mapper"),
-    ("colmap.mapping.global", "mapping", "map.global", "colmap", "global_mapper"),
-    ("colmap.mapping.hierarchical", "mapping", "map.hierarchical", "colmap", "hierarchical_mapper"),
-    ("colmap.ba.standard", "bundle_adjustment", "ba.standard", "colmap", "bundle_adjuster"),
-)
-
-# Public, stable alias of the canonical COLMAP stage-config table. The COLMAP
-# family plugins (sfmapi_colmap / sfmapi_pycolmap / sfmapi_colmap_cli) import
-# THIS as their single source of truth rather than each keeping a local copy
-# (which had already drifted on the from_poses row).
-COLMAP_STAGE_CONFIGS = _COLMAP_STAGE_CONFIGS
-
-_RUNTIME_MANAGED_COLMAP_OPTIONS = {
-    "database_path",
-    "image_path",
-    "image_list_path",
-    "input_path",
-    "input_path1",
-    "input_path2",
-    "output_path",
-    "workspace_path",
-    "project_path",
-    "match_list_path",
-    "help",
-    "log_level",
-    "log_to_stderr",
-    "log_color",
-    "log_target",
-}
-
+# COLMAP vendor data (the stage-config table + the runtime-managed CLI
+# option set) was evicted to the COLMAP plugin family
+# (``sceneapi_map.colmap.stage_configs``) — core owns the generic config-schema
+# discovery machinery, not the COLMAP-specific rows. The three COLMAP providers
+# serve their config schemas through their own ``list_backend_config_schemas``.
 
 # Note: config's stage vocabulary intentionally includes ``radiance`` (70),
 # unlike the core CONFIG_STAGE_ORDER used by artifact contracts.
@@ -138,76 +101,6 @@ def _normalize_descriptor(
         "metadata": dict(raw.get("metadata") or {}),
         "_links": _link(config_id),
     }
-
-
-def _schema_for_colmap_backend_options(schema: dict[str, Any]) -> dict[str, Any]:
-    properties: dict[str, Any] = {}
-    for option in schema.get("options") or []:
-        name = str(option.get("name") or "").strip()
-        if not name or name in _RUNTIME_MANAGED_COLMAP_OPTIONS:
-            continue
-        option_schema = dict(option.get("schema") or {"type": "string"})
-        description = option.get("description")
-        if description and "description" not in option_schema:
-            option_schema["description"] = description
-        properties[name] = option_schema
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "properties": properties,
-    }
-
-
-def _colmap_config_descriptors(backend: Any, *, include_schema: bool) -> list[dict[str, Any]]:
-    schema_fn = getattr(backend, "colmap_command_schema", None)
-    if not callable(schema_fn):
-        return []
-    capabilities = set()
-    capabilities_fn = getattr(backend, "capabilities", None)
-    if callable(capabilities_fn):
-        try:
-            capabilities = set(capabilities_fn())
-        except Exception:
-            capabilities = set()
-
-    rows: list[dict[str, Any]] = []
-    for config_id, stage, capability, provider, command in _COLMAP_STAGE_CONFIGS:
-        if capabilities and capability not in capabilities:
-            continue
-        option_schema = None
-        metadata: dict[str, Any] = {"family": "colmap", "command": command}
-        if include_schema:
-            try:
-                native_schema = schema_fn(command)
-            except Exception:
-                continue
-            metadata["native_schema"] = native_schema
-            metadata["schema_source"] = native_schema.get("schema_source")
-            metadata["option_count"] = native_schema.get(
-                "option_count", len(native_schema.get("options") or [])
-            )
-            option_schema = _schema_for_colmap_backend_options(native_schema)
-        rows.append(
-            _normalize_descriptor(
-                {
-                    "config_id": config_id,
-                    "backend": _base.backend_name(backend),
-                    "stage": stage,
-                    "capability": capability,
-                    "provider": provider,
-                    "display_name": f"COLMAP {stage} options",
-                    "description": (
-                        f"Backend-specific COLMAP `{command}` options accepted through "
-                        f"`backend_options` for `{capability}`."
-                    ),
-                    "option_schema": option_schema,
-                    "metadata": metadata,
-                },
-                backend=backend,
-                include_schema=include_schema,
-            )
-        )
-    return rows
 
 
 _RADIANCE_TRAIN_CONFIG_ID = "radiance.train"
@@ -337,10 +230,7 @@ def list_backend_config_schemas(
     backend = backend or get_backend()
 
     def _fallback() -> list[dict[str, Any]]:
-        return [
-            *_colmap_config_descriptors(backend, include_schema=include_schemas),
-            *_radiance_config_descriptors(backend, include_schema=include_schemas),
-        ]
+        return _radiance_config_descriptors(backend, include_schema=include_schemas)
 
     return _REGISTRY.list_rows(
         backend,
@@ -554,11 +444,6 @@ def backend_config_contract_violations(backend: Any) -> list[str]:
             elif isinstance(properties, dict):
                 for name, property_schema in properties.items():
                     option_name = str(name)
-                    if option_name in _RUNTIME_MANAGED_COLMAP_OPTIONS:
-                        errors.append(
-                            f"{label}: option_schema must not expose runtime-managed "
-                            f"option {option_name!r}; sfmapi supplies it"
-                        )
                     if not isinstance(property_schema, dict):
                         errors.append(
                             f"{label}: option_schema.properties.{option_name} must be an object"
@@ -573,11 +458,6 @@ def backend_config_contract_violations(backend: Any) -> list[str]:
                             errors.append(
                                 f"{label}: option_schema.required contains unknown "
                                 f"property {option_name!r}"
-                            )
-                        if option_name in _RUNTIME_MANAGED_COLMAP_OPTIONS:
-                            errors.append(
-                                f"{label}: option_schema.required must not include "
-                                f"runtime-managed option {option_name!r}"
                             )
 
     errors.extend(_REGISTRY.duplicate_violations(config_ids))
