@@ -122,3 +122,37 @@ option preserved); (3) both may import `data/`.
 Core's CI gains a lane installing released bundles and running their
 conformance kits against core HEAD (owner of cross-repo compatibility;
 neither design had one).
+
+## Execution log (2026-07-18)
+
+- **Steps 0–2** (SceneIO 0.2.0 contract plane): `SceneIO@704e6f4` —
+  data/formats/mapping/matching/testing namespaces, numpy-native,
+  import-isolation + pytest-free-import guards, 356 tests. Core pin
+  `sceneapi-io>=0.2,<0.3` + lock (`sfmapi@d9730f9`).
+- **Steps 3–5** (core release train): vocabulary re-home proven
+  byte-identical on /v1/datatypes + format/kind registries
+  (`sfmapi@a7ab342`); distinct `map_feed_forward` Processor + recipe +
+  `map.feed_forward`/`match.detector_free`/`keypoints.persistent`
+  capabilities + dual dispatch + StubBackend-as-Mapper — feed-forward
+  path e2e-provable with no engine (`sfmapi@f81c7ef`). SceneIO gained
+  unregistered-view support (`MappingResult.poses: list[SE3|None]` +
+  `registered_mask`).
+- **Step 6** (io matching bridge + SceneMatch conformers):
+  `sfmapi@2c1547d` — `_io_match.py` writers/readers +
+  `load_correspondence_graph`; extract/match/verify io paths.
+  `SceneMatch@8c1a74b` (0.2.0) — vismatch native FeatureExtractor/
+  PairMatcher (detector-based + detector-free), hloc adapters, honest
+  traits, conformance kits.
+- **Step 7** (ColmapMapper + de-COLMAP eviction): `SceneMap@fe0b237`
+  (0.2.0) — `ColmapMapper` mixin conforms the three COLMAP providers
+  (first real exercise of the SE3|None unregistered-view slots).
+  `sfmapi@c5a7f4b` — COLMAP config vendor data evicted to sceneapi_map.
+  Deliberately NOT evicted: `colmap_actions.py` (cross-tier contract
+  consumed by sceneapi-cpp/gen_contracts — moving it breaks C++ parity
+  for all 7 contracts). Zero contract fixtures changed. Full core suite
+  1205 passed.
+
+Remaining: Step 8 (MapAnything provider — the proof point; weights
+deferred to provisioning per the family pattern), Step 9 (dense→3DGS
+bridge — owner reviews the bridge design), Step 10 (deferred
+contracts), compat CI lane.
