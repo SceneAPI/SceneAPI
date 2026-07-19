@@ -23,6 +23,7 @@ from sceneapi.server.db.models import Task
 from sceneapi.server.storage.blobs import get_blob_store
 from sceneapi.server.storage.correspondence_emit import export_correspondence_graph
 from sceneapi.server.workers._io_dispatch import io_pair_matcher
+from sceneapi.server.workers._io_match import run_io_match
 from sceneapi.server.workers._task_io import read_state
 from sceneapi.server.workers.backend_resolver import backend_for_match_stage
 from sceneapi.server.workers.progress import get_progress_reporter
@@ -169,6 +170,24 @@ def _match_options(
     return options
 
 
+def _match_image_root(inputs: dict[str, Any]) -> Path | None:
+    """The materialized image directory, when the match inputs carry one.
+
+    Only the detector-free io matching path needs image refs; the
+    detector-based path pairs FeatureSets from the io store and never
+    touches images. When neither an explicit ``image_root`` nor a local
+    ``materialization`` is present this returns ``None`` and a
+    detector-free matcher raises an honest 501.
+    """
+    root = inputs.get("image_root")
+    if root:
+        return Path(str(root))
+    materialization = inputs.get("materialization") or {}
+    if isinstance(materialization, dict) and materialization.get("image_root"):
+        return Path(str(materialization["image_root"]))
+    return None
+
+
 @task_handler("match")
 def run(task: Task) -> dict[str, Any]:
     inputs, spec = read_state(task)
@@ -178,12 +197,30 @@ def run(task: Task) -> dict[str, Any]:
     input_artifacts = inputs.get("input_artifacts") or {}
     strategy = pairs.get("strategy", "exhaustive")
     backend = backend_for_match_stage(pairs, matcher)
-    if io_pair_matcher(backend) is not None:
-        # Dual-dispatch scaffolding (P8 Step 5): the backend implements the
-        # sceneapi-io PairMatcher contract, but pair-loop orchestration over
-        # FeatureSet/ImageRef operands + match-database emission is Step-6
-        # engine work, so this honestly falls through to the v0 protocol.
-        _log.debug("io_dispatch.pair_matcher_present_fallthrough", backend=backend.name)
+    io_matcher = io_pair_matcher(backend)
+    if io_matcher is not None:
+        # Preferred path (P8 Step 6): the backend implements the neutral
+        # sceneapi-io PairMatcher contract. Detector-based matchers pair the
+        # FeatureSets the io extractor persisted (indexed correspondences);
+        # detector-free matchers pair image refs (coordinate
+        # correspondences). Results land in the io correspondence store the
+        # verify + map stages read via the shared database_path anchor.
+        progress = get_progress_reporter()
+        if progress is not None:
+            progress.phase_started("matching")
+        out = run_io_match(
+            io_matcher,
+            backend=backend,
+            db_path=db_path,
+            pairs_spec=pairs,
+            matcher_spec=matcher,
+            input_artifacts=input_artifacts,
+            image_root=_match_image_root(inputs),
+            progress=progress,
+        )
+        if progress is not None:
+            progress.phase_completed("matching")
+        return out
     match = require_backend_method(
         backend,
         "match",

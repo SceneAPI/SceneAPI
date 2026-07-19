@@ -24,6 +24,7 @@ from sceneapi.server.core.logging import get_logger
 from sceneapi.server.core.paths import Paths
 from sceneapi.server.db.models import Task
 from sceneapi.server.workers._io_dispatch import io_feature_extractor
+from sceneapi.server.workers._io_match import run_io_extract
 from sceneapi.server.workers._materialize import materialize_image_set
 from sceneapi.server.workers._task_io import read_state
 from sceneapi.server.workers.backend_resolver import backend_for_stage
@@ -67,12 +68,26 @@ def run(task: Task) -> dict[str, Any]:
     if inputs.get("input_artifacts"):
         options["input_artifacts"] = inputs["input_artifacts"]
     backend = backend_for_stage(spec)
-    if io_feature_extractor(backend) is not None:
-        # Dual-dispatch scaffolding (P8 Step 5): the backend implements the
-        # sceneapi-io FeatureExtractor contract, but the per-image FeatureSet
-        # -> feature-database/artifact bridge is Step-6 engine work, so this
-        # honestly falls through to the v0 extract_features protocol.
-        _log.debug("io_dispatch.feature_extractor_present_fallthrough", backend=backend.name)
+    extractor = io_feature_extractor(backend)
+    if extractor is not None:
+        # Preferred path (P8 Step 6): the backend implements the neutral
+        # sceneapi-io FeatureExtractor contract. Run it per image and
+        # persist the FeatureSets into the io correspondence store; the
+        # returned {database_path, num_images, artifacts} shape matches the
+        # v0 path so the downstream match/verify/map stages consume it
+        # indistinguishably (they thread on the same database_path anchor).
+        out = run_io_extract(
+            extractor,
+            backend=backend,
+            db_path=db_path,
+            image_root=image_root,
+            image_list=image_list,
+            spec=spec,
+            progress=progress,
+        )
+        if progress is not None:
+            progress.phase_completed("feature_extraction")
+        return out
     feature_type = str(spec.get("type", "sift"))
     extract_features = require_backend_method(
         backend,

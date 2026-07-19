@@ -148,6 +148,7 @@ def run(task: Task) -> dict[str, Any]:
                 spec=spec,
                 pose_priors=pose_priors,
                 input_artifacts=inputs.get("input_artifacts"),
+                db_path=db_path,
             )
         ]
     elif kind == "feed_forward":

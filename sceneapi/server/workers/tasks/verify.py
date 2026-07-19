@@ -12,6 +12,7 @@ from sceneapi.server.core.logging import get_logger
 from sceneapi.server.db.models import Task
 from sceneapi.server.storage.two_view_emit import export_two_view_geometries
 from sceneapi.server.workers._io_dispatch import io_geometric_verifier
+from sceneapi.server.workers._io_match import run_io_verify
 from sceneapi.server.workers._task_io import read_state
 from sceneapi.server.workers.backend_resolver import backend_for_stage
 from sceneapi.server.workers.options import stage_options
@@ -26,12 +27,26 @@ def run(task: Task) -> dict[str, Any]:
     inputs, spec = read_state(task)
     db_path = Path(inputs["database_path"])
     backend = backend_for_stage(spec)
-    if io_geometric_verifier(backend) is not None:
-        # Dual-dispatch scaffolding (P8 Step 5): the backend implements the
-        # sceneapi-io GeometricVerifier contract, but per-pair verification
-        # over PairCorrespondences + database emission is Step-6 engine
-        # work, so this honestly falls through to the v0 protocol.
-        _log.debug("io_dispatch.geometric_verifier_present_fallthrough", backend=backend.name)
+    verifier = io_geometric_verifier(backend)
+    if verifier is not None:
+        # Preferred path (P8 Step 6): the backend implements the neutral
+        # sceneapi-io GeometricVerifier contract. Filter every pair the io
+        # matcher persisted and write the geometrically-consistent subset
+        # (+ TwoViewGeometry) into the io correspondence store the map
+        # stage reads via the shared database_path anchor.
+        progress = get_progress_reporter()
+        if progress is not None:
+            progress.phase_started("geometric_verification")
+        out = run_io_verify(
+            verifier,
+            backend=backend,
+            db_path=db_path,
+            spec=spec,
+            progress=progress,
+        )
+        if progress is not None:
+            progress.phase_completed("geometric_verification")
+        return out
     options = stage_options(spec)
     if inputs.get("input_artifacts"):
         options["input_artifacts"] = inputs["input_artifacts"]

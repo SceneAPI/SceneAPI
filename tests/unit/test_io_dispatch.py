@@ -1,12 +1,13 @@
-"""Dual-dispatch resolvers + stub io-Mapper conformance (P8 Step 5).
+"""Dual-dispatch resolvers + stub io-Mapper conformance (P8 Steps 5-6).
 
 The map/extract/match/verify workers prefer a backend implementing the
 sceneapi-io Protocols over the v0 Path-protocols. These tests pin the
 resolver semantics (including the traits-TYPE guard that keeps the
 structural Protocols from misrouting a Mapper into the matching path),
 prove the StubBackend passes the sceneapi-io mapper conformance kit,
-and exercise the extract/match/verify scaffolding's honest fallthrough
-to v0 with StubBackend twins.
+and exercise the extract/match/verify dual dispatch: an io conformer
+now drives the real io path (Step 6), while a v0-only backend still
+runs the v0 protocol byte-for-byte unchanged.
 """
 
 from __future__ import annotations
@@ -14,7 +15,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
+from sceneapi_io.data import FeatureSet, PairCorrespondences, TwoViewGeometry
 from sceneapi_io.matching import MatcherTraits
 from sceneapi_io.testing import assert_mapper_conformance
 
@@ -24,6 +27,7 @@ from sceneapi.server.core.capabilities import reset_capabilities_cache
 from sceneapi.server.core.errors import CapabilityUnavailableError
 from sceneapi.server.core.ids import new_id
 from sceneapi.server.db.models import Task
+from sceneapi.server.workers import _io_match
 from sceneapi.server.workers._io_dispatch import (
     io_feature_extractor,
     io_geometric_verifier,
@@ -167,7 +171,7 @@ def test_capabilities_endpoint_reports_feed_forward_for_stub() -> None:
     assert caps.supports("map.feed_forward")
 
 
-# ---- task-level fallthrough scaffolding (StubBackend twins) ---------------
+# ---- task-level dual dispatch (StubBackend twins) -------------------------
 
 
 def _stage_task(kind: str, inputs: dict[str, Any], spec: dict[str, Any]) -> Task:
@@ -197,18 +201,24 @@ def _use_backend(backend_cls: type) -> None:
     reset_capabilities_cache()
 
 
-def test_extract_task_falls_through_to_v0_when_io_extractor_present(tmp_path: Path) -> None:
+def _feature_set(n: int = 2) -> FeatureSet:
+    keypoints = np.arange(2 * n, dtype=np.float32).reshape(n, 2)
+    return FeatureSet(keypoints=keypoints)
+
+
+def test_extract_task_runs_io_path_when_io_extractor_present(tmp_path: Path) -> None:
+    """Step 6: an io FeatureExtractor drives the io path; v0 is not called."""
     from sceneapi.server.workers.tasks import extract as extract_task
 
-    calls: list[str] = []
+    v0_calls: list[str] = []
 
     class DualExtractBackend(StubBackend):
         def extract(self, image: Any, *, options: Any = None) -> Any:
-            raise AssertionError("Step-5 scaffolding must NOT call the io extract path yet")
+            return _feature_set()
 
         def extract_features(self, **kwargs: Any) -> dict[str, Any]:
-            calls.append("v0")
-            return {"num_images": len(kwargs.get("image_list") or [])}
+            v0_calls.append("v0")
+            return {"num_images": 0}
 
     _use_backend(DualExtractBackend)
     task = _stage_task(
@@ -216,28 +226,29 @@ def test_extract_task_falls_through_to_v0_when_io_extractor_present(tmp_path: Pa
         {
             "project_id": "p1",
             "recon_id": "r1",
-            "materialization": _local_images(tmp_path, ["a.jpg"]),
+            "database_path": str(tmp_path / "database.db"),
+            "materialization": _local_images(tmp_path, ["a.jpg", "b.jpg"]),
         },
         {"type": "sift"},
     )
     out = extract_task.run(task)
-    assert calls == ["v0"]
-    assert out["num_images"] == 1
+    assert v0_calls == []  # io path preferred over v0 extract_features
+    assert out["num_images"] == 2
+    store = _io_match.correspondence_store_root(Path(out["database_path"]))
+    assert sorted(_io_match.load_feature_sets(store)) == ["a.jpg", "b.jpg"]
 
 
-def test_extract_task_io_only_backend_keeps_501_semantics(tmp_path: Path) -> None:
+def test_extract_task_v0_only_backend_keeps_501_semantics(tmp_path: Path) -> None:
+    """A backend with no io FeatureExtractor still 501s through v0 unchanged."""
     from sceneapi.server.workers.tasks import extract as extract_task
 
-    class IoOnlyExtractBackend(StubBackend):
-        def extract(self, image: Any, *, options: Any = None) -> Any:
-            raise AssertionError("Step-5 scaffolding must NOT call the io extract path yet")
-
-    _use_backend(IoOnlyExtractBackend)
+    _use_backend(StubBackend)  # no `extract`; extract_features raises 501
     task = _stage_task(
         "extract",
         {
             "project_id": "p1",
             "recon_id": "r1",
+            "database_path": str(tmp_path / "database.db"),
             "materialization": _local_images(tmp_path, ["a.jpg"]),
         },
         {"type": "sift"},
@@ -246,47 +257,114 @@ def test_extract_task_io_only_backend_keeps_501_semantics(tmp_path: Path) -> Non
         extract_task.run(task)
 
 
-def test_match_task_falls_through_to_v0_when_io_matcher_present(tmp_path: Path) -> None:
+def test_match_task_runs_io_path_when_io_matcher_present(tmp_path: Path) -> None:
+    """Step 6: a detector-based io PairMatcher pairs the stored FeatureSets."""
     from sceneapi.server.workers.tasks import match as match_task
 
-    calls: list[str] = []
+    db_path = tmp_path / "database.db"
+    store = _io_match.correspondence_store_root(db_path)
+    for name in ("a.jpg", "b.jpg"):
+        _io_match.write_feature_set(store, name, _feature_set())
 
-    class DualMatchBackend(StubBackend):
+    v0_calls: list[str] = []
+
+    class IoMatchBackend(StubBackend):
         def traits(self) -> MatcherTraits:  # type: ignore[override]
             return MatcherTraits(persistent_keypoints=True, detector_free=False)
 
         def match_pair(self, a: Any, b: Any, *, options: Any = None) -> Any:
-            raise AssertionError("Step-5 scaffolding must NOT call the io match path yet")
+            return PairCorrespondences.from_indices(np.array([[0, 1]], dtype=np.int64))
 
         def match(self, *, database_path: Path, mode: str, options: dict) -> dict:
-            calls.append("v0")
+            v0_calls.append("v0")
             return {"num_matched_pairs": 0}
 
-    _use_backend(DualMatchBackend)
+    _use_backend(IoMatchBackend)
+    task = _stage_task(
+        "match",
+        {"recon_id": "r1", "dataset_id": "d1", "database_path": str(db_path)},
+        {"pairs": {"strategy": "exhaustive"}, "matcher": {"type": "nn-mutual"}},
+    )
+    out = match_task.run(task)
+    assert v0_calls == []  # io path preferred over v0 match
+    assert out["strategy"] == "exhaustive"
+    assert out["num_matched_pairs"] == 1
+    assert set(_io_match.load_pair_correspondences(store)) == {("a.jpg", "b.jpg")}
+
+
+def test_verify_task_runs_io_path_when_io_verifier_present(tmp_path: Path) -> None:
+    """Step 6: an io GeometricVerifier filters the stored pairs + attaches geometry."""
+    from sceneapi.server.workers.tasks import verify as verify_task
+
+    db_path = tmp_path / "database.db"
+    store = _io_match.correspondence_store_root(db_path)
+    _io_match.write_pair_correspondences(
+        store,
+        "a.jpg",
+        "b.jpg",
+        PairCorrespondences.from_indices(np.array([[0, 0], [1, 1]], dtype=np.int64)),
+    )
+
+    v0_calls: list[str] = []
+
+    class IoVerifyBackend(StubBackend):
+        def verify(self, pair: Any, *, options: Any = None) -> Any:
+            return PairCorrespondences.from_indices(
+                pair.indices[:1], geometry=TwoViewGeometry(E=np.eye(3), num_inliers=1)
+            )
+
+        def verify_matches(self, *, database_path: Path, options: dict) -> dict:
+            v0_calls.append("v0")
+            return {"num_verified_pairs": 0}
+
+    _use_backend(IoVerifyBackend)
+    task = _stage_task(
+        "verify",
+        {"recon_id": "r1", "dataset_id": "d1", "database_path": str(db_path)},
+        {},
+    )
+    out = verify_task.run(task)
+    assert v0_calls == []  # io path preferred over v0 verify_matches
+    assert out["num_verified_pairs"] == 1
+    verified = _io_match.load_pair_correspondences(store)  # verified/ overrides matches/
+    assert verified[("a.jpg", "b.jpg")].geometry is not None
+    assert len(verified[("a.jpg", "b.jpg")]) == 1
+
+
+def test_match_task_v0_fallback_unchanged(tmp_path: Path) -> None:
+    """A backend with no io PairMatcher still runs v0 match untouched."""
+    from sceneapi.server.workers.tasks import match as match_task
+
+    calls: list[str] = []
+
+    class V0MatchBackend(StubBackend):
+        def match(self, *, database_path: Path, mode: str, options: dict) -> dict:
+            calls.append(mode)
+            return {"num_matched_pairs": 0}
+
+    _use_backend(V0MatchBackend)
     task = _stage_task(
         "match",
         {"recon_id": "r1", "dataset_id": "d1", "database_path": str(tmp_path / "db.db")},
         {"pairs": {"strategy": "exhaustive"}, "matcher": {"type": "nn-mutual"}},
     )
     out = match_task.run(task)
-    assert calls == ["v0"]
+    assert calls == ["exhaustive"]
     assert out["strategy"] == "exhaustive"
 
 
-def test_verify_task_falls_through_to_v0_when_io_verifier_present(tmp_path: Path) -> None:
+def test_verify_task_v0_fallback_unchanged(tmp_path: Path) -> None:
+    """A backend with no io GeometricVerifier still runs v0 verify untouched."""
     from sceneapi.server.workers.tasks import verify as verify_task
 
     calls: list[str] = []
 
-    class DualVerifyBackend(StubBackend):
-        def verify(self, pair: Any, *, options: Any = None) -> Any:
-            raise AssertionError("Step-5 scaffolding must NOT call the io verify path yet")
-
+    class V0VerifyBackend(StubBackend):
         def verify_matches(self, *, database_path: Path, options: dict) -> dict:
             calls.append("v0")
             return {"num_verified_pairs": 0}
 
-    _use_backend(DualVerifyBackend)
+    _use_backend(V0VerifyBackend)
     task = _stage_task(
         "verify",
         {"recon_id": "r1", "dataset_id": "d1", "database_path": str(tmp_path / "db.db")},

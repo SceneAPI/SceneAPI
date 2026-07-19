@@ -30,13 +30,17 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from sceneapi_io.data import SE3, Calibration, CorrespondenceGraph, PosePrior, ViewInput
+from sceneapi_io.data import SE3, Calibration, PosePrior, ViewInput
 from sceneapi_io.imagesource import MaterializedImage
 from sceneapi_io.mapping import Mapper, MappingOptions, MappingResult
 
 from sceneapi.server.core.errors import CapabilityUnavailableError
 from sceneapi.server.core.logging import get_logger
 from sceneapi.server.storage.snapshot_emit import emit_snapshot_files
+from sceneapi.server.workers._io_match import (
+    correspondence_store_root,
+    load_correspondence_graph,
+)
 
 _log = get_logger("sceneapi.workers.io_map")
 
@@ -90,22 +94,6 @@ def build_view_inputs(
             )
         )
     return views
-
-
-def load_correspondence_graph(
-    input_artifacts: dict[str, Any] | None,
-) -> CorrespondenceGraph | None:
-    """Bridge sealed feature/match artifacts into a CorrespondenceGraph.
-
-    Step-5 scope: no engine artifact format is bridged yet (the COLMAP
-    database / portable manifest adapters land with the Step-6 engine
-    bridging), so this always returns None and a
-    ``requires_correspondences=True`` mapper gets the honest 501 from
-    :func:`run_io_mapping`. Kept as the single extension point so
-    Step 6 only has to teach THIS function new formats.
-    """
-    _ = input_artifacts
-    return None
 
 
 # ---- MappingResult -> snapshot emission shape -----------------------------
@@ -277,9 +265,19 @@ def run_io_mapping(
     spec: dict[str, Any],
     pose_priors: dict[str, dict[str, Any]] | None = None,
     input_artifacts: dict[str, Any] | None = None,
+    db_path: Path | None = None,
 ) -> dict[str, Any]:
     """Run the sceneapi-io mapping path; emit snapshot files; return the
-    submodel summary (the ``models`` entry of the task result)."""
+    submodel summary (the ``models`` entry of the task result).
+
+    ``db_path`` anchors the io correspondence store (the same
+    ``database_path`` the extract/match/verify stages wrote it beside);
+    when a ``requires_correspondences=True`` mapper is registered its
+    :class:`~sceneapi_io.data.CorrespondenceGraph` is read back from that
+    store. ``input_artifacts`` is retained for symmetry with the v0 map
+    task inputs.
+    """
+    _ = input_artifacts
     traits = mapper.traits()
     views = build_view_inputs(
         image_root,
@@ -289,7 +287,8 @@ def run_io_mapping(
     )
     correspondences = None
     if traits.requires_correspondences:
-        correspondences = load_correspondence_graph(input_artifacts)
+        store_root = correspondence_store_root(db_path) if db_path is not None else None
+        correspondences = load_correspondence_graph(store_root)
         if correspondences is None:
             raise CapabilityUnavailableError(
                 capability=f"map.{kind}",
