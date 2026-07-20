@@ -36,6 +36,14 @@ jobs:
         with:
           repository: SceneAPI/SceneSDK
           path: .cache/sfmapi-sdk
+      - uses: actions/checkout@v4
+        with:
+          repository: SceneAPI/SceneIO
+          path: .cache/SceneIO
+      - name: Link the sceneapi-io contract plane to the sibling path uv.sources expects
+        # -sfn: this runner is self-hosted (persistent workspace), so a
+        # ../SceneIO symlink may already exist from a prior run.
+        run: ln -sfn "$GITHUB_WORKSPACE/.cache/SceneIO" "$GITHUB_WORKSPACE/../SceneIO"
       - uses: astral-sh/setup-uv@v7
       - name: Install
         run: |
