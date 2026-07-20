@@ -25,6 +25,16 @@ jobs:
         with:
           repository: SceneAPI/SceneSDK
           path: .cache/sfmapi-sdk
+      - uses: actions/checkout@v4
+        with:
+          repository: SceneAPI/SceneIO
+          path: .cache/SceneIO
+      - name: Link the sceneapi-io contract plane to the sibling path uv.sources expects
+        # core's [tool.uv.sources] points sceneapi-io at ../SceneIO (a sibling
+        # checkout in local dev); sceneapi-io is not yet on PyPI, so CI must
+        # supply that sibling. actions/checkout can only write under the
+        # workspace, so symlink the ../SceneIO path uv resolves to the checkout.
+        run: ln -s "$GITHUB_WORKSPACE/.cache/SceneIO" "$GITHUB_WORKSPACE/../SceneIO"
       - uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
@@ -50,6 +60,12 @@ jobs:
         with:
           repository: SceneAPI/SceneSDK
           path: .cache/sfmapi-sdk
+      - uses: actions/checkout@v4
+        with:
+          repository: SceneAPI/SceneIO
+          path: .cache/SceneIO
+      - name: Link the sceneapi-io contract plane to the sibling path uv.sources expects
+        run: ln -s "$GITHUB_WORKSPACE/.cache/SceneIO" "$GITHUB_WORKSPACE/../SceneIO"
       - uses: astral-sh/setup-uv@v7
       - name: Install
         run: |
@@ -85,6 +101,12 @@ jobs:
         with:
           repository: SceneAPI/SceneSDK
           path: .cache/sfmapi-sdk
+      - uses: actions/checkout@v4
+        with:
+          repository: SceneAPI/SceneIO
+          path: .cache/SceneIO
+      - name: Link the sceneapi-io contract plane to the sibling path uv.sources expects
+        run: ln -s "$GITHUB_WORKSPACE/.cache/SceneIO" "$GITHUB_WORKSPACE/../SceneIO"
       - uses: astral-sh/setup-uv@v7
       - name: Install
         run: |

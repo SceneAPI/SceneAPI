@@ -27,7 +27,10 @@ COPY alembic /app/alembic
 COPY alembic.ini /app/alembic.ini
 
 # Install only the runtime deps (skip [seg] and [sfm] extras).
-RUN uv pip install --system --no-cache .
+# --no-sources: ignore core's dev-only [tool.uv.sources] (which points
+# sceneapi-io at the ../SceneIO sibling checkout, absent in the image);
+# the sceneapi-io>=0.2,<0.3 requirement resolves from the package index.
+RUN uv pip install --system --no-cache --no-sources .
 
 RUN useradd -r -u 10001 -g root sfmapi \
  && mkdir -p /workspaces /home/sfmapi \
