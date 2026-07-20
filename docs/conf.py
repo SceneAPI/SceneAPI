@@ -15,6 +15,14 @@ sys.path.insert(0, str(SDK_ROOT / "python"))
 # Allow autodoc to work without server-side extras installed (e.g.,
 # on the GitHub Pages build runner without arq's redis client or
 # the postgres drivers).
+#
+# numpy is deliberately NOT mocked: it is a hard dependency of the
+# sceneapi-io contract plane (always installed with core), and the
+# numpy-native contracts put `np.ndarray` into real type annotations
+# that autodoc evaluates (autodoc_typehints = "description"). A mocked
+# numpy makes `np.ndarray` a mock instance, so evaluating an annotation
+# like `SE3 | np.ndarray` raises `unsupported operand |: 'type' and
+# 'ndarray'` and the whole module fails to import under autosummary.
 autodoc_mock_imports = [
     "arq",
     "redis",
@@ -22,7 +30,6 @@ autodoc_mock_imports = [
     "psycopg",
     "boto3",
     "PIL",
-    "numpy",
 ]
 
 # -- Project information -----------------------------------------------------
