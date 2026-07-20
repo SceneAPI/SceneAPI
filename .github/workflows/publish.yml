@@ -170,7 +170,7 @@ jobs:
           (cd _release && sha256sum * > SHA256SUMS)
       - name: Draft notes from PR labels (release-drafter)
         id: drafter
-        uses: release-drafter/release-drafter@v6
+        uses: release-drafter/release-drafter@v7
         with:
           config-name: release-drafter.yml
           tag: ${{ needs.resolve.outputs.tag }}
