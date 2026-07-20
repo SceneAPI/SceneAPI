@@ -330,6 +330,38 @@ For `pairs.strategy="explicit"`, the worker materializes either inline
 `backend.match(...)`. The pair-list text format is one `image1 image2`
 row per line.
 
+## Feed-forward mapping and radiance init
+
+A feed-forward mapper (a backend implementing the sceneapi-io `Mapper`
+contract with `traits.requires_correspondences=False`, capability
+`map.feed_forward`) consumes the raw image set directly — no
+features/pairs/matcher/verify prefix. The `feed_forward` recipe
+(`POST /v1/projects/{pid}/pipelines/feed_forward`, or the one-step
+`pipelines:run` chain `["map_feed_forward"]`) runs a single `map` task
+and seals a **normal** `Reconstruction`: cameras from the predicted
+intrinsics, images from the predicted poses, and a sparse `points3D`
+cloud fused from the model's dense per-view output.
+
+Because that output is an ordinary sealed sparse model, the resulting
+`recon_id` is a first-class `radiance_train` input — identical to a
+COLMAP-produced recon (`POST /v1/projects/{pid}/radiance_fields:train`
+with `{"recon_id": "..."}`). No conversion step is required; the
+feed-forward → `Reconstruction` → `radiance_train(recon_id)` path is the
+bridge into 3D Gaussian Splatting.
+
+`FeedForwardSpec.max_init_points` (optional, `>= 1`) caps the fused
+initialization cloud a dense mapper emits into the reconstruction (the
+splat-init points). It threads into the neutral
+`MappingOptions.extra["max_points"]` the mapper reads — for example the
+MapAnything provider subsamples to this cap (default 200k). It is a
+mapper-specific hint: mappers that don't fuse (the classical COLMAP path,
+the no-op stub) ignore it.
+
+Full **dense per-pixel** splat initialization (feeding every confident
+pixel of the dense pointmaps straight into the trainer) is a planned
+future enhancement; today the bridge runs through the sparse fused cloud
+sealed into the reconstruction.
+
 ## Stage output artifacts
 
 Backend methods should return a dict. Data products must be declared

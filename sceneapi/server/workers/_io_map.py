@@ -300,10 +300,24 @@ def run_io_mapping(
             )
     raw_seed = spec.get("seed")
     raw_max_views = spec.get("max_views")
+    # The portable ``max_init_points`` cap (FeedForwardSpec) rides into the
+    # neutral options bag under the key dense fusing mappers read —
+    # ``extra["max_points"]`` (e.g. the MapAnything provider, default 200k).
+    # It takes precedence over any ``backend_options["max_points"]``; when
+    # unset the key is absent and the provider's own default applies.
+    # Mappers that don't fuse (the classical StubBackend path) ignore it.
+    extra = dict(spec.get("backend_options") or {})
+    raw_max_init_points = spec.get("max_init_points")
+    if (
+        isinstance(raw_max_init_points, int)
+        and not isinstance(raw_max_init_points, bool)
+        and raw_max_init_points >= 1
+    ):
+        extra["max_points"] = raw_max_init_points
     options = MappingOptions(
         max_views=raw_max_views if isinstance(raw_max_views, int) and raw_max_views >= 1 else None,
         seed=raw_seed if isinstance(raw_seed, int) and not isinstance(raw_seed, bool) else None,
-        extra=spec.get("backend_options") or {},
+        extra=extra,
     )
     result = mapper.map(views, correspondences=correspondences, options=options)
 

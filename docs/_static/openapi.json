@@ -14629,7 +14629,7 @@
           "pipelines"
         ],
         "summary": "Run Recipe",
-        "description": "Run an end-to-end mapping recipe in one POST.\n\n.. deprecated::\n    Prefer ``POST /v1/projects/{project_id}/pipelines:run`` \u2014 the\n    AIP-136 custom-verb spelling of the same submission surface.\n    This ``/{recipe}`` path segment form remains served for\n    existing clients but is marked deprecated in OpenAPI and will\n    be removed no earlier than the next pre-1.0 breaking window.\n\nComposes ``features -> matches -> verify -> map`` into a single\njob DAG keyed on ``recipe`` (one of ``incremental``\n| ``global`` | ``hierarchical`` | ``spherical``). The recipe MUST\nmatch ``body.spec.kind`` \u2014 422 ``ValidationError`` if not. Each\nstage spec keeps optional provider selectors\nso mixed deployments can route hloc and COLMAP implementations\nbehind the same portable capability names. Each backend advertises\nwhich mapping stages it implements via the ``map.{kind}``\ncapability flags. Unsupported stage capabilities fail through the\nsubmitted job's task status. Returns 202 + a ``Location`` header\npointing at the parent job.",
+        "description": "Run an end-to-end mapping recipe in one POST.\n\n.. deprecated::\n    Prefer ``POST /v1/projects/{project_id}/pipelines:run`` \u2014 the\n    AIP-136 custom-verb spelling of the same submission surface.\n    This ``/{recipe}`` path segment form remains served for\n    existing clients but is marked deprecated in OpenAPI and will\n    be removed no earlier than the next pre-1.0 breaking window.\n\nComposes ``features -> matches -> verify -> map`` into a single\njob DAG keyed on ``recipe`` (one of ``incremental``\n| ``global`` | ``hierarchical`` | ``spherical``). The\n``feed_forward`` recipe is the one-stage counterpart: the image\nset feeds mapping directly (capability ``map.feed_forward``) and\nthe features/pairs/matcher/verify sections are ignored. The recipe\nMUST match ``body.spec.kind`` \u2014 422 ``ValidationError`` if not.\nEach stage spec keeps optional provider selectors\nso mixed deployments can route hloc and COLMAP implementations\nbehind the same portable capability names. Each backend advertises\nwhich mapping stages it implements via the ``map.{kind}``\ncapability flags. Unsupported stage capabilities fail through the\nsubmitted job's task status. Returns 202 + a ``Location`` header\npointing at the parent job.",
         "operationId": "run_recipe_v1_projects__project_id__pipelines__recipe__post",
         "deprecated": true,
         "parameters": [
@@ -14651,7 +14651,8 @@
                 "incremental",
                 "global",
                 "hierarchical",
-                "spherical"
+                "spherical",
+                "feed_forward"
               ],
               "type": "string",
               "title": "Recipe"
@@ -22753,6 +22754,108 @@
         "title": "FeaturesSpec",
         "description": "Type-tagged feature extractor request.\n\nBackends report which ``type`` values they support via the\n``features.extract.{type}`` capability flags. Unsupported types\nreturn 501 with the canonical capability name.\n\nBackend-specific extractor controls belong in ``backend_options``."
       },
+      "FeedForwardSpec": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "const": 1,
+            "title": "Version",
+            "default": 1
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 129,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}(?:@[A-Za-z0-9][A-Za-z0-9_.-]{0,63})?$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider",
+            "description": "Optional backend implementation selector when more than one registered provider can run the same portable mapping recipe."
+          },
+          "seed": {
+            "type": "integer",
+            "title": "Seed",
+            "default": 0
+          },
+          "max_runtime_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Runtime Seconds"
+          },
+          "snapshot_frames_freq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Frames Freq",
+            "default": 50
+          },
+          "backend_options": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Backend Options",
+            "description": "Backend-specific mapping options. Discover supported keys with GET /v1/backend/config-schemas and keep portable settings in the top-level spec fields."
+          },
+          "input_artifacts": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ArtifactRef"
+            },
+            "type": "object",
+            "title": "Input Artifacts",
+            "description": "Optional role-keyed input artifact references. Core roles include verified_matches, snapshot, and submodel; backend-specific roles may use the same dot-key syntax as artifact kinds."
+          },
+          "kind": {
+            "type": "string",
+            "const": "feed_forward",
+            "title": "Kind",
+            "default": "feed_forward"
+          },
+          "max_views": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Views"
+          },
+          "max_init_points": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Init Points",
+            "description": "Upper bound on fused initialization points a dense feed-forward mapper emits into the reconstruction (splat init). Mapper-specific hint; ignored by mappers that don't fuse."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FeedForwardSpec",
+        "description": "Feed-forward mapping: raw views in, poses + geometry out.\n\nNo feature/pair/match/verify stages \u2014 the model consumes the image\nset directly (capability ``map.feed_forward``). ``max_views``\noptionally caps how many views the model ingests; ``max_init_points``\noptionally caps the fused initialization cloud a dense mapper emits.\nBackend-specific model knobs ride in ``backend_options``."
+      },
       "GeoregisterRequest": {
         "properties": {
           "version": {
@@ -25640,12 +25743,16 @@
               },
               {
                 "$ref": "#/components/schemas/SphericalSpec"
+              },
+              {
+                "$ref": "#/components/schemas/FeedForwardSpec"
               }
             ],
             "title": "Spec",
             "discriminator": {
               "propertyName": "kind",
               "mapping": {
+                "feed_forward": "#/components/schemas/FeedForwardSpec",
                 "global": "#/components/schemas/GlobalSpec",
                 "hierarchical": "#/components/schemas/HierarchicalSpec",
                 "incremental": "#/components/schemas/IncrementalSpec",
@@ -26405,6 +26512,7 @@
           "pipeline_id": {
             "not": {
               "enum": [
+                "feed_forward",
                 "sfm"
               ]
             },
@@ -26568,6 +26676,7 @@
                 "features",
                 "georegister",
                 "map",
+                "map_feed_forward",
                 "matches",
                 "merge",
                 "optimize_poses",
@@ -28569,12 +28678,16 @@
               },
               {
                 "$ref": "#/components/schemas/SphericalSpec"
+              },
+              {
+                "$ref": "#/components/schemas/FeedForwardSpec"
               }
             ],
             "title": "Spec",
             "discriminator": {
               "propertyName": "kind",
               "mapping": {
+                "feed_forward": "#/components/schemas/FeedForwardSpec",
                 "global": "#/components/schemas/GlobalSpec",
                 "hierarchical": "#/components/schemas/HierarchicalSpec",
                 "incremental": "#/components/schemas/IncrementalSpec",

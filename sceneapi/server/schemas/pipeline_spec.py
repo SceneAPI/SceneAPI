@@ -116,12 +116,22 @@ class FeedForwardSpec(_SpecBase):
 
     No feature/pair/match/verify stages — the model consumes the image
     set directly (capability ``map.feed_forward``). ``max_views``
-    optionally caps how many views the model ingests. Backend-specific
-    model knobs ride in ``backend_options``.
+    optionally caps how many views the model ingests; ``max_init_points``
+    optionally caps the fused initialization cloud a dense mapper emits.
+    Backend-specific model knobs ride in ``backend_options``.
     """
 
     kind: Literal["feed_forward"] = "feed_forward"
     max_views: int | None = Field(default=None, ge=1)
+    max_init_points: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Upper bound on fused initialization points a dense feed-forward "
+            "mapper emits into the reconstruction (splat init). Mapper-specific "
+            "hint; ignored by mappers that don't fuse."
+        ),
+    )
 
 
 PipelineSpec = Annotated[

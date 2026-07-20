@@ -1077,3 +1077,141 @@ async def test_gsplat_container_service_pseudo_train_3000_steps(
         server.shutdown()
         thread.join(timeout=5)
         server.server_close()
+
+
+async def _upload_blob(client, payload: bytes) -> str:
+    init = await client.post("/v1/uploads", json={"expected_size": len(payload)})
+    upload_id = init.json()["upload_id"]
+    await client.patch(
+        f"/v1/uploads/{upload_id}",
+        content=payload,
+        headers={"Content-Range": f"bytes 0-{len(payload) - 1}/{len(payload)}"},
+    )
+    fin = await client.post(f"/v1/uploads/{upload_id}:finalize")
+    return fin.json()["blob_sha"]
+
+
+async def _project_dataset_with_images(
+    client,
+    *,
+    image_names: list[str],
+) -> tuple[str, str]:
+    """Project + upload dataset seeded with real Image rows so the
+    feed-forward map task has an image set to materialize."""
+    project = await client.post("/v1/projects", json={"name": "ff-radiance-p"})
+    assert project.status_code == 201, project.text
+    project_id = project.json()["project_id"]
+    dataset = await client.post(
+        f"/v1/projects/{project_id}/datasets",
+        json={"name": "ff-radiance-ds", "source": {"kind": "upload"}},
+    )
+    assert dataset.status_code == 201, dataset.text
+    dataset_id = dataset.json()["dataset_id"]
+    for name in image_names:
+        sha = await _upload_blob(client, b"\xff\xd8\xff\xe0" + name.encode())
+        img = await client.post(
+            f"/v1/datasets/{dataset_id}/images",
+            json={"name": name, "blob_sha": sha},
+        )
+        assert img.status_code in (200, 201), img.text
+    return project_id, dataset_id
+
+
+async def test_feed_forward_recon_is_valid_radiance_train_input(client, session) -> None:
+    """P8 Step 9 economic-payoff proof: a Reconstruction PRODUCED BY THE
+    FEED-FORWARD PATH is consumable by radiance_train identically to a
+    COLMAP-produced one.
+
+    The feed-forward recipe (stub sceneapi-io Mapper) seals a normal sparse
+    model and yields a ``recon_id``; that ``recon_id`` is then a first-class
+    ``radiance_train`` input — no ``dataset_id`` in sight. It passes
+    radiance_service validation, creates the RadianceField, and the (stub)
+    trainer dispatches + succeeds against it, exactly as a classical recon
+    would flow into 3DGS training. This is the load-bearing assertion of
+    P8 Step 9: the feed-forward -> Reconstruction -> radiance_train(recon_id)
+    bridge already exists via the recon path. (Dense per-pixel init is a
+    deferred FUTURE enhancement and is deliberately not exercised here.)
+    """
+    from sqlalchemy import select
+
+    from sceneapi.server.db.models import Reconstruction, SubModel
+
+    project_id, dataset_id = await _project_dataset_with_images(
+        client, image_names=["a.jpg", "b.jpg", "c.jpg"]
+    )
+
+    # 1) Feed-forward recipe -> job succeeds -> recon_id with a sealed model.
+    recipe = await client.post(
+        f"/v1/projects/{project_id}/pipelines/feed_forward",
+        json={
+            "dataset_id": dataset_id,
+            "spec": {"kind": "feed_forward", "max_init_points": 5000},
+        },
+    )
+    assert recipe.status_code == 202, recipe.text
+    recipe_body = recipe.json()
+    recon_id = recipe_body["recon_id"]
+    assert len(recipe_body["task_ids"]) == 1
+
+    job = (await client.get(f"/v1/jobs/{recipe_body['job_id']}")).json()
+    assert job["status"] == "succeeded", job
+    assert [t["kind"] for t in job["tasks"]] == ["map"]
+
+    # Reconstruction + submodel rows exist (mirrors test_io_map_task assertions:
+    # the stub registers the first view + a fixed 8-corner cube).
+    recon = (
+        await session.execute(select(Reconstruction).where(Reconstruction.recon_id == recon_id))
+    ).scalar_one()
+    assert recon.status == "succeeded"
+    submodels = (
+        (await session.execute(select(SubModel).where(SubModel.recon_id == recon_id)))
+        .scalars()
+        .all()
+    )
+    assert len(submodels) == 1
+    assert submodels[0].summary_json["num_reg_images"] == 1
+    assert submodels[0].summary_json["num_points3D"] == 8
+
+    # Snapshot points are servable: 44-byte header + 26 bytes/point * 8 corners.
+    seqs = (await client.get(f"/v1/reconstructions/{recon_id}/snapshots")).json()
+    assert seqs["seqs"] == [1]
+    points = await client.get(f"/v1/reconstructions/{recon_id}/snapshots/1/points.bin")
+    assert points.status_code == 200
+    assert len(points.content) == 44 + 8 * 26
+
+    # 2) radiance_train against THAT recon_id (no dataset_id). The feed-forward
+    #    recon is a VALID radiance_train input: it must reach the trainer and
+    #    succeed, NOT bounce at validation. (Stub radiance provider dispatches
+    #    the same way a container-service provider would for a COLMAP recon.)
+    train = await client.post(
+        f"/v1/projects/{project_id}/radiance_fields:train",
+        json={
+            "name": "ff-splat",
+            "recon_id": recon_id,
+            "provider": "stub",
+            "method": "stub",
+            "max_steps": 1,
+        },
+    )
+    assert train.status_code == 202, train.text
+    train_body = train.json()
+    radiance_field_id = train_body["radiance_field_id"]
+    assert train.headers["location"].startswith("/v1/jobs/")
+
+    train_job = await client.get(train.headers["location"])
+    assert train_job.status_code == 200, train_job.text
+    train_job_body = train_job.json()
+    assert train_job_body["status"] == "succeeded"
+    assert train_job_body["tasks"][0]["kind"] == "radiance_train"
+    assert train_job_body["tasks"][0]["status"] == "succeeded"
+
+    # The radiance field is bound to the feed-forward recon (not a dataset)
+    # and produced a snapshot — the P8 economic payoff, realized end-to-end.
+    field = (await client.get(f"/v1/radiance_fields/{radiance_field_id}")).json()
+    assert field["status"] == "succeeded"
+    assert field["recon_id"] == recon_id
+    assert field["dataset_id"] is None
+    field_snapshots = (
+        await client.get(f"/v1/radiance_fields/{radiance_field_id}/snapshots")
+    ).json()
+    assert field_snapshots["seqs"] == [1]

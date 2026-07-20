@@ -151,8 +151,25 @@ neither design had one).
   consumed by sceneapi-cpp/gen_contracts — moving it breaks C++ parity
   for all 7 contracts). Zero contract fixtures changed. Full core suite
   1205 passed.
+- **Step 9** (dense→3DGS handoff — **Option A shipped**, 2026-07-20): the
+  bridge **already existed via the recon path**, so no new exporter was
+  built. `_io_map.reconstruction_from_result` already seals a
+  `MappingResult` into a normal `Reconstruction` (cameras from predicted
+  intrinsics, images from predicted poses, sparse `points3D` from the
+  fused `TrackedPointCloud`) via `emit_snapshot_files`, and the radiance
+  trainers already consume a `recon_id`. Shipped: (1) an end-to-end proof
+  that a feed-forward-produced recon is a valid `radiance_train(recon_id)`
+  input, dispatching + succeeding identically to a COLMAP recon
+  (`tests/e2e/test_radiance_api.py::test_feed_forward_recon_is_valid_radiance_train_input`);
+  (2) the fusion/init cap exposed as `FeedForwardSpec.max_init_points`
+  (optional, `ge=1`) → `MappingOptions.extra["max_points"]` — exactly the
+  key the SceneMap MapAnything provider reads (default 200k); the classical
+  StubBackend / COLMAP mappers ignore it. OpenAPI snapshot regenerated
+  (op count unchanged; the regen also reconciled pre-existing Step 4/5
+  drift — `FeedForwardSpec` had never been dumped into the committed
+  snapshot). Dense per-pixel init is explicitly deferred as a FUTURE
+  enhancement (NOT built).
 
 Remaining: Step 8 (MapAnything provider — the proof point; weights
-deferred to provisioning per the family pattern), Step 9 (dense→3DGS
-bridge — owner reviews the bridge design), Step 10 (deferred
+deferred to provisioning per the family pattern), Step 10 (deferred
 contracts), compat CI lane.

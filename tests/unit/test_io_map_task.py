@@ -177,6 +177,58 @@ def test_requires_correspondences_without_artifacts_is_honest_501(tmp_path: Path
     assert excinfo.value.extras.get("capability") == "map.incremental"
 
 
+# ---- max_init_points cap -> MappingOptions.extra["max_points"] ------------
+
+
+class _CapturingMapper(StubBackend):
+    """Feed-forward stub that records the MappingOptions it is handed."""
+
+    def __init__(self) -> None:
+        self.captured: Any = None
+
+    def map(self, views: Any, *, correspondences: Any = None, options: Any = None) -> Any:
+        self.captured = options
+        return super().map(views, correspondences=correspondences, options=options)
+
+
+def _capture_options(tmp_path: Path, spec: dict[str, Any]) -> Any:
+    mapper = _CapturingMapper()
+    _io_map.run_io_mapping(
+        mapper,
+        kind="feed_forward",
+        image_root=tmp_path,
+        image_list=["a.jpg", "b.jpg"],
+        sparse_root=tmp_path / "sparse",
+        job_dir=tmp_path / "job",
+        spec=spec,
+    )
+    return mapper.captured
+
+
+def test_max_init_points_threads_into_options_extra_max_points(tmp_path: Path) -> None:
+    options = _capture_options(tmp_path, {"kind": "feed_forward", "max_init_points": 12345})
+    # The key dense-fusing mappers read (e.g. MapAnything: options.extra["max_points"]).
+    assert options.extra["max_points"] == 12345
+
+
+def test_max_init_points_unset_leaves_max_points_absent(tmp_path: Path) -> None:
+    # Absent key -> the provider's own default (200k for MapAnything) applies.
+    options = _capture_options(tmp_path, {"kind": "feed_forward"})
+    assert "max_points" not in options.extra
+
+
+def test_max_init_points_overrides_backend_options_max_points(tmp_path: Path) -> None:
+    options = _capture_options(
+        tmp_path,
+        {
+            "kind": "feed_forward",
+            "max_init_points": 100,
+            "backend_options": {"max_points": 999},
+        },
+    )
+    assert options.extra["max_points"] == 100
+
+
 # ---- map task handler: dual dispatch --------------------------------------
 
 
