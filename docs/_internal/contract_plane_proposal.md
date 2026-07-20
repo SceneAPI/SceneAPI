@@ -169,7 +169,21 @@ neither design had one).
   drift — `FeedForwardSpec` had never been dumped into the committed
   snapshot). Dense per-pixel init is explicitly deferred as a FUTURE
   enhancement (NOT built).
+- **Compat CI lane** (2026-07-20): `.github/workflows/compat.yml` — on core
+  PR/push a matrix installs each bundle against **core-HEAD +
+  sceneapi-io-HEAD** (both editable from the checked-out HEADs; `--no-sources`
+  so the contract plane is never taken from PyPI) and runs the bundle's
+  engine-free conformance suite, so sceneapi-io contract / io_dispatch resolver
+  drift fails in core's own PR (the inverse of the bundles' CIs, which test
+  themselves against core). SceneMap (ColmapMapper + MapAnything mapper
+  conformers) and SceneMatch (Vismatch + hloc matcher conformers) carry the
+  sceneapi-io conformance signal; 3DGS has no sceneapi-io conformers so its
+  entry is a core plugin-service/wire compat check. Real engines (COLMAP,
+  pycolmap, MapAnything, vismatch, hloc, torch, GPU) are marker-excluded /
+  importorskip-gated — honest engine-free contract coverage only. Local
+  dry-run against current HEADs green: SceneMap 396 passed / 7 skipped,
+  SceneMatch 68 passed / 5 skipped, 3DGS 59 passed.
 
 Remaining: Step 8 (MapAnything provider — the proof point; weights
 deferred to provisioning per the family pattern), Step 10 (deferred
-contracts), compat CI lane.
+contracts).
