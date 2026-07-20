@@ -151,6 +151,24 @@ neither design had one).
   consumed by sceneapi-cpp/gen_contracts — moving it breaks C++ parity
   for all 7 contracts). Zero contract fixtures changed. Full core suite
   1205 passed.
+- **Step 8** (MapAnything provider — **the proof point**): `SceneMap@5c7d6d2`
+  (0.3.0) — `MapAnythingBackend` implements the sceneapi Backend identity +
+  the sceneapi-io `Mapper` (traits `requires_correspondences=False`, accepts
+  pose/depth/calibration priors, `emits_dense`, `metric_capable`), so core's
+  `io_mapper()` routes `map.feed_forward` to it with **no core routing change**
+  — the P8 thesis demonstrated end to end. The single real model call is
+  isolated behind a lazy `_run_inference` (torch/mapanything imported only
+  there; tests monkeypatch it); predictions → `MappingResult` (per-view SE3 +
+  predicted PINHOLE calibrations + dense Pointmap/ConfidenceMap + a fused,
+  `max_points`-capped `TrackedPointCloud`, no tracks). Weights default to the
+  Apache `facebook/map-anything-apache`; the CC-BY-NC `facebook/map-anything`
+  is opt-in only (`MappingOptions.extra["weights"]` or
+  `SCENEAPI_MAPANYTHING_WEIGHTS`), never a pip extra. Metric only when
+  prior-anchored (ColmapMapper precedent); `world_frame="first_view"`. Engine +
+  weights deferred to a provisioning hook (git-only; never downloads in tests).
+  Always-run mock-inference conformance suite (`assert_mapper_conformance` +
+  traits honesty + correspondences-optional + weights default/opt-in +
+  None-tolerance) + an engine-gated real test that skips cleanly.
 - **Step 9** (dense→3DGS handoff — **Option A shipped**, 2026-07-20): the
   bridge **already existed via the recon path**, so no new exporter was
   built. `_io_map.reconstruction_from_result` already seals a
@@ -184,6 +202,8 @@ neither design had one).
   dry-run against current HEADs green: SceneMap 396 passed / 7 skipped,
   SceneMatch 68 passed / 5 skipped, 3DGS 59 passed.
 
-Remaining: Step 8 (MapAnything provider — the proof point; weights
-deferred to provisioning per the family pattern), Step 10 (deferred
-contracts).
+Remaining: Step 10 (deferred contracts — refinement/localization/
+retrieval modernization, a 3DGS contract namespace, Phase-C wire
+exposure of pointmap/depth formats), each its own future sign-off.
+MapAnything's engine + Apache weights are deferred to the provisioning
+hook per the family pattern — an ops task, not a migration step.
