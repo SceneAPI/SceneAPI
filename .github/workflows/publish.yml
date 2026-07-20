@@ -120,6 +120,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: SceneAPI/SceneIO
+          path: .cache/SceneIO
+      - name: Link the sceneapi-io contract plane to the sibling path uv.sources expects
+        run: ln -s "$GITHUB_WORKSPACE/.cache/SceneIO" "$GITHUB_WORKSPACE/../SceneIO"
       - uses: astral-sh/setup-uv@v7
       - name: Install (for OpenAPI dump)
         run: uv sync --extra dev
