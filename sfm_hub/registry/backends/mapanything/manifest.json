@@ -2,11 +2,11 @@
   "schema_version": 1,
   "plugin_id": "mapanything",
   "display_name": "MapAnything",
-  "description": "MapAnything (Meta Reality Labs + CMU, arXiv 2509.13414): a single feed-forward transformer that regresses factored metric 3D geometry from raw views with NO correspondences. Backs the portable `map.feed_forward` capability via the sceneapi-io Mapper contract. Wrapper + SDK material is Apache-2.0. Weights are opt-in by license: the DEFAULT is the Apache-2.0 variant `facebook/map-anything-apache`; the better CC-BY-NC-4.0 variant `facebook/map-anything` is NON-COMMERCIAL and is selected only by explicit opt-in (a MappingOptions.extra `weights` key or the `SCENEAPI_MAPANYTHING_WEIGHTS` env var). That non-commercial term is upstream's and binds whoever runs those weights, not added by sceneapi.",
-  "package_name": "sceneapi-map",
+  "description": "MapAnything (Meta Reality Labs + CMU, arXiv 2509.13414): a single feed-forward transformer that regresses factored metric 3D geometry from raw views with NO correspondences. Backs the portable `map.feed_forward` capability via the sceneio Mapper contract. Wrapper + SDK material is Apache-2.0. Weights are opt-in by license: the DEFAULT is the Apache-2.0 variant `facebook/map-anything-apache`; the better CC-BY-NC-4.0 variant `facebook/map-anything` is NON-COMMERCIAL and is selected only by explicit opt-in (a MappingOptions.extra `weights` key or the `SCENEAPI_MAPANYTHING_WEIGHTS` env var). That non-commercial term is upstream's and binds whoever runs those weights, not added by sceneapi.",
+  "package_name": "scenemap",
   "github_url": "https://github.com/SceneAPI/SceneMap.git",
   "entry_points": [
-    "sceneapi_map.mapanything.plugin:plugin"
+    "scenemap.mapanything.plugin:plugin"
   ],
   "providers": [
     {
@@ -25,7 +25,7 @@
       "source": "git",
       "url": "https://github.com/SceneAPI/SceneMap.git",
       "ref": "main",
-      "package": "sceneapi-map"
+      "package": "scenemap"
     },
     "docker": null
   },

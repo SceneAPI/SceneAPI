@@ -3,10 +3,10 @@
   "plugin_id": "brush",
   "display_name": "Brush",
   "description": "3D Gaussian Splatting plugin for Brush training and PLY snapshot export through the sfmapi radiance-field contract.",
-  "package_name": "sceneapi-3dgs",
+  "package_name": "3dgs",
   "github_url": "https://github.com/SceneAPI/3DGS.git",
   "entry_points": [
-    "sceneapi_3dgs.providers.brush:plugin"
+    "gs3.providers.brush:plugin"
   ],
   "providers": [
     {
@@ -29,7 +29,7 @@
       "source": "git",
       "url": "https://github.com/SceneAPI/3DGS.git",
       "ref": "main",
-      "package": "sceneapi-3dgs"
+      "package": "3dgs"
     },
     "docker": {
       "image": null,

@@ -1,6 +1,6 @@
-"""The sceneapi-io matching bridge (P8 Step 6).
+"""The sceneio matching bridge (P8 Step 6).
 
-Covers the writers/readers between the sceneapi-io sparse-correspondence
+Covers the writers/readers between the sceneio sparse-correspondence
 types and the sealed on-disk store (round-trip equal within dtype), the
 ``CorrespondenceGraph`` reader that feeds a classical io ``Mapper``,
 downstream-compat (an io feature stage's output threads into a v0 match
@@ -16,15 +16,15 @@ from typing import Any, ClassVar
 
 import numpy as np
 import pytest
-from sceneapi_io.data import (
+from sceneio.data import (
     SE3,
     FeatureSet,
     FrameMeta,
     PairCorrespondences,
     TwoViewGeometry,
 )
-from sceneapi_io.mapping import MapperTraits, MappingResult
-from sceneapi_io.matching import MatcherTraits
+from sceneio.mapping import MapperTraits, MappingResult
+from sceneio.matching import MatcherTraits
 
 from sceneapi.server.adapters.registry import register_backend
 from sceneapi.server.adapters.stub_backend import StubBackend

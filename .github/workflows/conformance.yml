@@ -44,7 +44,7 @@ jobs:
         with:
           repository: SceneAPI/SceneIO
           path: .cache/SceneIO
-      - name: Link the sceneapi-io contract plane to the sibling path uv.sources expects
+      - name: Link the sceneio contract plane to the sibling path uv.sources expects
         run: ln -s "$GITHUB_WORKSPACE/.cache/SceneIO" "$GITHUB_WORKSPACE/../SceneIO"
       - uses: astral-sh/setup-uv@v7
       - name: Install
@@ -73,7 +73,7 @@ jobs:
         with:
           repository: SceneAPI/SceneIO
           path: .cache/SceneIO
-      - name: Link the sceneapi-io contract plane to the sibling path uv.sources expects
+      - name: Link the sceneio contract plane to the sibling path uv.sources expects
         run: ln -s "$GITHUB_WORKSPACE/.cache/SceneIO" "$GITHUB_WORKSPACE/../SceneIO"
       - uses: astral-sh/setup-uv@v7
       - name: Install

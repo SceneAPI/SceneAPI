@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sceneapi_io.errors import SceneIoError
+from sceneio.errors import SceneIoError
 
 
 class SfmApiError(Exception):
@@ -199,7 +199,7 @@ class StorageError(SceneIoError, SfmApiError):
     workspace-out-of-space conditions. Distinct from a generic 500:
     the request itself was valid, the storage layer couldn't hold it.
 
-    Also subclasses :class:`sceneapi_io.errors.SceneIoError` (the base
+    Also subclasses :class:`sceneio.errors.SceneIoError` (the base
     the relocated I/O codecs raise) so that codec-level failures and
     ``StorageError`` share one 507 mapping. The MRO is
     ``StorageError -> SceneIoError -> SfmApiError``: Starlette resolves

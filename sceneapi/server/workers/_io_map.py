@@ -1,6 +1,6 @@
-"""The sceneapi-io mapping path of the map worker task.
+"""The sceneio mapping path of the map worker task.
 
-Bridges the task's materialized inputs into the neutral sceneapi-io
+Bridges the task's materialized inputs into the neutral sceneio
 ``Mapper`` contract and the ``MappingResult`` back into the EXISTING
 snapshot emission shape:
 
@@ -30,9 +30,9 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from sceneapi_io.data import SE3, Calibration, PosePrior, ViewInput
-from sceneapi_io.imagesource import MaterializedImage
-from sceneapi_io.mapping import Mapper, MappingOptions, MappingResult
+from sceneio.data import SE3, Calibration, PosePrior, ViewInput
+from sceneio.imagesource import MaterializedImage
+from sceneio.mapping import Mapper, MappingOptions, MappingResult
 
 from sceneapi.server.core.errors import CapabilityUnavailableError
 from sceneapi.server.core.logging import get_logger
@@ -51,7 +51,7 @@ _log = get_logger("sceneapi.workers.io_map")
 def pose_prior_from_wire(prior: dict[str, Any]) -> PosePrior | None:
     """Convert a stored per-image PosePrior dict (the wire schema shape:
     ``cam_from_world`` with a wxyz rotation + translation, optional
-    36-float row-major covariance) into the sceneapi-io ``PosePrior``.
+    36-float row-major covariance) into the sceneio ``PosePrior``.
 
     Returns None when the dict is not convertible — an unusable prior
     degrades to "no prior", it never fails the mapping task.
@@ -267,13 +267,13 @@ def run_io_mapping(
     input_artifacts: dict[str, Any] | None = None,
     db_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Run the sceneapi-io mapping path; emit snapshot files; return the
+    """Run the sceneio mapping path; emit snapshot files; return the
     submodel summary (the ``models`` entry of the task result).
 
     ``db_path`` anchors the io correspondence store (the same
     ``database_path`` the extract/match/verify stages wrote it beside);
     when a ``requires_correspondences=True`` mapper is registered its
-    :class:`~sceneapi_io.data.CorrespondenceGraph` is read back from that
+    :class:`~sceneio.data.CorrespondenceGraph` is read back from that
     store. ``input_artifacts`` is retained for symmetry with the v0 map
     task inputs.
     """
@@ -293,7 +293,7 @@ def run_io_mapping(
             raise CapabilityUnavailableError(
                 capability=f"map.{kind}",
                 reason=(
-                    "the registered sceneapi-io Mapper requires a correspondence "
+                    "the registered sceneio Mapper requires a correspondence "
                     "graph (traits.requires_correspondences=True) and no sealed "
                     "feature/match artifacts could be bridged into one"
                 ),

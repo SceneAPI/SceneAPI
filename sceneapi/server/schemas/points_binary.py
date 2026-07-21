@@ -1,9 +1,9 @@
 """Re-export shim: the `application/x-sfm-points-v1` binary points codec
-now lives in the :mod:`sceneapi_io.points_binary` contract package."""
+now lives in the :mod:`sceneio.points_binary` contract package."""
 
 from __future__ import annotations
 
-from sceneapi_io.points_binary import (
+from sceneio.points_binary import (
     HEADER_FMT,
     HEADER_SIZE,
     MAGIC,

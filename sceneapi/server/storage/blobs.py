@@ -30,15 +30,15 @@ from collections.abc import AsyncIterator, Iterable
 from pathlib import Path
 from typing import Any, BinaryIO
 
-from sceneapi_io.blobstore import BlobStore
-from sceneapi_io.blobstore import validate_sha as _validate_sha
+from sceneio.blobstore import BlobStore
+from sceneio.blobstore import validate_sha as _validate_sha
 
 from sceneapi.server.core.config import Settings, get_settings
 from sceneapi.server.core.errors import StorageError
 
 # `BlobStore` (the sha256-keyed store Protocol) and `_validate_sha` (the
 # content-address format check, re-exported here under its historic private
-# name) now live in the `sceneapi_io.blobstore` contract package. The
+# name) now live in the `sceneio.blobstore` contract package. The
 # concrete stores below implement `BlobStore`; `validate_sha` raises
 # `SceneIoError`, which core's `StorageError` subclasses — so a malformed
 # sha still surfaces as 507 through the `SceneIoError` handler in

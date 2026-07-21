@@ -14,7 +14,7 @@ useful for:
 
 Most operations raise :class:`CapabilityUnavailableError` — only
 ``capabilities()`` and trivial probes return real values. The ONE
-substantive surface is the sceneapi-io ``Mapper`` contract
+substantive surface is the sceneio ``Mapper`` contract
 (``traits()`` / ``map()``): the stub is a feed-forward mapper that
 returns a tiny deterministic ``MappingResult`` (first view registered,
 the rest honestly unregistered, a fixed 8-point cloud, one tiny dense
@@ -34,7 +34,7 @@ from sceneapi.server.core.errors import CapabilityUnavailableError
 
 class StubBackend:
     """No-op stub satisfying the full ``SfmBackend`` union (plus the
-    sceneapi-io ``Mapper`` contract)."""
+    sceneio ``Mapper`` contract)."""
 
     name = "stub"
     version = "0.0.1"
@@ -44,11 +44,11 @@ class StubBackend:
         # The stub advertises no v0 engine capabilities. Its ONE
         # advertised capability follows contract presence: it claims
         # ``map.feed_forward`` because (and only because) this object
-        # satisfies the sceneapi-io Mapper contract with feed-forward
+        # satisfies the sceneio Mapper contract with feed-forward
         # traits — the same io-Mapper presence the dual-dispatching map
         # worker keys on. Tests that need other methods to succeed
         # should subclass + override.
-        from sceneapi_io.mapping import Mapper, MapperTraits
+        from sceneio.mapping import Mapper, MapperTraits
 
         caps: set[str] = set()
         if isinstance(self, Mapper):
@@ -57,11 +57,11 @@ class StubBackend:
                 caps.add("map.feed_forward")
         return caps
 
-    # ---- sceneapi-io procedure contracts --------------------------------
+    # ---- sceneio procedure contracts --------------------------------
 
     def traits(self) -> Any:
-        """Feed-forward MapperTraits (sceneapi-io Mapper contract)."""
-        from sceneapi_io.mapping import MapperTraits
+        """Feed-forward MapperTraits (sceneio Mapper contract)."""
+        from sceneio.mapping import MapperTraits
 
         return MapperTraits(
             requires_correspondences=False,
@@ -88,8 +88,8 @@ class StubBackend:
         plumbing has real points to serve. Never reads image pixels.
         """
         import numpy as np
-        from sceneapi_io.data import SE3, ConfidenceMap, FrameMeta, Pointmap, TrackedPointCloud
-        from sceneapi_io.mapping import MappingResult
+        from sceneio.data import SE3, ConfidenceMap, FrameMeta, Pointmap, TrackedPointCloud
+        from sceneio.mapping import MappingResult
 
         if not views:
             raise CapabilityUnavailableError(

@@ -71,7 +71,7 @@ def run(task: Task) -> dict[str, Any]:
     extractor = io_feature_extractor(backend)
     if extractor is not None:
         # Preferred path (P8 Step 6): the backend implements the neutral
-        # sceneapi-io FeatureExtractor contract. Run it per image and
+        # sceneio FeatureExtractor contract. Run it per image and
         # persist the FeatureSets into the io correspondence store; the
         # returned {database_path, num_images, artifacts} shape matches the
         # v0 path so the downstream match/verify/map stages consume it

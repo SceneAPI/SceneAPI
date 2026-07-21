@@ -5,16 +5,16 @@ name: compat
 # The conforming bundles' own CIs already test THEM against core (each checks
 # out SceneAPI/SceneAPI and installs it). This lane closes the INVERSE gap that
 # neither the bundles' CIs nor core's own CI covered: a core change to the
-# `sceneapi-io` contracts or to core's io_dispatch resolvers can silently break
+# `sceneio` contracts or to core's io_dispatch resolvers can silently break
 # a bundle's conformers, and nothing in core's CI would catch it. Here, on every
-# core PR/push, we install each bundle against **core-HEAD + sceneapi-io-HEAD**
+# core PR/push, we install each bundle against **core-HEAD + sceneio-HEAD**
 # (both editable from their checked-out HEADs -- NOT from PyPI) and run the
 # bundle's own engine-free conformance suite. A red job = contract/resolver
 # drift introduced by this core change.
 #
 # HONESTY / scope: GitHub's runners have no GPU and no SfM/radiance engines, so
 # this lane verifies the ENGINE-FREE contract-conformance subset only -- the
-# bundles' mock/fake-engine conformance kits (the sceneapi-io Mapper /
+# bundles' mock/fake-engine conformance kits (the sceneio Mapper /
 # PairMatcher / FeatureExtractor Protocol shape + traits honesty) plus their
 # core plugin/discovery integration tests. Real-engine parity (COLMAP,
 # pycolmap, MapAnything, vismatch, hloc, torch, CUDA) stays in the bundles'
@@ -46,18 +46,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # SceneMap -- implements the sceneapi-io MAPPING contract: the
+          # SceneMap -- implements the sceneio MAPPING contract: the
           # ColmapMapper conformer over the three COLMAP providers and the
           # MapAnything feed-forward Mapper. Both are exercised engine-free via
           # canned/mock reconstructions (assert_mapper_conformance). scipy is
           # the bundle's own runtime dep (the InstantSfM sksparse shim); numpy
-          # arrives transitively via core + sceneapi-io. The COLMAP / pycolmap /
+          # arrives transitively via core + sceneio. The COLMAP / pycolmap /
           # MapAnything engine tests are marker-excluded.
           - bundle: SceneMap
             repo: SceneAPI/SceneMap
             light_deps: 'pytest ruff httpx "scipy>=1.13,<2"'
             pytest_args: 'tests -m "not needs_colmap and not needs_pycolmap and not needs_mapanything and not needs_sample_data and not gpu and not slow and not integration and not e2e"'
-          # SceneMatch -- implements the sceneapi-io MATCHING contract: the
+          # SceneMatch -- implements the sceneio MATCHING contract: the
           # Vismatch native FeatureExtractor/PairMatcher (detector-based and
           # detector-free) and the hloc runner-surface adapters, exercised
           # engine-free via deterministic/faked engines
@@ -69,7 +69,7 @@ jobs:
             repo: SceneAPI/SceneMatch
             light_deps: 'pytest ruff "numpy>=1.26" "pillow>=10"'
             pytest_args: 'tests -m "not needs_colmap and not needs_pycolmap and not needs_sample_data and not gpu and not slow and not integration and not e2e"'
-          # 3DGS -- NOTE: this bundle has NO sceneapi-io conformers. It consumes
+          # 3DGS -- NOTE: this bundle has NO sceneio conformers. It consumes
           # only the core plugin-service / wire facade (sceneapi.backends.Plugin
           # + sceneapi.plugin_service.*) and receives a recon_id over the wire
           # (the dense->3DGS handoff is sealed on the CORE side by
@@ -88,7 +88,7 @@ jobs:
     steps:
       # 1) The PR's core, at the workflow ref (default checkout -> workspace root).
       - uses: actions/checkout@v4
-      # 2) sceneapi-io HEAD and the bundle HEAD, as sibling checkouts under
+      # 2) sceneio HEAD and the bundle HEAD, as sibling checkouts under
       #    .deps/. Same cross-repo access model as ci.yml's SceneSDK checkout
       #    (default GITHUB_TOKEN / org read access).
       - uses: actions/checkout@v4
@@ -100,13 +100,13 @@ jobs:
           repository: ${{ matrix.repo }}
           path: .deps/bundle
       - uses: astral-sh/setup-uv@v7
-      - name: Install (core-HEAD + sceneapi-io-HEAD + bundle-HEAD, engine-free)
+      - name: Install (core-HEAD + sceneio-HEAD + bundle-HEAD, engine-free)
         run: |
           uv venv --python 3.12
-          # core + sceneapi-io editable from the checked-out HEADs. --no-sources
-          # makes uv ignore core's [tool.uv.sources] (which points sceneapi-io
+          # core + sceneio editable from the checked-out HEADs. --no-sources
+          # makes uv ignore core's [tool.uv.sources] (which points sceneio
           # at ../SceneIO, a path that does not exist in this CI layout where
-          # SceneIO is at .deps/SceneIO), so the `sceneapi-io>=0.2,<0.3`
+          # SceneIO is at .deps/SceneIO), so the `sceneio>=0.2,<0.3`
           # requirement is satisfied by the explicit editable HEAD below and is
           # NEVER resolved from PyPI. This is the whole point: test the bundle
           # against contracts as they are on this PR, not as last released.
@@ -116,10 +116,10 @@ jobs:
           # intentionally omitted.
           uv pip install --no-sources ${{ matrix.light_deps }}
           # the bundle itself, editable from HEAD, WITHOUT deps: core +
-          # sceneapi-io already provide the family, so nothing is pulled from an
-          # index for the sceneapi / sceneapi-io requirements.
+          # sceneio already provide the family, so nothing is pulled from an
+          # index for the sceneapi / sceneio requirements.
           uv pip install --no-sources -e .deps/bundle --no-deps
-      - name: Conformance (${{ matrix.bundle }} vs core-HEAD + sceneapi-io-HEAD)
+      - name: Conformance (${{ matrix.bundle }} vs core-HEAD + sceneio-HEAD)
         # Run from the bundle checkout so ITS pyproject is pytest's rootdir (its
         # markers / addopts apply) and the bundle's plugin tests that read a
         # relative Path("pyproject.toml") resolve against the bundle, not core.

@@ -37,7 +37,7 @@ _VALID_STAGES = frozenset(_STAGE_ORDER)
 
 # COLMAP vendor data (the stage-config table + the runtime-managed CLI
 # option set) was evicted to the COLMAP plugin family
-# (``sceneapi_map.colmap.stage_configs``) — core owns the generic config-schema
+# (``scenemap.colmap.stage_configs``) — core owns the generic config-schema
 # discovery machinery, not the COLMAP-specific rows. The three COLMAP providers
 # serve their config schemas through their own ``list_backend_config_schemas``.
 

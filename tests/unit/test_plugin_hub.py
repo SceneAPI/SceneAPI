@@ -3048,7 +3048,7 @@ def test_manifest_lookup_returns_expected_install_metadata() -> None:
     manifest = get_manifest("colmap_cli")
 
     assert manifest.runtime_modes.uv is not None
-    assert manifest.runtime_modes.uv.package == "sceneapi-map"
+    assert manifest.runtime_modes.uv.package == "scenemap"
     assert "colmap_cli" in manifest.provider_ids()
 
 

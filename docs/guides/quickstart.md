@@ -85,13 +85,13 @@ curl -sX POST http://localhost:8080/v1/projects/$PID/datasets \
 ## 4. Use a typed SDK (Python or TypeScript)
 
 ```bash
-uv pip install ../sfmapi-sdk/python/sceneapi_client_gen
+uv pip install ../sfmapi-sdk/python/scenesdk
 ```
 
 ```python
-from sceneapi_client_gen import Client
-from sceneapi_client_gen.api.projects import projects_create
-from sceneapi_client_gen.models import ProjectCreate
+from scenesdk import Client
+from scenesdk.api.projects import projects_create
+from scenesdk.models import ProjectCreate
 
 with Client(base_url="http://localhost:8080") as c:
     project = projects_create.sync(client=c, body=ProjectCreate(name="vacation-2026"))
@@ -105,7 +105,7 @@ cd ../sfmapi-sdk/typescript && npm install && npm run build
 ```
 
 ```typescript
-import { createSfmApiClient } from "@sceneapi/client/generated";
+import { createSfmApiClient } from "@scenesdk/client/generated";
 
 const c = createSfmApiClient({ baseUrl: "http://localhost:8080" });
 const { data: project } = await c.raw.POST("/v1/projects", {

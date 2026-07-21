@@ -52,14 +52,14 @@ def test_committed_openapi_info_version_matches_app_version() -> None:
 
 
 def test_sdk_python_package_versions_match_server() -> None:
-    """Cross-repo: both build roots of the ``sceneapi-client`` Python
+    """Cross-repo: both build roots of the ``scenesdk`` Python
     SDK (the dev root at ``python/`` and the publishable generated root
-    at ``python/sceneapi_client_gen/``) version-lockstep with the
+    at ``python/scenesdk/``) version-lockstep with the
     server. Skips when the sibling SDK checkout isn't present (same
     guard the other cross-repo contract tests use)."""
     if not SDK_ROOT.is_dir():
         pytest.skip(f"sfmapi-sdk checkout not present at {SDK_ROOT}")
-    for rel in ("python/pyproject.toml", "python/sceneapi_client_gen/pyproject.toml"):
+    for rel in ("python/pyproject.toml", "python/scenesdk/pyproject.toml"):
         pyproject = SDK_ROOT / rel
         if not pyproject.is_file():
             pytest.skip(f"missing {pyproject}")

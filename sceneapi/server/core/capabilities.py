@@ -77,11 +77,11 @@ OPTIONAL_CAPABILITIES: tuple[str, ...] = (
     # Detector-free matching: the matcher operates on image pairs
     # directly and emits coordinate correspondences (no persistent
     # per-image keypoint sets to index into). Mirrors
-    # ``MatcherTraits.detector_free`` in the sceneapi-io contract plane.
+    # ``MatcherTraits.detector_free`` in the sceneio contract plane.
     "match.detector_free",
     # The matching stack yields the same keypoints for the same image
     # across pairs, so correspondences chain into multi-view tracks.
-    # Mirrors ``MatcherTraits.persistent_keypoints`` in sceneapi-io.
+    # Mirrors ``MatcherTraits.persistent_keypoints`` in sceneio.
     "keypoints.persistent",
     "matches.verify",
     # Standalone two-view geometry estimation (E / F / H matrices,
@@ -94,7 +94,7 @@ OPTIONAL_CAPABILITIES: tuple[str, ...] = (
     "map.spherical",
     # Feed-forward mapping: raw views in, poses + geometry out, no
     # correspondence stage required (MapAnything/DUSt3R-family models;
-    # ``MapperTraits.requires_correspondences=False`` in sceneapi-io).
+    # ``MapperTraits.requires_correspondences=False`` in sceneio).
     "map.feed_forward",
     # Refinement
     "ba.standard",

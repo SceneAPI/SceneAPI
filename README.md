@@ -15,7 +15,7 @@ repositories, satisfy the smallest applicable protocol in
 `StubBackend` is bundled for tests and `SCENEAPI_EPHEMERAL=true` demos.
 
 Client SDKs now live in the sibling `SceneSDK` repository
-(`sceneapi-client` on PyPI, `@sceneapi/client` on npm). This repo owns
+(`scenesdk` on PyPI, `@scenesdk/client` on npm). This repo owns
 the server, OpenAPI contract, plugin hub, and backend interfaces; the SDK repo
 packages the Python, TypeScript, and C++ clients from that contract.
 
@@ -33,9 +33,9 @@ files can be registered without copying bytes through
 
 | Repo | Distribution | Launchers | Purpose |
 |---|---|---|---|
-| `SceneAPI/SceneMap` | `sceneapi-map` | `sfmapi-colmap-api`, `sfmapi-colmap-cli-api`, `sfmapi-pycolmap-api`, `sfmapi-instantsfm-api`, `sfmapi-spheresfm-api`, `sfmapi-realityscan-api` | SfM mapping family: COLMAP (CLI / PyCOLMAP / native C++), InstantSfM, SphereSfM, RealityScan (console-script names unchanged from the superseded repos) |
-| `SceneAPI/SceneMatch` | `sceneapi-match` | `sfmapi-vismatch-api`, `sfmapi-hloc-api` | Matching family: vismatch + hloc backends |
-| `SceneAPI/3DGS` | `sceneapi-3dgs` | `sfmapi-brush`, `sfmapi-gsplat`, `sfmapi-fastergs`, `sfmapi-lfs`, `sfmapi-spirulae` | 3D Gaussian Splatting training providers |
+| `SceneAPI/SceneMap` | `scenemap` | `sfmapi-colmap-api`, `sfmapi-colmap-cli-api`, `sfmapi-pycolmap-api`, `sfmapi-instantsfm-api`, `sfmapi-spheresfm-api`, `sfmapi-realityscan-api` | SfM mapping family: COLMAP (CLI / PyCOLMAP / native C++), InstantSfM, SphereSfM, RealityScan (console-script names unchanged from the superseded repos) |
+| `SceneAPI/SceneMatch` | `scenematch` | `sfmapi-vismatch-api`, `sfmapi-hloc-api` | Matching family: vismatch + hloc backends |
+| `SceneAPI/3DGS` | `3dgs` | `sfmapi-brush`, `sfmapi-gsplat`, `sfmapi-fastergs`, `sfmapi-lfs`, `sfmapi-spirulae` | 3D Gaussian Splatting training providers |
 
 ## Plugin hub
 

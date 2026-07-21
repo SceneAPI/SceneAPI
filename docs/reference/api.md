@@ -542,7 +542,7 @@ control-plane layer.
 
 Plugin installation is an operator action. `method="uv"` creates a
 direct-reference command such as
-`uv pip install "sceneapi-map @ git+https://github.com/SceneAPI/SceneMap.git@main"`;
+`uv pip install "scenemap @ git+https://github.com/SceneAPI/SceneMap.git@main"`;
 mutable refs produce warnings. `docker` and `external_tool` modes are planned
 or recorded as runtime choices. `container_service` records an already-running
 plugin service endpoint; when the provider has a configured service URL, the

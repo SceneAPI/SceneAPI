@@ -3,10 +3,10 @@
   "plugin_id": "spheresfm",
   "display_name": "SphereSfM",
   "description": "Backend plugin for spherical Structure-from-Motion workflows.",
-  "package_name": "sceneapi-map",
+  "package_name": "scenemap",
   "github_url": "https://github.com/SceneAPI/SceneMap.git",
   "entry_points": [
-    "sceneapi_map.spheresfm.plugin:plugin"
+    "scenemap.spheresfm.plugin:plugin"
   ],
   "providers": [
     {
@@ -44,7 +44,7 @@
       "source": "git",
       "url": "https://github.com/SceneAPI/SceneMap.git",
       "ref": "main",
-      "package": "sceneapi-map"
+      "package": "scenemap"
     },
     "docker": null,
     "external_tool": {

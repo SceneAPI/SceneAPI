@@ -29,9 +29,9 @@ jobs:
         with:
           repository: SceneAPI/SceneIO
           path: .cache/SceneIO
-      - name: Link the sceneapi-io contract plane to the sibling path uv.sources expects
-        # core's [tool.uv.sources] points sceneapi-io at ../SceneIO (a sibling
-        # checkout in local dev); sceneapi-io is not yet on PyPI, so CI must
+      - name: Link the sceneio contract plane to the sibling path uv.sources expects
+        # core's [tool.uv.sources] points sceneio at ../SceneIO (a sibling
+        # checkout in local dev); sceneio is not yet on PyPI, so CI must
         # supply that sibling. actions/checkout can only write under the
         # workspace, so symlink the ../SceneIO path uv resolves to the checkout.
         run: ln -s "$GITHUB_WORKSPACE/.cache/SceneIO" "$GITHUB_WORKSPACE/../SceneIO"
@@ -42,7 +42,7 @@ jobs:
         run: |
           uv sync --extra dev --extra mcp
           uv pip install -e "$SFMAPI_SDK_REPO/python"
-          uv pip install -e "$SFMAPI_SDK_REPO/python/sceneapi_client_gen"
+          uv pip install -e "$SFMAPI_SDK_REPO/python/scenesdk"
       - name: Ruff lint
         run: uv run ruff check sceneapi sfm_hub sfmapi tests scripts
       - name: Ruff format check
@@ -64,14 +64,14 @@ jobs:
         with:
           repository: SceneAPI/SceneIO
           path: .cache/SceneIO
-      - name: Link the sceneapi-io contract plane to the sibling path uv.sources expects
+      - name: Link the sceneio contract plane to the sibling path uv.sources expects
         run: ln -s "$GITHUB_WORKSPACE/.cache/SceneIO" "$GITHUB_WORKSPACE/../SceneIO"
       - uses: astral-sh/setup-uv@v7
       - name: Install
         run: |
           uv sync --extra dev --extra mcp
           uv pip install -e "$SFMAPI_SDK_REPO/python"
-          uv pip install -e "$SFMAPI_SDK_REPO/python/sceneapi_client_gen"
+          uv pip install -e "$SFMAPI_SDK_REPO/python/scenesdk"
       - name: Test (SQLite)
         run: uv run pytest -q -m "not needs_postgres"
 
@@ -105,14 +105,14 @@ jobs:
         with:
           repository: SceneAPI/SceneIO
           path: .cache/SceneIO
-      - name: Link the sceneapi-io contract plane to the sibling path uv.sources expects
+      - name: Link the sceneio contract plane to the sibling path uv.sources expects
         run: ln -s "$GITHUB_WORKSPACE/.cache/SceneIO" "$GITHUB_WORKSPACE/../SceneIO"
       - uses: astral-sh/setup-uv@v7
       - name: Install
         run: |
           uv sync --extra dev --extra mcp
           uv pip install -e "$SFMAPI_SDK_REPO/python"
-          uv pip install -e "$SFMAPI_SDK_REPO/python/sceneapi_client_gen"
+          uv pip install -e "$SFMAPI_SDK_REPO/python/scenesdk"
       - name: Wait for postgres
         run: |
           for i in {1..30}; do

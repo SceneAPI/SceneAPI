@@ -3,10 +3,10 @@
   "plugin_id": "colmap_native",
   "display_name": "Native COLMAP backends",
   "description": "COLMAP backend collection with CLI, pycolmap, native C++, and in-memory provider variants.",
-  "package_name": "sceneapi-map",
+  "package_name": "scenemap",
   "github_url": "https://github.com/SceneAPI/SceneMap.git",
   "entry_points": [
-    "sceneapi_map.colmap.native.plugin:plugin"
+    "scenemap.colmap.native.plugin:plugin"
   ],
   "providers": [
     {
@@ -145,7 +145,7 @@
       "source": "git",
       "url": "https://github.com/SceneAPI/SceneMap.git",
       "ref": "main",
-      "package": "sceneapi-map"
+      "package": "scenemap"
     },
     "docker": null,
     "external_tool": {

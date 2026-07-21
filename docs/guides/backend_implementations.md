@@ -332,7 +332,7 @@ row per line.
 
 ## Feed-forward mapping and radiance init
 
-A feed-forward mapper (a backend implementing the sceneapi-io `Mapper`
+A feed-forward mapper (a backend implementing the sceneio `Mapper`
 contract with `traits.requires_correspondences=False`, capability
 `map.feed_forward`) consumes the raw image set directly — no
 features/pairs/matcher/verify prefix. The `feed_forward` recipe

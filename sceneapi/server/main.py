@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse, Response
 from fastapi.routing import APIRoute
-from sceneapi_io.errors import SceneIoError
+from sceneio.errors import SceneIoError
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from sceneapi.server import __version__
@@ -278,8 +278,8 @@ def create_app() -> FastAPI:
         )
 
     @app.exception_handler(SceneIoError)
-    async def sceneapi_io_error_handler(request: Request, exc: SceneIoError) -> JSONResponse:
-        """Map errors from the ``sceneapi_io`` I/O contract to problem+json.
+    async def sceneio_error_handler(request: Request, exc: SceneIoError) -> JSONResponse:
+        """Map errors from the ``sceneio`` I/O contract to problem+json.
 
         ``StorageError`` (and any other ``SfmApiError`` that also
         subclasses ``SceneIoError``) precedes ``SfmApiError`` in its MRO,

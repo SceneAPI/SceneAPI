@@ -24,7 +24,7 @@ pytestmark = pytest.mark.contract
 
 SERVER_ROOT = Path(__file__).resolve().parents[2]
 SDK_ROOT = Path(os.environ.get("SFMAPI_SDK_REPO", SERVER_ROOT.parent / "sfmapi-sdk"))
-GEN_ROOT = SDK_ROOT / "python" / "sceneapi_client_gen"
+GEN_ROOT = SDK_ROOT / "python" / "scenesdk"
 
 
 def _load_gen_module(rel: str) -> Any:
@@ -34,7 +34,7 @@ def _load_gen_module(rel: str) -> Any:
     parent = str(GEN_ROOT.parent)
     if parent not in sys.path:
         sys.path.insert(0, parent)
-    name = f"sceneapi_client_gen.{rel}"
+    name = f"scenesdk.{rel}"
     if name in sys.modules:
         return sys.modules[name]
     spec = importlib.util.find_spec(name)

@@ -303,7 +303,7 @@ CORE_PROCESSORS: tuple[Processor, ...] = (
         MATCH_ATTRIBUTES,
         "Match features across the selected pairs.",
         # ``match.detector_free`` / ``keypoints.persistent`` are
-        # matcher-trait capabilities (MatcherTraits in sceneapi-io):
+        # matcher-trait capabilities (MatcherTraits in sceneio):
         # they describe HOW this processor's implementations match, so
         # they classify under it in the capability partition.
         capabilities=("matchers", "match.detector_free", "keypoints.persistent"),

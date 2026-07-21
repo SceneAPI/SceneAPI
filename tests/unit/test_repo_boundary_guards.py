@@ -21,14 +21,14 @@ _CORE_PACKAGES = ("sceneapi", "sfm_hub", "sfmapi")
 # which is fine.
 _PLUGIN_DIST_RE = re.compile(r"^(?:sfmapi|sceneapi)_\w+")
 
-# The I/O contract package (`sceneapi-io`, import `sceneapi_io`) shares the
+# The I/O contract package (`sceneio`, import `sceneio`) shares the
 # underscore-suffixed spelling but is NOT a backend plugin or the client
 # SDK: it is the leaf *contract* (wire codecs, storage/source Protocols,
 # schema contracts) that the core depends on by design and re-exports from
 # its historic module paths — and that plugins + SDKs also consume. The
 # dependency direction stays correct (contract <- core, contract <-
 # plugins), so it is exempt from the plugin-distribution ban.
-_CONTRACT_DISTRIBUTIONS = frozenset({"sceneapi_io"})
+_CONTRACT_DISTRIBUTIONS = frozenset({"sceneio"})
 
 
 def _read_text(path: Path) -> str:
@@ -219,7 +219,7 @@ def test_core_does_not_import_plugin_distributions() -> None:
     ``import``-ing a ``sceneapi_<plugin>`` (or legacy ``sfmapi_<plugin>``)
     distribution, which would
     invert the layering and make the API unusable without that plugin
-    installed. The I/O contract package ``sceneapi_io`` is exempt (see
+    installed. The I/O contract package ``sceneio`` is exempt (see
     ``_CONTRACT_DISTRIBUTIONS``): it is a contract the core owns and
     depends on, not a plugin.
     """

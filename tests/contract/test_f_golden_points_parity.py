@@ -8,7 +8,7 @@ from the encoder. The same fixture is then decoded through
 
   (a) the server's own decoder (``decode_records``), and
   (b) the generated Python SDK's ``parse_points_binary``
-      (``sceneapi_client_gen._ergonomics``),
+      (``scenesdk._ergonomics``),
 
 asserting identical decoded values against one hardcoded golden table.
 The TypeScript SDK decodes the very same fixture file in

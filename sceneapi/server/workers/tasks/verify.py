@@ -30,7 +30,7 @@ def run(task: Task) -> dict[str, Any]:
     verifier = io_geometric_verifier(backend)
     if verifier is not None:
         # Preferred path (P8 Step 6): the backend implements the neutral
-        # sceneapi-io GeometricVerifier contract. Filter every pair the io
+        # sceneio GeometricVerifier contract. Filter every pair the io
         # matcher persisted and write the geometrically-consistent subset
         # (+ TwoViewGeometry) into the io correspondence store the map
         # stage reads via the shared database_path anchor.

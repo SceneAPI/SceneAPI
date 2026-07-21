@@ -1,4 +1,4 @@
-"""The sceneapi-io map path of the map worker (P8 Step 5).
+"""The sceneio map path of the map worker (P8 Step 5).
 
 Covers the input bridge (ViewInputs by path, pose-prior conversion),
 the result bridge (MappingResult -> snapshot emission shape, with
@@ -15,7 +15,7 @@ from typing import Any
 
 import numpy as np
 import pytest
-from sceneapi_io.data import (
+from sceneio.data import (
     SE3,
     Calibration,
     CameraIntrinsics,
@@ -25,7 +25,7 @@ from sceneapi_io.data import (
     Pointmap,
     TrackedPointCloud,
 )
-from sceneapi_io.mapping import MapperTraits, MappingResult
+from sceneio.mapping import MapperTraits, MappingResult
 
 from sceneapi.server.adapters.registry import register_backend
 from sceneapi.server.adapters.stub_backend import StubBackend

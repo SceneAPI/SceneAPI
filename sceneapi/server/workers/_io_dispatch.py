@@ -1,7 +1,7 @@
-"""Dual dispatch: prefer the sceneapi-io procedure contracts over v0.
+"""Dual dispatch: prefer the sceneio procedure contracts over v0.
 
 Worker tasks prefer a registered backend that implements the neutral
-sceneapi-io Protocols (``Mapper`` / ``FeatureExtractor`` /
+sceneio Protocols (``Mapper`` / ``FeatureExtractor`` /
 ``PairMatcher`` / ``GeometricVerifier``) and fall back to the v0
 Path-based stage protocols (``run_mapping`` / ``extract_features`` /
 ``match`` / ``verify_matches``) otherwise. The v0 fallback is unchanged
@@ -18,8 +18,8 @@ and only as a PairMatcher when it returns ``MatcherTraits``.
 
 from __future__ import annotations
 
-from sceneapi_io.mapping import Mapper, MapperTraits
-from sceneapi_io.matching import (
+from sceneio.mapping import Mapper, MapperTraits
+from sceneio.matching import (
     FeatureExtractor,
     GeometricVerifier,
     MatcherTraits,
@@ -40,7 +40,7 @@ def _traits_of(backend: object) -> object | None:
 
 
 def io_mapper(backend: object) -> Mapper | None:
-    """The backend as a sceneapi-io Mapper, or None (v0 fallback)."""
+    """The backend as a sceneio Mapper, or None (v0 fallback)."""
     if not isinstance(backend, Mapper):
         return None
     if not isinstance(_traits_of(backend), MapperTraits):
@@ -49,14 +49,14 @@ def io_mapper(backend: object) -> Mapper | None:
 
 
 def io_feature_extractor(backend: object) -> FeatureExtractor | None:
-    """The backend as a sceneapi-io FeatureExtractor, or None."""
+    """The backend as a sceneio FeatureExtractor, or None."""
     if not isinstance(backend, FeatureExtractor):
         return None
     return backend
 
 
 def io_pair_matcher(backend: object) -> PairMatcher | None:
-    """The backend as a sceneapi-io PairMatcher, or None (v0 fallback)."""
+    """The backend as a sceneio PairMatcher, or None (v0 fallback)."""
     if not isinstance(backend, PairMatcher):
         return None
     if not isinstance(_traits_of(backend), MatcherTraits):
@@ -65,7 +65,7 @@ def io_pair_matcher(backend: object) -> PairMatcher | None:
 
 
 def io_geometric_verifier(backend: object) -> GeometricVerifier | None:
-    """The backend as a sceneapi-io GeometricVerifier, or None."""
+    """The backend as a sceneio GeometricVerifier, or None."""
     if not isinstance(backend, GeometricVerifier):
         return None
     return backend

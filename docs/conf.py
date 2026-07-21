@@ -17,7 +17,7 @@ sys.path.insert(0, str(SDK_ROOT / "python"))
 # the postgres drivers).
 #
 # numpy is deliberately NOT mocked: it is a hard dependency of the
-# sceneapi-io contract plane (always installed with core), and the
+# sceneio contract plane (always installed with core), and the
 # numpy-native contracts put `np.ndarray` into real type annotations
 # that autodoc evaluates (autodoc_typehints = "description"). A mocked
 # numpy makes `np.ndarray` a mock instance, so evaluating an annotation

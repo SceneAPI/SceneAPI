@@ -12,7 +12,7 @@ means composition is format-independent and a cross-format coercion is a
 type-preserving execution detail, not a pipeline edge.
 
 The vocabulary itself is owned by the contract plane
-(:mod:`sceneapi_io.formats.datatypes`); this module is a behavior-identical
+(:mod:`sceneio.formats.datatypes`); this module is a behavior-identical
 re-export kept at the historical path so every importer (processors, the
 dataflow registry, sfm_hub models, tests) is untouched. Operations
 (:mod:`sceneapi.server.core.operations`) declare their ``consumes``/``produces`` over
@@ -21,7 +21,7 @@ these ids; pipelines (:mod:`sceneapi.server.core.pipelines`) type-check by threa
 
 from __future__ import annotations
 
-from sceneapi_io.formats.datatypes import (
+from sceneio.formats.datatypes import (
     CONTRACT_NAME,
     CONTRACT_SCHEMA_VERSION,
     CORE_DATA_TYPES,

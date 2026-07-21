@@ -3,10 +3,10 @@
   "plugin_id": "spirulae",
   "display_name": "spirulae-splat",
   "description": "3D Gaussian Splatting plugin for spirulae-splat training, dataset rendering, and PLY export through the sfmapi radiance-field contract.",
-  "package_name": "sceneapi-3dgs",
+  "package_name": "3dgs",
   "github_url": "https://github.com/SceneAPI/3DGS.git",
   "entry_points": [
-    "sceneapi_3dgs.providers.spirulae:plugin"
+    "gs3.providers.spirulae:plugin"
   ],
   "providers": [
     {
@@ -30,7 +30,7 @@
       "source": "git",
       "url": "https://github.com/SceneAPI/3DGS.git",
       "ref": "main",
-      "package": "sceneapi-3dgs"
+      "package": "3dgs"
     },
     "docker": {
       "image": null,

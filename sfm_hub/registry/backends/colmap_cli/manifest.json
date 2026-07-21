@@ -3,10 +3,10 @@
   "plugin_id": "colmap_cli",
   "display_name": "COLMAP CLI",
   "description": "Backend plugin that drives an installed COLMAP executable through sfmapi.",
-  "package_name": "sceneapi-map",
+  "package_name": "scenemap",
   "github_url": "https://github.com/SceneAPI/SceneMap.git",
   "entry_points": [
-    "sceneapi_map.colmap.cli.plugin:plugin"
+    "scenemap.colmap.cli.plugin:plugin"
   ],
   "providers": [
     {
@@ -54,7 +54,7 @@
       "source": "git",
       "url": "https://github.com/SceneAPI/SceneMap.git",
       "ref": "main",
-      "package": "sceneapi-map"
+      "package": "scenemap"
     },
     "docker": null,
     "external_tool": {

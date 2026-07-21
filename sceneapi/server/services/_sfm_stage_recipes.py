@@ -187,7 +187,7 @@ def build_feed_forward_dag(
     """One-node DAG for the feed-forward recipe: image_set → map.
 
     The map task materializes the image set itself and dispatches to
-    the backend's sceneapi-io ``Mapper``; there is no correspondence
+    the backend's sceneio ``Mapper``; there is no correspondence
     prefix to cache-share, so the DAG is a single ``map`` node hashed
     with the same shape as the recipe map stage.
     """

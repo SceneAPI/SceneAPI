@@ -15,6 +15,19 @@ below and a new `Unreleased` block is started.
 
 _Drafted by release-drafter from merged PRs since the last tag._
 
+### Changed
+
+- **Family de-prefix** (P9, `docs/guides/decisions.md` L48). The
+  contract-plane dependency was renamed `sceneapi-io` → `sceneio`, and
+  the plugin/SDK dists were de-prefixed to match their repos
+  (`scenemap`, `scenematch`, `3dgs` [import `gs3`], `scenebench`,
+  `scenesdk`; TS `@sceneapi/client` → `@scenesdk/client`). Core's own
+  package identity (`sceneapi`) is **unchanged** — only its contract-plane
+  dependency and imports move (`sceneapi_io` → `sceneio`), and the
+  `sceneapi.backends` entry-point group is unchanged. Done pre-publish
+  with no deprecation shims: only `sceneapi` 0.1.0 was ever released, and
+  the target names are SceneAPI's own reserved PyPI placeholders.
+
 ## [0.1.0] - 2026-07-17
 
 The SceneAPI rename release. Absorbs the never-tagged 0.0.2 lean-audit

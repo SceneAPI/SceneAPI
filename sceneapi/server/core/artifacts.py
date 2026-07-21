@@ -2,7 +2,7 @@
 
 The format-id VOCABULARY (ids, the DataType each format serializes, and
 the descriptions) is owned by the contract plane
-(:data:`sceneapi_io.formats.CORE_FORMATS`); this module joins that
+(:data:`sceneio.formats.CORE_FORMATS`); this module joins that
 registry with the core-side wire details that stay here (titles,
 ``media_types`` tuples, manifest JSON schemas, examples) into the
 :class:`ArtifactFormatDefinition` rows the routes serve. Every id and
@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from sceneapi_io.formats import CORE_FORMATS as _IO_CORE_FORMATS
+from sceneio.formats import CORE_FORMATS as _IO_CORE_FORMATS
 
 # The artifact-key pattern is owned by sceneapi.server.core.ids (one home per id
 # class); re-exported here so callers keep using artifacts.ARTIFACT_KEY_RE.
@@ -103,7 +103,7 @@ class _CoreFormatWireDetails:
     """The core-side half of one format row.
 
     The id / datatype / description half lives in
-    :data:`sceneapi_io.formats.CORE_FORMATS` (``FormatSpec.kind`` IS the
+    :data:`sceneio.formats.CORE_FORMATS` (``FormatSpec.kind`` IS the
     artifact datatype); the wire details below stay core-side per the
     Step-1 report and are joined with the contract-plane spec at import.
     """
@@ -226,14 +226,14 @@ def _build_core_artifact_formats() -> dict[str, ArtifactFormatDefinition]:
     """Join the contract-plane format registry with the core wire details.
 
     Wire identity is the contract: the joined table must cover exactly
-    the sceneapi_io ids (no extras, no gaps) — a mismatch is a packaging
+    the sceneio ids (no extras, no gaps) — a mismatch is a packaging
     error and fails loudly at import instead of silently drifting.
     """
     io_ids = set(_IO_CORE_FORMATS)
     core_ids = set(_CORE_FORMAT_WIRE_DETAILS)
     if io_ids != core_ids:
         raise ValueError(
-            f"core artifact formats out of sync with sceneapi_io.formats.CORE_FORMATS: "
+            f"core artifact formats out of sync with sceneio.formats.CORE_FORMATS: "
             f"missing core-side details for {sorted(io_ids - core_ids)}; "
             f"core-side details with no contract-plane id {sorted(core_ids - io_ids)}"
         )

@@ -3,10 +3,10 @@
   "plugin_id": "instantsfm",
   "display_name": "InstantSfM",
   "description": "Wrapper + SDK material is Apache-2.0. Upstream InstantSfM (cre185/InstantSfM) is CC-BY-NC-4.0; that non-commercial term is upstream's and binds whoever runs InstantSfM, not added by sfmapi.",
-  "package_name": "sceneapi-map",
+  "package_name": "scenemap",
   "github_url": "https://github.com/SceneAPI/SceneMap.git",
   "entry_points": [
-    "sceneapi_map.instantsfm.plugin:plugin"
+    "scenemap.instantsfm.plugin:plugin"
   ],
   "providers": [
     {
@@ -26,7 +26,7 @@
       "source": "git",
       "url": "https://github.com/SceneAPI/SceneMap.git",
       "ref": "main",
-      "package": "sceneapi-map"
+      "package": "scenemap"
     },
     "docker": null,
     "container_service": {

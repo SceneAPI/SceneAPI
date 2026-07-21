@@ -1,10 +1,10 @@
 """Dual-dispatch resolvers + stub io-Mapper conformance (P8 Steps 5-6).
 
 The map/extract/match/verify workers prefer a backend implementing the
-sceneapi-io Protocols over the v0 Path-protocols. These tests pin the
+sceneio Protocols over the v0 Path-protocols. These tests pin the
 resolver semantics (including the traits-TYPE guard that keeps the
 structural Protocols from misrouting a Mapper into the matching path),
-prove the StubBackend passes the sceneapi-io mapper conformance kit,
+prove the StubBackend passes the sceneio mapper conformance kit,
 and exercise the extract/match/verify dual dispatch: an io conformer
 now drives the real io path (Step 6), while a v0-only backend still
 runs the v0 protocol byte-for-byte unchanged.
@@ -17,9 +17,9 @@ from typing import Any
 
 import numpy as np
 import pytest
-from sceneapi_io.data import FeatureSet, PairCorrespondences, TwoViewGeometry
-from sceneapi_io.matching import MatcherTraits
-from sceneapi_io.testing import assert_mapper_conformance
+from sceneio.data import FeatureSet, PairCorrespondences, TwoViewGeometry
+from sceneio.matching import MatcherTraits
+from sceneio.testing import assert_mapper_conformance
 
 from sceneapi.server.adapters.registry import register_backend
 from sceneapi.server.adapters.stub_backend import StubBackend
@@ -42,7 +42,7 @@ pytestmark = pytest.mark.unit
 
 
 class _MatcherTwin:
-    """Standalone sceneapi-io PairMatcher (MatcherTraits + match_pair)."""
+    """Standalone sceneio PairMatcher (MatcherTraits + match_pair)."""
 
     name = "matcher_twin"
     version = "0.0"
@@ -149,7 +149,7 @@ def test_stub_advertises_feed_forward_via_io_mapper_presence() -> None:
     # has no feed-forward surface to advertise
     class RequiresCorrespondencesStub(StubBackend):
         def traits(self) -> Any:
-            from sceneapi_io.mapping import MapperTraits
+            from sceneio.mapping import MapperTraits
 
             return MapperTraits(
                 requires_correspondences=True,

@@ -3,10 +3,10 @@
   "plugin_id": "fastergs",
   "display_name": "Faster-GS",
   "description": "3D Gaussian Splatting plugin for NeRFICG Faster-GS training, inference, and PLY export through the sfmapi radiance-field contract.",
-  "package_name": "sceneapi-3dgs",
+  "package_name": "3dgs",
   "github_url": "https://github.com/SceneAPI/3DGS.git",
   "entry_points": [
-    "sceneapi_3dgs.providers.fastergs:plugin"
+    "gs3.providers.fastergs:plugin"
   ],
   "providers": [
     {
@@ -30,7 +30,7 @@
       "source": "git",
       "url": "https://github.com/SceneAPI/3DGS.git",
       "ref": "main",
-      "package": "sceneapi-3dgs"
+      "package": "3dgs"
     },
     "docker": {
       "image": null,

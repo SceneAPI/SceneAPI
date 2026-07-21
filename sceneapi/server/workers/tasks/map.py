@@ -1,6 +1,6 @@
 """Mapping task — incremental | global | hierarchical | spherical | feed_forward.
 
-Dual dispatch: a backend that implements the sceneapi-io ``Mapper``
+Dual dispatch: a backend that implements the sceneio ``Mapper``
 contract is preferred (``sceneapi.server.workers._io_map`` bridges the
 materialized image set into ``ViewInput``s and the ``MappingResult``
 back into the existing snapshot emission path); otherwise the v0
@@ -133,7 +133,7 @@ def run(task: Task) -> dict[str, Any]:
     backend = backend_for_stage(spec)
     mapper = io_mapper(backend)
     if mapper is not None:
-        # Preferred path: the backend implements the neutral sceneapi-io
+        # Preferred path: the backend implements the neutral sceneio
         # Mapper contract. The bridge emits the snapshot files itself and
         # returns the one submodel summary (unregistered views recorded
         # in it); dense outputs land as job-dir files referenced from it.
@@ -159,7 +159,7 @@ def run(task: Task) -> dict[str, Any]:
             capability="map.feed_forward",
             reason=(
                 "feed-forward mapping requires a backend implementing the "
-                "sceneapi-io Mapper contract; the v0 run_mapping protocol "
+                "sceneio Mapper contract; the v0 run_mapping protocol "
                 "has no feed-forward form"
             ),
         )

@@ -200,7 +200,7 @@ def run(task: Task) -> dict[str, Any]:
     io_matcher = io_pair_matcher(backend)
     if io_matcher is not None:
         # Preferred path (P8 Step 6): the backend implements the neutral
-        # sceneapi-io PairMatcher contract. Detector-based matchers pair the
+        # sceneio PairMatcher contract. Detector-based matchers pair the
         # FeatureSets the io extractor persisted (indexed correspondences);
         # detector-free matchers pair image refs (coordinate
         # correspondences). Results land in the io correspondence store the

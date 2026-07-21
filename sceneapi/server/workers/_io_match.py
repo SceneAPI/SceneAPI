@@ -1,6 +1,6 @@
-"""The sceneapi-io matching bridge (P8 Step 6).
+"""The sceneio matching bridge (P8 Step 6).
 
-Writers + readers between the neutral sceneapi-io sparse-correspondence
+Writers + readers between the neutral sceneio sparse-correspondence
 types (``FeatureSet`` / ``PairCorrespondences`` / ``TwoViewGeometry``)
 and the sealed on-disk artifact forms the worker pipeline threads
 between stages. This is the engine-artifact bridge the Step-5
@@ -50,14 +50,14 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from sceneapi_io.data import (
+from sceneio.data import (
     CorrespondenceGraph,
     FeatureSet,
     PairCorrespondences,
     TwoViewGeometry,
 )
-from sceneapi_io.imagesource import MaterializedImage
-from sceneapi_io.matching import (
+from sceneio.imagesource import MaterializedImage
+from sceneio.matching import (
     FeatureExtractor,
     GeometricVerifier,
     MatchingOptions,
@@ -414,7 +414,7 @@ def run_io_extract(
     if progress is not None:
         progress.phase_progress("feature_extraction", current=total, total=total)
     backend_name = str(getattr(backend, "name", "unknown"))
-    summary = {"num_images": total, "num_keypoints": num_keypoints, "engine": "sceneapi-io"}
+    summary = {"num_images": total, "num_keypoints": num_keypoints, "engine": "sceneio"}
     _log.debug("io_match.extract", backend=backend_name, num_images=total)
     return {
         "database_path": str(db_path),
@@ -464,7 +464,7 @@ def run_io_match(
             raise CapabilityUnavailableError(
                 capability=f"pairs.{strategy}",
                 reason=(
-                    "the registered sceneapi-io PairMatcher is detector-free "
+                    "the registered sceneio PairMatcher is detector-free "
                     "(traits.detector_free=True) and needs image refs, but the "
                     "match task carried no image_root to build them from"
                 ),
@@ -484,7 +484,7 @@ def run_io_match(
             raise CapabilityUnavailableError(
                 capability=f"pairs.{strategy}",
                 reason=(
-                    "the registered sceneapi-io PairMatcher is detector-based "
+                    "the registered sceneio PairMatcher is detector-based "
                     "(traits.detector_free=False) but no sealed FeatureSets were "
                     "found in the io store — run the io feature extractor first"
                 ),
@@ -504,7 +504,7 @@ def run_io_match(
         "num_matched_pairs": num_pairs,
         "num_matches": num_matches,
         "detector_free": bool(traits.detector_free),
-        "engine": "sceneapi-io",
+        "engine": "sceneio",
     }
     _log.debug("io_match.match", backend=backend_name, num_pairs=num_pairs)
     return {
@@ -559,7 +559,7 @@ def run_io_verify(
     summary = {
         "num_verified_pairs": num_verified_pairs,
         "num_inliers": num_inliers,
-        "engine": "sceneapi-io",
+        "engine": "sceneio",
     }
     _log.debug("io_match.verify", backend=backend_name, num_verified_pairs=num_verified_pairs)
     return {

@@ -41,7 +41,7 @@ jobs:
         with:
           repository: SceneAPI/SceneIO
           path: .cache/SceneIO
-      - name: Link the sceneapi-io contract plane to the sibling path uv.sources expects
+      - name: Link the sceneio contract plane to the sibling path uv.sources expects
         run: ln -s "$GITHUB_WORKSPACE/.cache/SceneIO" "$GITHUB_WORKSPACE/../SceneIO"
       - uses: astral-sh/setup-uv@v7
       - name: Install
@@ -49,7 +49,7 @@ jobs:
           uv venv
           uv pip install -e .
           uv pip install -e "$SFMAPI_SDK_REPO/python"
-          uv pip install -e "$SFMAPI_SDK_REPO/python/sceneapi_client_gen"
+          uv pip install -e "$SFMAPI_SDK_REPO/python/scenesdk"
           uv pip install -r docs/requirements.txt
       - name: Sphinx build (warning -> error)
         run: |

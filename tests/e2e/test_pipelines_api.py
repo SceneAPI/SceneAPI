@@ -89,7 +89,7 @@ async def test_global_and_spherical_recipes_succeed(client) -> None:
 
 async def test_feed_forward_recipe_end_to_end_on_stub(client) -> None:
     """P8 Step 5: the feed-forward recipe runs end-to-end on the stub's
-    sceneapi-io Mapper — one map task, job succeeds, snapshot serves the
+    sceneio Mapper — one map task, job succeeds, snapshot serves the
     stub's deterministic points."""
     pid, did = await _setup(client)
     resp = await client.post(

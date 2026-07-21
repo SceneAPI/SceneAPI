@@ -191,3 +191,29 @@ names, and console-script names unchanged; plugin dists 0.1.0.
   default path and `--sceneapi-cpp-root` option follow the new name
   (`sfmapi-bench@da93d4e`). The core repo's local dir remains `sfmapi`
   (only the package became `sceneapi`).
+
+## P9 — Family de-prefix (2026-07-20, register L48)
+
+Superseded the "keep `sceneapi-*`" naming scheme locked above (the W8
+table). The satellite packages were renamed to bare names matching their
+repos, and the reserved PyPI placeholders (SceneAPI-owned 0.0.1 dists
+from the 2026-06-01 org scaffold) are finally the real dist names:
+
+| Repo | was (dist / import) | now (dist / import) |
+|---|---|---|
+| SceneIO | `sceneapi-io` / `sceneapi_io` | `sceneio` / `sceneio` |
+| SceneMap | `sceneapi-map` / `sceneapi_map` | `scenemap` / `scenemap` |
+| SceneMatch | `sceneapi-match` / `sceneapi_match` | `scenematch` / `scenematch` |
+| 3DGS | `sceneapi-3dgs` / `sceneapi_3dgs` | `3dgs` / `gs3` (import ≠ dist: identifiers can't start with a digit) |
+| SceneBench | `sceneapi-bench` / `sceneapi_bench` | `scenebench` / `scenebench` |
+| SceneSDK | `sceneapi-client` / `sceneapi_client_gen` (+ TS `@sceneapi/client`) | `scenesdk` / `scenesdk` (+ TS `@scenesdk/client`) |
+| SceneAPI (core) | `sceneapi` / `sceneapi` | **unchanged** (already published 0.1.0; the umbrella, not a `sceneapi-*` satellite) |
+
+Mechanics: pure token rename per repo (`git mv` the package dir +
+replace the two dist/import tokens + the `sceneio` dep), core re-points
+its `sceneio` dependency + all imports + the bundled registry manifests,
+entry-point GROUP `sceneapi.backends` unchanged (only VALUES move). No
+deprecation shims — nothing but core was published. Local suites green
+across all seven repos. Pending: recreate the PyPI trusted publishers
+under the new project names, and (SDK) an `npm install` to refresh the
+TS `package-lock.json`.

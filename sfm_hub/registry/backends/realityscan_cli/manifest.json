@@ -3,10 +3,10 @@
   "plugin_id": "realityscan_cli",
   "display_name": "RealityScan CLI",
   "description": "Backend plugin for installed RealityScan or RealityCapture command-line tools.",
-  "package_name": "sceneapi-map",
+  "package_name": "scenemap",
   "github_url": "https://github.com/SceneAPI/SceneMap.git",
   "entry_points": [
-    "sceneapi_map.realityscan.plugin:plugin"
+    "scenemap.realityscan.plugin:plugin"
   ],
   "providers": [
     {
@@ -24,7 +24,7 @@
       "source": "git",
       "url": "https://github.com/SceneAPI/SceneMap.git",
       "ref": "main",
-      "package": "sceneapi-map"
+      "package": "scenemap"
     },
     "external_tool": {
       "executable_names": [

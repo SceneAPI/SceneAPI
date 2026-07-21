@@ -211,7 +211,7 @@ def test_bare_colmap_like_backend_serves_no_framework_config_schemas() -> None:
     # backend that only exposes the duck-typed colmap_command_schema (and does
     # not implement list_backend_config_schemas) no longer gets config rows
     # synthesized by core. The three real COLMAP providers self-serve via
-    # discovery (covered in the sceneapi_map suite).
+    # discovery (covered in the scenemap suite).
     assert backend_config.list_backend_config_schemas(ColmapLikeBackend()) == []
     assert backend_config.backend_config_contract_violations(ColmapLikeBackend()) == []
 

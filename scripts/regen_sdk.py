@@ -3,7 +3,7 @@
 Workflow:
   1. Dump a fresh OpenAPI document from the FastAPI app.
   2. Run ``openapi-python-client generate`` into
-     ``../sfmapi-sdk/python/sceneapi_client_gen/``.
+     ``../sfmapi-sdk/python/scenesdk/``.
   3. Regenerate TypeScript OpenAPI types under
      ``../sfmapi-sdk/typescript/src/_generated/``.
   4. Print a summary of generated models + endpoint methods.
@@ -30,7 +30,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SDK_REPO = Path(os.environ.get("SFMAPI_SDK_REPO", REPO_ROOT.parent / "sfmapi-sdk")).resolve()
 SPEC_PATH = REPO_ROOT / "openapi.json"
 SDK_SPEC_PATH = SDK_REPO / "openapi.json"
-OUT_DIR = SDK_REPO / "python" / "sceneapi_client_gen"
+OUT_DIR = SDK_REPO / "python" / "scenesdk"
 TS_ROOT = SDK_REPO / "typescript"
 TS_OUT_DIR = TS_ROOT / "src" / "_generated"
 DUMP_SCRIPT = REPO_ROOT / "scripts" / "dump_openapi.py"
@@ -42,14 +42,14 @@ PYTHON_METADATA_FILES = ("pyproject.toml", "README.md", "py.typed", "_ergonomics
 _metadata_cache: dict[str, str] = {}
 CODEGEN_PROVENANCE_PATHS = (
     "openapi.json",
-    "python/sceneapi_client_gen/api",
-    "python/sceneapi_client_gen/models",
-    "python/sceneapi_client_gen/client.py",
-    "python/sceneapi_client_gen/__init__.py",
-    "python/sceneapi_client_gen/errors.py",
-    "python/sceneapi_client_gen/types.py",
-    "python/sceneapi_client_gen/_ergonomics.py",
-    "python/sceneapi_client_gen/pyproject.toml",
+    "python/scenesdk/api",
+    "python/scenesdk/models",
+    "python/scenesdk/client.py",
+    "python/scenesdk/__init__.py",
+    "python/scenesdk/errors.py",
+    "python/scenesdk/types.py",
+    "python/scenesdk/_ergonomics.py",
+    "python/scenesdk/pyproject.toml",
     "typescript/src/_generated",
     "typescript/src/errors.ts",
     "typescript/src/index.ts",

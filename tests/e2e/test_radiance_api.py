@@ -1122,7 +1122,7 @@ async def test_feed_forward_recon_is_valid_radiance_train_input(client, session)
     FEED-FORWARD PATH is consumable by radiance_train identically to a
     COLMAP-produced one.
 
-    The feed-forward recipe (stub sceneapi-io Mapper) seals a normal sparse
+    The feed-forward recipe (stub sceneio Mapper) seals a normal sparse
     model and yields a ``recon_id``; that ``recon_id`` is then a first-class
     ``radiance_train`` input — no ``dataset_id`` in sight. It passes
     radiance_service validation, creates the RadianceField, and the (stub)
