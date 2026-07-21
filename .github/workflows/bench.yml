@@ -31,12 +31,12 @@ jobs:
       # registered on the runner. Set SCENEAPI_BACKEND to its name.
       SCENEAPI_BACKEND: "${{ vars.SCENEAPI_BENCH_BACKEND || 'colmap_mod' }}"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           repository: SceneAPI/SceneSDK
           path: .cache/sfmapi-sdk
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: SceneAPI/SceneIO
           path: .cache/SceneIO
