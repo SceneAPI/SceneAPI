@@ -3,7 +3,7 @@
 # This image runs `sceneapi.server.main:app` under uvicorn. It does NOT include
 # pycolmap, torch, or any heavy ML deps; those live in the worker.
 
-FROM python:3.12-slim AS base
+FROM python:3.14-slim AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
