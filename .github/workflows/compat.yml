@@ -87,15 +87,15 @@ jobs:
             pytest_args: 'tests'
     steps:
       # 1) The PR's core, at the workflow ref (default checkout -> workspace root).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # 2) sceneio HEAD and the bundle HEAD, as sibling checkouts under
       #    .deps/. Same cross-repo access model as ci.yml's SceneSDK checkout
       #    (default GITHUB_TOKEN / org read access).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: SceneAPI/SceneIO
           path: .deps/SceneIO
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: ${{ matrix.repo }}
           path: .deps/bundle
