@@ -65,7 +65,7 @@ projection = [
     "opencv-python-headless>=4.10",
 ]
 mcp = [
-    "fastmcp==3.2.4",
+    "fastmcp==3.4.4",
 ]
 
 [build-system]
